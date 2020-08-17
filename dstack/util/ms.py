@@ -15,6 +15,13 @@ def get_MS_phasecentre(mspath, frame='icrs', ack=False, **kwargs):
     """Get the list of the phase centres for each field and direction of the MS
     and return a list of astropy skycoord values
 
+    Both field and direcrion IDs are expected to increment from zero, and the maximum
+    ID can be the number of unique fields/dds. However, less than the maxumum number of
+    valid IDs can occure and this code can handle that.
+
+    e.g. one field and one direction ID, but in the PHASE_DIR table, 
+    phase centre for two directions are existing, the code chooses the valid one
+
     :param mspath: The input MS path
     :type mspath: str
 
@@ -28,7 +35,6 @@ def get_MS_phasecentre(mspath, frame='icrs', ack=False, **kwargs):
     :return phasecentres: A list of the phasecentres for each field and direction in the MS as a list of lists
                 i.e. each element is a list
     :rtype phasecentres: list of Astropy skycoords
-
     """
     MS = casatables.table(mspath, ack=ack)
 
