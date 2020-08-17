@@ -88,10 +88,3 @@ def get_MS_phasecentre(mspath, frame='icrs', ack=False):
     i += 1
 
     return phasecentres
-
-
-if __name__ == '__main__':
-    phasecentre = get_MS_phasecentre('/home/krozgonyi/Desktop/sandbox/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms')
-    #phasecentre = get_MS_phasecentre('/home/krozgonyi/Desktop/sandbox/multichannel_test_ms.ms')
-
-    print(phasecentre[0][0].ra.deg)
