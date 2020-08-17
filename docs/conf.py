@@ -14,8 +14,9 @@ import os
 import sys
 import re
 #sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, os.path.abspath('./../..'))
+sys.path.insert(0, os.path.abspath('./..'))
 
+add_module_names = False
 
 # -- Project information -----------------------------------------------------
 
@@ -40,7 +41,6 @@ version = dstack_version
 # The full version, including alpha/beta/rc tags
 release = dstack_version
 
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -51,7 +51,9 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.coverage',
-    'sphinx.ext.intersphinx'
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.napoleon',
+    'sphinx.ext.githubpages'
 ]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

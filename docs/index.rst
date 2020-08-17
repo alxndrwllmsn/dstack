@@ -18,8 +18,8 @@ Welcome to dstack's documentation!
     :caption: Documentation
 
     source/api/dstack
-    source/api/modules
-    source/api/dstack.util
+..    source/api/modules
+..    source/api/dstack.util
 	
 
 
