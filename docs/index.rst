@@ -8,7 +8,7 @@ Welcome to dstack's documentation!
 
 .. toctree::
    :maxdepth: 3
-   :caption: Contents:
+   :caption: User Guide:
 
    source/user_guide/getting_started
 
@@ -17,7 +17,10 @@ Welcome to dstack's documentation!
     :maxdepth: 3
     :caption: Documentation
 
-    source/documentation/dstack.util.rst
+    source/api/dstack
+    source/api/modules
+    source/api/dstack.util
+	
 
 
 .. Indices and tables

@@ -15,25 +15,19 @@ def get_MS_phasecentre(mspath, frame='icrs', ack=False, **kwargs):
     """Get the list of the phase centres for each field and direction of the MS
     and return a list of astropy skycoord values
 
-    Parameters
-    ==========
+    :param mspath: The input MS path
+    :type mspath: str
 
-    mspath: str
-        The input MS path
+    :param frame: Reference frame used to calculate the Astropy phase centre. Default: 'icrs'
+    :type frame: str, optional
 
-    frame: str, optional
-        Reference frame used to calculate the Astropy phase centre. Default: 'icrs'
+    :param ack: Enabling messages of successful interaction with the MS
+                e.g. successful opening of a table
+    :type ack: bool, optional
 
-    ack: bool, optional
-        Enabling messages of successful interaction with the MS
-        e.g. successful opening of a table
-
-    Return
-    ======
-
-    phasecentres: list of skycoords
-        A list of the phasecentres for each field and direction in the MS as a list of lists
-        i.e. each element is a list
+    :return phasecentres: A list of the phasecentres for each field and direction in the MS as a list of lists
+                i.e. each element is a list
+    :rtype phasecentres: list of Astropy skycoords
 
     """
     MS = casatables.table(mspath, ack=ack)
