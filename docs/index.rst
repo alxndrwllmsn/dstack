@@ -15,9 +15,9 @@ Welcome to dstack's documentation!
 
 .. toctree::
     :maxdepth: 3
-    :caption: API Documentation
+    :caption: Documentation
 
-    source/api/dstack.util.ms.rst
+    source/documentation/dstack.util.rst
 
 
 .. Indices and tables
