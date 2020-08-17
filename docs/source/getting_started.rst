@@ -1,4 +1,0 @@
-Getting started
-===============
-
-Hellow world!

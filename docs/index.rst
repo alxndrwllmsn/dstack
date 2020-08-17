@@ -10,13 +10,19 @@ Welcome to dstack's documentation!
    :maxdepth: 3
    :caption: Contents:
 
-   source/getting_started
+   source/user_guide/getting_started
 
 
+.. toctree::
+    :maxdepth: 3
+    :caption: API Documentation
 
-Indices and tables
-==================
+    source/api/dstack.util.ms.rst
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+
+.. Indices and tables
+.. ==================
+
+.. * :ref:`genindex`
+.. * :ref:`modindex`
+.. * :ref:`search`
