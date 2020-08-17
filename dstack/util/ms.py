@@ -11,7 +11,7 @@ from casacore import tables as casatables
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
-def get_MS_phasecentre(mspath, frame='icrs', ack=False, **kwargs):
+def get_MS_phasecentre(mspath, frame='icrs', ack=False):
     """Get the list of the phase centres for each field and direction of the MS
     and return a list of astropy skycoord values
 
@@ -22,19 +22,25 @@ def get_MS_phasecentre(mspath, frame='icrs', ack=False, **kwargs):
     e.g. one field and one direction ID, but in the PHASE_DIR table, 
     phase centre for two directions are existing, the code chooses the valid one
 
-    :param mspath: The input MS path
-    :type mspath: str
+    Parameters
+    ==========
 
-    :param frame: Reference frame used to calculate the Astropy phase centre. Default: 'icrs'
-    :type frame: str, optional
+    mspath: str
+        The input MS path
 
-    :param ack: Enabling messages of successful interaction with the MS
-                e.g. successful opening of a table
-    :type ack: bool, optional
+    frame: str, optional
+        Reference frame used to calculate the Astropy phase centre. Default: 'icrs'
 
-    :return phasecentres: A list of the phasecentres for each field and direction in the MS as a list of lists
-                i.e. each element is a list
-    :rtype phasecentres: list of Astropy skycoords
+    ack: bool, optional
+        Enabling messages of successful interaction with the MS
+        e.g. successful opening of a table
+    
+    Returns
+    =======
+    phasecentres: list of lists containing Astropy skycoords
+        A list of the phasecentres for each field and direction in the MS as a list of lists
+        i.e. each element is a list
+
     """
     MS = casatables.table(mspath, ack=ack)
 
@@ -73,7 +79,7 @@ def get_MS_phasecentre(mspath, frame='icrs', ack=False, **kwargs):
             pc = fields_table.getcol('PHASE_DIR')[dd_ID,field_ID, :]
 
             #Convert to astropy coordinates
-            directions.append(SkyCoord(ra=[pc[0]] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox))
+            directions.append(SkyCoord(ra=pc[0] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox))
 
             j += 1
     
@@ -88,4 +94,4 @@ if __name__ == '__main__':
     phasecentre = get_MS_phasecentre('/home/krozgonyi/Desktop/sandbox/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms')
     #phasecentre = get_MS_phasecentre('/home/krozgonyi/Desktop/sandbox/multichannel_test_ms.ms')
 
-    print(phasecentre)
+    print(phasecentre[0][0].ra.deg)
