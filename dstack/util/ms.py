@@ -2,7 +2,7 @@
 Collection of utility functions to interact with Measurement Sets
 """
 
-__all__ = ['get_MS_phasecentre']
+__all__ = ['get_MS_phasecentre_all','get_single_phasecentre_from_MS','check_phaseref_in_MS']
 
 import numpy as np
 
@@ -11,7 +11,7 @@ from casacore import tables as casatables
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
-def get_MS_phasecentre(mspath, frame='icrs', ack=False):
+def get_MS_phasecentre_all(mspath, frame='icrs', ack=False):
     """Get the list of the phase centres for each field and direction of the MS
     and return a list of astropy skycoord values
 
@@ -88,3 +88,124 @@ def get_MS_phasecentre(mspath, frame='icrs', ack=False):
     i += 1
 
     return phasecentres
+
+def get_single_phasecentre_from_MS(mspath, field_ID=0, dd_ID=0, frame='icrs', ack=False):
+    """Get a given phase centre from the MS based on the field_ID and direction_ID
+
+    Parameters
+    ==========
+
+    mspath: str
+        The input MS path
+
+    field_ID: int >= 0
+        Field ID in the FIELD table. Note, that the FIELD_ID in the MAIN table can
+        have a different value. e.g. FIELD_ID = 1, but only one filed exists, then the
+        field_ID should be 0!
+
+    dd_ID: int >= 0
+        Direction ID in the FIELD table.
+
+    frame: str, optional
+        Reference frame used to calculate the Astropy phase centre. Default: 'icrs'
+
+    ack: bool, optional
+        Enabling messages of successful interaction with the MS
+        e.g. successful opening of a table
+    
+    Returns
+    =======
+    phasecentre: Astropy coordinate 
+        Phasecentre of the given field and direction
+    """
+    MS = casatables.table(mspath, ack=ack)
+
+    fields_table = casatables.table(mspath + '/FIELD', ack=ack)    
+
+    #Get the reference equinox from the table keywords
+    equinox = fields_table.getcolkeyword('PHASE_DIR','MEASINFO')['Ref'] 
+
+    #Only can convert from radians
+    assert fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] == 'rad', 'Phase centre direction is not in radians!'
+
+    pc = fields_table.getcol('PHASE_DIR')[dd_ID,field_ID, :]
+
+    direction = SkyCoord(ra=pc[0] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox)
+
+    return direction
+
+def check_phaseref_in_MS(mspath, phaseref, frame='icrs', ack=False):
+    """Check if a given phasereference point is amongst the phase cntre of an MS for any
+    firld and direction existing in that MS
+
+    This function is needed as the Phase centre referencing is NOT clear in the MS format
+    using ASKAP observations.
+
+    Parameters
+    ==========
+    mspath: str
+        The input MS path
+
+    phaseref: Astropy coordinate
+        Astropy SkyCoord object with the same frame as the :param frame: parameter 
+
+    frame: str, optional
+        Reference frame used to calculate the Astropy phase centre. Default: 'icrs'
+
+    ack: bool, optional
+        Enabling messages of successful interaction with the MS
+        e.g. successful opening of a table
+    
+    Returns
+    =======
+    IDs: list of lists
+        If the phase reference given matches with at least one of the 
+        phasecentre in the MS, the filed index and direction idex is returned as a list.
+        Else an empty list is returned.
+
+        The returned indices are the field folloved by direction for ecah match
+
+    """
+    assert type(phaseref) == type(SkyCoord(ra = 0 * u.deg, dec = 0 * u.deg, frame=frame, equinox='J2000')), 'Input phaseref is not an astropy SkyCoord object!'
+
+    MS = casatables.table(mspath, ack=ack)
+
+    fields_table = casatables.table(mspath + '/FIELD', ack=ack)    
+
+    #Get the reference equinox from the table keywords
+    equinox = fields_table.getcolkeyword('PHASE_DIR','MEASINFO')['Ref'] 
+
+    #Only can convert from radians
+    assert fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] == 'rad', 'Phase centre direction is not in radians!'
+
+    IDs = []
+
+    for d in range(0,np.shape(fields_table.getcol('PHASE_DIR'))[0]):
+        for f in range(0,np.shape(fields_table.getcol('PHASE_DIR'))[1]):
+            pc = fields_table.getcol('PHASE_DIR')[d,f, :]
+
+            if phaseref.ra ==  SkyCoord(ra=pc[0] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox).ra and \
+            phaseref.dec == SkyCoord(ra=pc[0] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox).dec:
+                IDs.append([f,d])
+
+    return IDs
+
+
+
+
+if __name__ == "__main__":
+    MSPATH = '/home/krozgonyi/Desktop/sandbox/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms'
+
+    PHASEREF = SkyCoord(ra=5.961288415470099 * u.rad, dec= -0.5630396775534987 * u.rad, frame='icrs', equinox='J2000')
+
+    IDs = check_phaseref_in_MS(MSPATH,PHASEREF)
+    
+    print(IDs)
+
+    exit()
+
+    pcs = get_single_phasecentre_from_MS(MSPATH,dd_ID=1)
+
+    print(type(pcs))
+
+    print(pcs.dec.dms)
