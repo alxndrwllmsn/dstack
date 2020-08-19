@@ -134,7 +134,7 @@ def get_single_phasecentre_from_MS(mspath, field_ID=0, dd_ID=0, frame='icrs', ac
 
     return direction
 
-def check_phaseref_in_MS(mspath, phaseref, frame='icrs', ack=False):
+def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=False):
     """Check if a given phasereference point is amongst the phase cntre of an MS for any
     firld and direction existing in that MS
 
@@ -148,6 +148,11 @@ def check_phaseref_in_MS(mspath, phaseref, frame='icrs', ack=False):
 
     phaseref: Astropy coordinate
         Astropy SkyCoord object with the same frame as the :param frame: parameter 
+
+    sep_threshold: float
+        Maximum allowed separation between the given phaseref and the phasecentres in the MS.
+        The separation is defined in arcesconds. If the phaseref and the phasecentre within the
+        separation, it counts as a match
 
     frame: str, optional
         Reference frame used to calculate the Astropy phase centre. Default: 'icrs'
@@ -184,28 +189,26 @@ def check_phaseref_in_MS(mspath, phaseref, frame='icrs', ack=False):
         for f in range(0,np.shape(fields_table.getcol('PHASE_DIR'))[1]):
             pc = fields_table.getcol('PHASE_DIR')[d,f, :]
 
-            if phaseref.ra ==  SkyCoord(ra=pc[0] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox).ra and \
-            phaseref.dec == SkyCoord(ra=pc[0] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox).dec:
+            if phaseref.separation(SkyCoord(ra=pc[0] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox)).arcsecond <= sep_threshold:
                 IDs.append([f,d])
 
     return IDs
 
 
-
-
 if __name__ == "__main__":
+
     MSPATH = '/home/krozgonyi/Desktop/sandbox/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms'
 
-    PHASEREF = SkyCoord(ra=5.961288415470099 * u.rad, dec= -0.5630396775534987 * u.rad, frame='icrs', equinox='J2000')
+    PHASEREF = SkyCoord(ra=5.9706226 * u.rad, dec= -0.5708741 * u.rad, frame='icrs', equinox='J2000')
 
     IDs = check_phaseref_in_MS(MSPATH,PHASEREF)
     
     print(IDs)
 
-    exit()
+    #exit()
 
     pcs = get_single_phasecentre_from_MS(MSPATH,dd_ID=1)
 
-    print(type(pcs))
+    print(pcs)
 
-    print(pcs.dec.dms)
+    print(pcs.ra.rad,pcs.dec.rad)

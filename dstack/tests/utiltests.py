@@ -1,36 +1,89 @@
 """
 Unit testing for the utils module using the unittest module
+The trest libraries are not part of the module!
+Hence, they needs to be handeled separately for now.
 """
+
+import os
 import unittest
+import configparser
+import ast
 
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 import dstack as ds
 
+#Setup the parset file for the unittest
+global PARSET
+PARSET = './unittest.in'
+
+def setup_MS_unittest(parset_path):
+    """For a general unittesting a parset file is used to define the actual MS to test the
+    util.ms functions against. Thus, any MS can be used for unittesting provided by the user.
+    
+    The code uses the configparser package to read the config file
+
+    The config section has to be [MS]
+
+    The parset can contain the following lines, but only the relevant functions will be unittested:
+
+    - MSpath: full path to the MS e.g. /home/user/example.ms
+    - PhaseCentre: RA and Dec coordinates of the PhaseCentre from the MS in a list,
+                    both given in radians e.g. [1.2576,-0.23497]
+    - IDs: Field and Direction ID of the PhaseCentre in the MS. Not the reference values,
+                    but the 1nd and 0th indices of the FIELD tables PHASE_DIR column
+                    e.g. [0,1]
+
+    Parameters
+    ==========
+    parset_path: string
+        Full path to a parset file defining specific values which can be used for unittesting.
+        Hence, local datasets can be used for unittesting.
+
+    Returns
+    =======
+    MSpath: string
+        Full path to a test MS, that is used for unittesting of the utilms functions
+
+    PhaseCentre: Astropy SkyCoord
+        The reference phase centre of the MS given as an Astropy SkyCoord object
+        Needs to be given in frame='icrs', equinox='J2000' for now
+
+    IDs: list
+        The ID of the field and direction of the reference PhaseCentre
+    """
+    assert os.path.exists(parset_path)
+
+    config = configparser.ConfigParser()
+    config.read(parset_path)
+
+    MSpath = config.get('MS','Mspath')
+
+    PhaseCentre = SkyCoord(ra=ast.literal_eval(config.get('MS','PhaseCentre'))[0] * u.rad, 
+                dec=ast.literal_eval(config.get('MS','PhaseCentre'))[1] * u.rad,
+                frame='icrs', equinox='J2000')
+    
+    IDs = ast.literal_eval(config.get('MS','IDs'))
+
+    return MSpath, PhaseCentre, IDs
+
+
 class TestMS(unittest.TestCase):
-    #Define a test MS path, and the relevanta ttiributes for unittesting
-    MSPATH = '/home/krozgonyi/Desktop/sandbox/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms'
-    PHASECENTRE = SkyCoord(ra=5.961288415470099 * u.rad, dec= -0.5630396775534987 * u.rad, frame='icrs', equinox='J2000')
-    IDS = [0,0]
+    MSpath, PhaseCentre, IDs = setup_MS_unittest(PARSET)
 
     def test_get_MS_phasecentre_all(self):
-        phasecentres = ds.util.ms.get_MS_phasecentre_all(self.MSPATH)
-
-        assert phasecentres[0][0].ra.deg == self.PHASECENTRE.ra.deg,'Right Ascension mismatch in get_MS_phasecentre()!'
-        assert phasecentres[0][0].dec.rad == self.PHASECENTRE.dec.rad, 'Declination mismatch in get_MS_phasecentre()!'
+        PhaseCentres = ds.util.ms.get_MS_phasecentre_all(self.MSpath)
+        assert PhaseCentres[0][0].separation(self.PhaseCentre).arcsec < 1,'Reference PhaseCentre and MS PhaseCentre has >1 arcsec separation!'
 
     def test_get_single_phasecentre_from_MS(self):
-        phasecentre = ds.util.ms.get_single_phasecentre_from_MS(self.MSPATH,field_ID=self.IDS[0],dd_ID=self.IDS[1])
-
-        assert phasecentre.ra.deg == self.PHASECENTRE.ra.deg,'Right Ascension mismatch in get_MS_phasecentre()!'
-        assert phasecentre.dec.rad == self.PHASECENTRE.dec.rad, 'Declination mismatch in get_MS_phasecentre()!'
+        PhaseCentre = ds.util.ms.get_single_phasecentre_from_MS(self.MSpath,field_ID=self.IDs[0],dd_ID=self.IDs[1])
+        assert PhaseCentre.separation(self.PhaseCentre).arcsec < 1,'Reference PhaseCentre and MS PhaseCentre has >1 arcsec separation!'
 
     def test_check_phaseref_in_MS(self):
-        found_IDs = ds.util.ms.check_phaseref_in_MS(self.MSPATH,self.PHASECENTRE)
-
-        assert found_IDs[0][0] == self.IDS[0], 'No matching field ID found!'
-        assert found_IDs[0][1] == self.IDS[1], 'No matching direction ID found!'
+        found_IDs = ds.util.ms.check_phaseref_in_MS(self.MSpath,self.PhaseCentre)
+        assert found_IDs[0][0] == self.IDs[0], 'No matching field ID found!'
+        assert found_IDs[0][1] == self.IDs[1], 'No matching direction ID found!'
 
 if __name__ == "__main__":
     unittest.main()

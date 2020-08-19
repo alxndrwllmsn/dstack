@@ -7,4 +7,3 @@ Subpackages
 .. toctree::
 
    dstack.util
-
