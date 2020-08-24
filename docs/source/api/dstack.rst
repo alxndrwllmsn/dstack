@@ -6,4 +6,5 @@ Subpackages
 
 .. toctree::
 
-   dstack.util
+   dstack.cimutil
+   dstack.msutil

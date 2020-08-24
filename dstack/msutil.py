@@ -2,7 +2,8 @@
 Collection of utility functions to interact with Measurement Sets
 """
 
-__all__ = ['get_MS_phasecentre_all','get_single_phasecentre_from_MS','check_phaseref_in_MS']
+__all__ = ['get_MS_phasecentre_all','get_single_phasecentre_from_MS','check_phaseref_in_MS',
+            'get_N_chan_from_MS']
 
 import numpy as np
 
@@ -87,6 +88,8 @@ def get_MS_phasecentre_all(mspath, frame='icrs', ack=False):
 
     i += 1
 
+    MS.close()
+
     return phasecentres
 
 def get_single_phasecentre_from_MS(mspath, field_ID=0, dd_ID=0, frame='icrs', ack=False):
@@ -131,6 +134,8 @@ def get_single_phasecentre_from_MS(mspath, field_ID=0, dd_ID=0, frame='icrs', ac
     pc = fields_table.getcol('PHASE_DIR')[dd_ID,field_ID, :]
 
     direction = SkyCoord(ra=pc[0] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox)
+
+    MS.close()
 
     return direction
 
@@ -192,23 +197,46 @@ def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=F
             if phaseref.separation(SkyCoord(ra=pc[0] * u.rad, dec=pc[1] * u.rad, frame=frame, equinox=equinox)).arcsecond <= sep_threshold:
                 IDs.append([f,d])
 
+    MS.close()
+
     return IDs
+
+def get_N_chan_from_MS(mspath, ack=False):
+    """Get the number of channels from an MS
+
+    Parameters
+    ==========
+    mspath: str
+        The input MS path
+
+    ack: bool, optional
+        Enabling messages of successful interaction with the MS
+        e.g. successful opening of a table
+    
+    Returns
+    =======
+    N_chan: int
+        Number of channels in the MS
+    """
+    MS = casatables.table(mspath, ack=ack)
+
+    spectral_windows_table = casatables.table(mspath + '/SPECTRAL_WINDOW', ack=ack)
+
+    #Select firts index, channels can be different for different fields and dds maybe
+    N_chan = spectral_windows_table.getcol('NUM_CHAN')[0]
+
+    MS.close()
+
+    return N_chan
+
 
 
 if __name__ == "__main__":
-
     MSPATH = '/home/krozgonyi/Desktop/sandbox/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms'
 
     PHASEREF = SkyCoord(ra=5.9706226 * u.rad, dec= -0.5708741 * u.rad, frame='icrs', equinox='J2000')
 
-    IDs = check_phaseref_in_MS(MSPATH,PHASEREF)
-    
-    print(IDs)
 
-    #exit()
+    get_N_chan_from_MS(MSPATH)
 
-    pcs = get_single_phasecentre_from_MS(MSPATH,dd_ID=1)
-
-    print(pcs)
-
-    print(pcs.ra.rad,pcs.dec.rad)
+    exit()

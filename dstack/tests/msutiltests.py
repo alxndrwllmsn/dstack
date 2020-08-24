@@ -1,5 +1,5 @@
 """
-Unit testing for the utils module using the unittest module
+Unit testing for the msutils module using the unittest module
 The trest libraries are not part of the module!
 Hence, they needs to be handeled separately for now.
 """
@@ -16,11 +16,11 @@ import dstack as ds
 
 #Setup the parset file for the unittest
 global PARSET
-PARSET = './unittest.in'
+PARSET = './msunittest.in'
 
 def setup_MS_unittest(parset_path):
     """For a general unittesting a parset file is used to define the actual MS to test the
-    util.ms functions against. Thus, any MS can be used for unittesting provided by the user.
+    msutil functions against. Thus, any MS can be used for unittesting provided by the user.
     
     The code uses the configparser package to read the config file
 
@@ -34,6 +34,7 @@ def setup_MS_unittest(parset_path):
     - IDs: Field and Direction ID of the PhaseCentre in the MS. Not the reference values,
                     but the 1nd and 0th indices of the FIELD tables PHASE_DIR column
                     e.g. [0,1]
+    - NChannels: Number of channels of the MS e.g. 11
 
     Parameters
     ==========
@@ -52,6 +53,9 @@ def setup_MS_unittest(parset_path):
 
     IDs: list
         The ID of the field and direction of the reference PhaseCentre
+    
+    NPol: int
+        Number of polarisations in the CASAImage
     """
     assert os.path.exists(parset_path)
 
@@ -66,24 +70,30 @@ def setup_MS_unittest(parset_path):
     
     IDs = ast.literal_eval(config.get('MS','IDs'))
 
-    return MSpath, PhaseCentre, IDs
+    NChan = int(config.get('MS','NChannels'))
+
+    return MSpath, PhaseCentre, IDs, NChan
 
 
 class TestMS(unittest.TestCase):
-    MSpath, PhaseCentre, IDs = setup_MS_unittest(PARSET)
+    MSpath, PhaseCentre, IDs, NChan = setup_MS_unittest(PARSET)
 
     def test_get_MS_phasecentre_all(self):
-        PhaseCentres = ds.util.ms.get_MS_phasecentre_all(self.MSpath)
+        PhaseCentres = ds.msutil.get_MS_phasecentre_all(self.MSpath)
         assert PhaseCentres[0][0].separation(self.PhaseCentre).arcsec < 1,'Reference PhaseCentre and MS PhaseCentre has >1 arcsec separation!'
 
     def test_get_single_phasecentre_from_MS(self):
-        PhaseCentre = ds.util.ms.get_single_phasecentre_from_MS(self.MSpath,field_ID=self.IDs[0],dd_ID=self.IDs[1])
+        PhaseCentre = ds.msutil.get_single_phasecentre_from_MS(self.MSpath,field_ID=self.IDs[0],dd_ID=self.IDs[1])
         assert PhaseCentre.separation(self.PhaseCentre).arcsec < 1,'Reference PhaseCentre and MS PhaseCentre has >1 arcsec separation!'
 
     def test_check_phaseref_in_MS(self):
-        found_IDs = ds.util.ms.check_phaseref_in_MS(self.MSpath,self.PhaseCentre)
+        found_IDs = ds.msutil.check_phaseref_in_MS(self.MSpath,self.PhaseCentre)
         assert found_IDs[0][0] == self.IDs[0], 'No matching field ID found!'
         assert found_IDs[0][1] == self.IDs[1], 'No matching direction ID found!'
+
+    def test_get_N_chan_from_MS(self):
+        C = ds.msutil.get_N_chan_from_MS(self.MSpath)
+        assert C == self.NChan, 'Reference and MS channel number is not the same!'
 
 if __name__ == "__main__":
     unittest.main()
