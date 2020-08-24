@@ -26,6 +26,7 @@ def get_N_chan_from_CIM(cimpath):
         Number of channels in the CASAImage
     """
     cim = casaimage.image(cimpath)
+    assert cim.ndim() == 4, 'The image has more than 4 axes!'
 
     N_chan = np.shape(cim.getdata())[0]
 
@@ -48,6 +49,7 @@ def get_N_pol_from_CIM(cimpath):
         Number of polarisations in the CASAImage
     """
     cim = casaimage.image(cimpath)
+    assert cim.ndim() == 4, 'The image has more than 4 axes!'
 
     N_pol = np.shape(cim.getdata())[1]
 

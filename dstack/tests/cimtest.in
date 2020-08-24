@@ -1,0 +1,6 @@
+[CASAImage]
+
+CIMpath_A = /home/krozgonyi/Desktop/first_pass/grid.wr.1.sim_PC
+CIMpath_B = /home/krozgonyi/Desktop/first_pass/grid.wr.1.sim_PC
+#CIMpath_B = /home/krozgonyi/Desktop/first_pass/psfgrid.wr.1.sim_PC
+NumericalPrecision = 0

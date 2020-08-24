@@ -1,5 +1,5 @@
 """
-Unit testing for the cimageutil module using the unittest module
+Unit testing for the cimutil module using the unittest module
 The trest libraries are not part of the module!
 Hence, they needs to be handeled separately for now.
 """
@@ -15,16 +15,15 @@ import dstack as ds
 global PARSET
 PARSET = './cimunittest.in'
 
-def setup_CIM_unittest(parset_path):
+def setup_CIMutil_unittest(parset_path):
     """For a general unittesting a parset file is used to define the actual CASAImage to test the
     cimagutil functions against. Thus, any CASAImage can be used for unittesting provided by the user.
     
     The code uses the configparser package to read the config file
 
-    The config section has to be [CASAImage]
+    The config section has to be [CASAImageUtil]
 
-    The parset can contain the following lines, but only the relevant functions will be unittested:
-
+    The parset has to contain the following lines:
     - CIMpath: full path to the CASAImage e.g. /home/user/example]
     - NChannels: Number of channels of the MS e.g. 11
     - NPolarisations: Numvber of polarisations e.g. 4
@@ -51,14 +50,14 @@ def setup_CIM_unittest(parset_path):
     config = configparser.ConfigParser()
     config.read(parset_path)
 
-    CIMpath = config.get('CASAImage','CIMpath')
-    NChan = int(config.get('CASAImage','NChannels'))
-    NPol = int(config.get('CASAImage','NPolarisations'))
+    CIMpath = config.get('CASAImageUtil','CIMpath')
+    NChan = int(config.get('CASAImageUtil','NChannels'))
+    NPol = int(config.get('CASAImageUtil','NPolarisations'))
 
     return CIMpath, NChan, NPol
 
-class TestMS(unittest.TestCase):
-    CIMpath, NChan, NPol = setup_CIM_unittest(PARSET)
+class TestCIMUtil(unittest.TestCase):
+    CIMpath, NChan, NPol = setup_CIMutil_unittest(PARSET)
 
     def test_get_N_chan_from_CIM(self):
         C = ds.cimutil.get_N_chan_from_CIM(self.CIMpath)

@@ -18,16 +18,15 @@ import dstack as ds
 global PARSET
 PARSET = './msunittest.in'
 
-def setup_MS_unittest(parset_path):
+def setup_MSutil_unittest(parset_path):
     """For a general unittesting a parset file is used to define the actual MS to test the
     msutil functions against. Thus, any MS can be used for unittesting provided by the user.
     
     The code uses the configparser package to read the config file
 
-    The config section has to be [MS]
+    The config section has to be [MSUtil]
 
-    The parset can contain the following lines, but only the relevant functions will be unittested:
-
+    The parset has to contain the following lines:
     - MSpath: full path to the MS e.g. /home/user/example.ms
     - PhaseCentre: RA and Dec coordinates of the PhaseCentre from the MS in a list,
                     both given in radians e.g. [1.2576,-0.23497]
@@ -38,13 +37,13 @@ def setup_MS_unittest(parset_path):
 
     Parameters
     ==========
-    parset_path: string
+    parset_path: str
         Full path to a parset file defining specific values which can be used for unittesting.
         Hence, local datasets can be used for unittesting.
 
     Returns
     =======
-    MSpath: string
+    MSpath: str
         Full path to a test MS, that is used for unittesting of the utilms functions
 
     PhaseCentre: Astropy SkyCoord
@@ -62,21 +61,21 @@ def setup_MS_unittest(parset_path):
     config = configparser.ConfigParser()
     config.read(parset_path)
 
-    MSpath = config.get('MS','Mspath')
+    MSpath = config.get('MSUtil','Mspath')
 
-    PhaseCentre = SkyCoord(ra=ast.literal_eval(config.get('MS','PhaseCentre'))[0] * u.rad, 
-                dec=ast.literal_eval(config.get('MS','PhaseCentre'))[1] * u.rad,
+    PhaseCentre = SkyCoord(ra=ast.literal_eval(config.get('MSUtil','PhaseCentre'))[0] * u.rad, 
+                dec=ast.literal_eval(config.get('MSUtil','PhaseCentre'))[1] * u.rad,
                 frame='icrs', equinox='J2000')
     
-    IDs = ast.literal_eval(config.get('MS','IDs'))
+    IDs = ast.literal_eval(config.get('MSUtil','IDs'))
 
-    NChan = int(config.get('MS','NChannels'))
+    NChan = int(config.get('MSUtil','NChannels'))
 
     return MSpath, PhaseCentre, IDs, NChan
 
 
-class TestMS(unittest.TestCase):
-    MSpath, PhaseCentre, IDs, NChan = setup_MS_unittest(PARSET)
+class TestMSUtil(unittest.TestCase):
+    MSpath, PhaseCentre, IDs, NChan = setup_MSutil_unittest(PARSET)
 
     def test_get_MS_phasecentre_all(self):
         PhaseCentres = ds.msutil.get_MS_phasecentre_all(self.MSpath)
