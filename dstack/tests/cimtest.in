@@ -4,3 +4,5 @@ CIMpath_A = /home/krozgonyi/Desktop/first_pass/grid.wr.1.sim_PC
 CIMpath_B = /home/krozgonyi/Desktop/first_pass/grid.wr.1.sim_PC
 #CIMpath_B = /home/krozgonyi/Desktop/first_pass/psfgrid.wr.1.sim_PC
 NumericalPrecision = 0
+CIMGridPath = /home/krozgonyi/Desktop/ASKAP_high_res_grid_example/grid.wr.1.sim_PC
+Sparseness = 0.9673266875
