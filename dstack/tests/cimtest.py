@@ -12,9 +12,11 @@ import ast
 import dstack as ds
 import numpy as np
 
+from casacore import images as casaimage
+
 #Setup the parset file for the unittest
 global PARSET
-PARSET = './cimtest.in'
+PARSET = './unittest_all.in'
 
 
 def setup_CIM_unittest(parset_path):
@@ -31,6 +33,7 @@ def setup_CIM_unittest(parset_path):
     - NumericalPrecision: Maximum absolute difference between ASAImages A and B. Have to be >= 0.
     - CIMGridPath: Full path to a grid in CASAImage format
     - Sparseness: Sparseness of the CIMGridPath grid for the first channel and ploarisation in the image cube
+    - RMS: the measured RMS of the CIMpath_A image for the first channel and ploarisation in the image cube (the RMS should be measured by using all pixels)
 
     Parameters
     ==========
@@ -55,6 +58,9 @@ def setup_CIM_unittest(parset_path):
     Sparseness: float
         Sparseness for the first channel and ploarisation in the image cube of the grid given by CIMGridPath
 
+    RMS: float
+        Root Mean Square for the first channel and ploarisation in the image cube of the grid given by CIMPathA
+
     """
     assert os.path.exists(parset_path)
 
@@ -67,11 +73,12 @@ def setup_CIM_unittest(parset_path):
     assert NumPrec >= 0., 'The NumericalPrecision given is below zero!'
     CIMGridPath = config.get('CASAImage','CIMGridPath')
     Sparseness = float(config.get('CASAImage','Sparseness'))
+    RMS = float(config.get('CASAImage','RMS'))
 
-    return CIMPathA, CIMPathB, NumPrec, CIMGridPath, Sparseness
+    return CIMPathA, CIMPathB, NumPrec, CIMGridPath, Sparseness, RMS
 
 class TestCIM(unittest.TestCase):
-    CIMPathA, CIMPathB, NumPrec, CIMGridPath, Sparseness = setup_CIM_unittest(PARSET)
+    CIMPathA, CIMPathB, NumPrec, CIMGridPath, Sparseness, RMS = setup_CIM_unittest(PARSET)
 
     def test_check_CIM_equity(self):
         assert ds.cim.check_CIM_equity(self.CIMPathA,self.CIMPathB, numprec=self.NumPrec) == True, \
@@ -79,7 +86,16 @@ class TestCIM(unittest.TestCase):
 
     def test_measure_grid_sparseness(self):
         assert np.isclose(ds.cim.measure_grid_sparseness(self.CIMGridPath),self.Sparseness,rtol=1e-7), \
-        'The givem sparseness and the sparseness measured on the grid are not matching!'
+        'The given sparseness and the sparseness measured on the grid are not matching!'
+
+    def test_create_CIM_diff_array(self):
+        assert np.array_equiv(ds.cim.create_CIM_diff_array(self.CIMPathA,self.CIMPathA),
+        np.zeros((np.shape(casaimage.image(self.CIMPathA).getdata())[2],np.shape(casaimage.image(self.CIMPathA).getdata())[3]))) == True, \
+        'Failed to produce a difference image of zeros using CIM A!'
+
+    def test_measure_CIM_RMS(self):
+        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA),self.RMS,rtol=1e-7), \
+        'The given RMS and the RMS measured on the image are not matching!'
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,7 +13,7 @@ import dstack as ds
 
 #Setup the parset file for the unittest
 global PARSET
-PARSET = './cimunittest.in'
+PARSET = './unittest_all.in'
 
 def setup_CIMutil_unittest(parset_path):
     """For a general unittesting a parset file is used to define the actual CASAImage to test the

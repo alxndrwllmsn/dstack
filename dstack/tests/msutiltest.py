@@ -16,7 +16,7 @@ import dstack as ds
 
 #Setup the parset file for the unittest
 global PARSET
-PARSET = './msunittest.in'
+PARSET = './unittest_all.in'
 
 def setup_MSutil_unittest(parset_path):
     """For a general unittesting a parset file is used to define the actual MS to test the

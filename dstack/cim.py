@@ -12,7 +12,7 @@ def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8):
     """Check if two CASAImages are identical or not up to a defined numerical precision
     This function is used to test certain piepline features.
 
-    Note: NaN-s are treted as equals, and the :numprec: parameter only sets the relative difference limit.
+    Note: NaN-s are trethed as equals, and the :numprec: parameter only sets the relative difference limit.
 
     Parameters
     ==========
@@ -164,18 +164,19 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0):
         containing the RMS for the corresponding channel and ploarisation
     
     """
-    if all_dim:
-        cimgrid = casaimage.image(cimgrid_path)
-        rms_matrix = np.zeros((cimgrid.shape()[0],cimgrid.shape()[1]))
+    cim = casaimage.image(cimpath)
 
-        for chan_i in range(0,cimgrid.shape()[0]):
-            for pol_j in range(0,cimgrid.shape()[1]):
-                rms_matrix[i,j] = np.sqrt(np.mean(np.square(cimgrid.getdata()[chan_i,pol_j,...])))
+    if all_dim:
+        rms_matrix = np.zeros((cim.shape()[0],cim.shape()[1]))
+
+        for chan_i in range(0,cim.shape()[0]):
+            for pol_j in range(0,cim.shape()[1]):
+                rms_matrix[i,j] = np.sqrt(np.mean(np.square(cim.getdata()[chan_i,pol_j,...])))
 
         return rms_matrix
 
     else:
-        return np.sqrt(np.mean(np.square(cimgrid.getdata()[chan,pol,...])))
+        return np.sqrt(np.mean(np.square(cim.getdata()[chan,pol,...])))
 
 if __name__ == "__main__":
     #CIMGRID_PATH = '/home/krozgonyi/Desktop/ASKAP_high_res_grid_example/grid.wr.1.sim_PC'
