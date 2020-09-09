@@ -1,6 +1,6 @@
 """
 Unit testing for the cim module using the unittest module
-The trest libraries are not part of the module!
+The test libraries are not part of the module!
 Hence, they needs to be handeled separately for now.
 """
 
@@ -31,8 +31,6 @@ def setup_CIM_unittest(parset_path):
     - CIMpath_A: Full path to the CASAImage e.g. /home/user/example]
     - CIMpath_B: Full path to the CASAImage e.g. /home/user/example2]
     - NumericalPrecision: Maximum absolute difference between ASAImages A and B. Have to be >= 0.
-    - CIMGridPath: Full path to a grid in CASAImage format
-    - Sparseness: Sparseness of the CIMGridPath grid for the first channel and ploarisation in the image cube
     - RMS: the measured RMS of the CIMpath_A image for the first channel and ploarisation in the image cube (the RMS should be measured by using all pixels)
 
     Parameters
@@ -52,12 +50,6 @@ def setup_CIM_unittest(parset_path):
     NumPrec: float
         The numerical precision limit for testing CASAImage equity
 
-    CIMGridPath: str
-        Full path to a test grid in CASAImage format
-
-    Sparseness: float
-        Sparseness for the first channel and ploarisation in the image cube of the grid given by CIMGridPath
-
     RMS: float
         Root Mean Square for the first channel and ploarisation in the image cube of the grid given by CIMPathA
 
@@ -71,22 +63,16 @@ def setup_CIM_unittest(parset_path):
     CIMPathB =  config.get('CASAImage','CIMpath_B')
     NumPrec =  float(config.get('CASAImage','NumericalPrecision'))
     assert NumPrec >= 0., 'The NumericalPrecision given is below zero!'
-    CIMGridPath = config.get('CASAImage','CIMGridPath')
-    Sparseness = float(config.get('CASAImage','Sparseness'))
     RMS = float(config.get('CASAImage','RMS'))
 
-    return CIMPathA, CIMPathB, NumPrec, CIMGridPath, Sparseness, RMS
+    return CIMPathA, CIMPathB, NumPrec, RMS
 
 class TestCIM(unittest.TestCase):
-    CIMPathA, CIMPathB, NumPrec, CIMGridPath, Sparseness, RMS = setup_CIM_unittest(PARSET)
+    CIMPathA, CIMPathB, NumPrec, RMS = setup_CIM_unittest(PARSET)
 
     def test_check_CIM_equity(self):
         assert ds.cim.check_CIM_equity(self.CIMPathA,self.CIMPathB, numprec=self.NumPrec) == True, \
         'The given images differ more than the provided numerical precision tolerance!'
-
-    def test_measure_grid_sparseness(self):
-        assert np.isclose(ds.cim.measure_grid_sparseness(self.CIMGridPath),self.Sparseness,rtol=1e-7), \
-        'The given sparseness and the sparseness measured on the grid are not matching!'
 
     def test_create_CIM_diff_array(self):
         assert np.array_equiv(ds.cim.create_CIM_diff_array(self.CIMPathA,self.CIMPathA),

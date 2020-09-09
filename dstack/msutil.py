@@ -229,14 +229,5 @@ def get_N_chan_from_MS(mspath, ack=False):
 
     return N_chan
 
-
-
 if __name__ == "__main__":
-    MSPATH = '/home/krozgonyi/Desktop/sandbox/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms'
-
-    PHASEREF = SkyCoord(ra=5.9706226 * u.rad, dec= -0.5708741 * u.rad, frame='icrs', equinox='J2000')
-
-
-    get_N_chan_from_MS(MSPATH)
-
-    exit()
+    pass

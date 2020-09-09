@@ -1,8 +1,9 @@
 """
-Collection of the base functions operating on CASAImages that can be both grids and images.
+Collection of the base functions operating on images in CASAImageformat. The functions defined here *should* work on grids as well,
+but for several reasons specific functions for grids are implemented in a separate module called ``cgrid``.
 """
 
-__all__ = ['check_CIM_equity', 'measure_grid_sparseness', 'measure_CIM_RMS', 'create_CIM_diff_array']
+__all__ = ['check_CIM_equity', 'measure_CIM_RMS', 'create_CIM_diff_array']
 
 import numpy as np
 
@@ -43,49 +44,6 @@ def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8):
     else:
         return np.allclose(cimA.getdata(),cimB.getdata(),atol=0,rtol=numprec,equal_nan=True)
 
-def measure_grid_sparseness(cimgrid_path,chan=0,pol=0):
-    """Measure the sparseness of the input grid, given in a complex CASAImage format
-
-    The sparseness is defined as:
-
-    .. math:: S = G_0 / G
-    
-    where :math:`G` representing all the grid cells and :math:`G_0` he empty grid cells.
-    However due to optimisation the code actually computes:
-
-    .. math:: S = (G - G_N) / G
-
-    where, :math:`G_N` is the number of non-zero grid cells.
-
-    The sparseness is counted over the complex entries, thus only grid cells with
-    both zero real and imaginary part are counted as empty cells.
-
-    Parameters
-    ==========
-    cimgrid_path: str
-        The input grid parth (CASAImage format)
-
-    chan: int
-        Index of the channel in the grid cube
-
-    pol: int
-        Index of the polarisation in the grid cube
-
-    Returns
-    =======
-    sparseness: float
-        Sparseness of the grid
-    """
-    cimgrid = casaimage.image(cimgrid_path)
-
-    assert cimgrid.datatype() == 'Complex', 'Input CASAImage is not complex, and grids are axpected to be complex!'
-
-    gird_size = cimgrid.shape()[2] * cimgrid.shape()[3]
-
-    sparseness = (gird_size - np.count_nonzero(cimgrid.getdata()[chan,pol,...])) / gird_size
-
-    return sparseness
-
 def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=0,pol=0):
     """Compute the difference of two CASAImage, and return it as a numpy array.
     Either the entire difference cube, or only the difference of a selected channel 
@@ -107,7 +65,7 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
 
     all_dim: bool
         If True, the difference across all channels and polarisations will be computed.
-        Note taht it can be *very slow and memory heavy*!
+        Note taht it can be **very slow and memory heavy**!
 
     chan: int
         Index of the channel in the image cube
@@ -149,7 +107,7 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0):
 
     all_dim: bool
         If True, the RMS will be computed for all channels and polarisations in the image cube
-        Note that, this can be *very slow*!
+        Note that, this can be **very slow**!
 
     chan: int
         Index of the channel in the image cube
@@ -178,27 +136,6 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0):
     else:
         return np.sqrt(np.mean(np.square(cim.getdata()[chan,pol,...])))
 
+
 if __name__ == "__main__":
-    #CIMGRID_PATH = '/home/krozgonyi/Desktop/ASKAP_high_res_grid_example/grid.wr.1.sim_PC'
-    CIMGRID_PATH = '/home/krozgonyi/Desktop/ASKAP_high_res_grid_example/pcf.wr.1.sim_PC'
-
-    S = measure_grid_sparseness(CIMGRID_PATH)
-
-    print(S)
-
-    exit()
-
-    CIMPATH_A = '/home/krozgonyi/Desktop/first_pass/grid.wr.1.sim_PC'
-    CIMPATH_B = '/home/krozgonyi/Desktop/first_pass/psfgrid.wr.1.sim_PC'
-
-
-    cimA = casaimage.image(CIMPATH_A)
-    cimB = casaimage.image(CIMPATH_B)  
-
-
-    print(np.shape(np.unique(cimA.getdata())))
-    print(np.shape(np.unique(cimB.getdata())))
-
-
-
-    print(check_CIM_equity(CIMPATH_A,CIMPATH_B,numprec=1e2))
+    pass

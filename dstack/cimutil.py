@@ -56,9 +56,4 @@ def get_N_pol_from_CIM(cimpath):
     return N_pol
 
 if __name__ == "__main__":
-    CIMPATH = '/home/krozgonyi/Desktop/first_pass/grid.wr.1.sim_PC'
-
-    N_chan = get_N_chan_from_CIM(CIMPATH)
-    N_pol = get_N_pol_from_CIM(CIMPATH)
-
-    print(N_pol)
+    pass
