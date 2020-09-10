@@ -36,35 +36,48 @@ def setup_CIMutil_unittest(parset_path):
 
     Returns
     =======
-    CIMpath: string
+    CIMPathA: str
         Full path to a test CASAImage, that is used for unittesting of the utilms functions
 
+    CIMPathB: str
+        Full path to a second test CASAImage
+
+    NumPrec: float
+        The numerical precision limit for testing CASAImage equity
+
     NChan: int
-        Number of channels in the CASAImage
+        Number of channels in the CASAImage given by CIMPathA
 
     NPol: int
-        Number of polarisations in the CASAImage
+        Number of polarisations in the CASAImage given by CIMPathA
     """
     assert os.path.exists(parset_path)
 
     config = configparser.ConfigParser()
     config.read(parset_path)
 
-    CIMpath = config.get('CASAImageUtil','CIMpath')
+    CIMPathA =  config.get('CASAImageUtil','CIMpath_A')
+    CIMPathB =  config.get('CASAImageUtil','CIMpath_B')
+    NumPrec =  float(config.get('CASAImageUtil','NumericalPrecision'))
+    assert NumPrec >= 0., 'The NumericalPrecision given is below zero!'
     NChan = int(config.get('CASAImageUtil','NChannels'))
     NPol = int(config.get('CASAImageUtil','NPolarisations'))
 
-    return CIMpath, NChan, NPol
+    return CIMPathA, CIMPathB, NumPrec, NChan, NPol
 
 class TestCIMUtil(unittest.TestCase):
-    CIMpath, NChan, NPol = setup_CIMutil_unittest(PARSET)
+    CIMPathA, CIMPathB, NumPrec, NChan, NPol = setup_CIMutil_unittest(PARSET)
+
+    def test_check_CIM_equity(self):
+        assert ds.cimutil.check_CIM_equity(self.CIMPathA,self.CIMPathB, numprec=self.NumPrec) == True, \
+        'The given images differ more than the provided numerical precision tolerance!'
 
     def test_get_N_chan_from_CIM(self):
-        C = ds.cimutil.get_N_chan_from_CIM(self.CIMpath)
+        C = ds.cimutil.get_N_chan_from_CIM(self.CIMPathA)
         assert C == self.NChan, 'Reference and MS channel number is not the same!'
 
     def test_get_N_pol_from_CIM(self):
-        P = ds.cimutil.get_N_pol_from_CIM(self.CIMpath)
+        P = ds.cimutil.get_N_pol_from_CIM(self.CIMPathA)
         assert P == self.NPol, 'Reference and MS polarisation number is not the same!'
 
 if __name__ == "__main__":

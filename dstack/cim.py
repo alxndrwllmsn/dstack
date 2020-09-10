@@ -3,46 +3,11 @@ Collection of the base functions operating on images in CASAImageformat. The fun
 but for several reasons specific functions for grids are implemented in a separate module called ``cgrid``.
 """
 
-__all__ = ['check_CIM_equity', 'measure_CIM_RMS', 'create_CIM_diff_array']
+__all__ = ['measure_CIM_RMS', 'create_CIM_diff_array']
 
 import numpy as np
 
 from casacore import images as casaimage
-
-def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8):
-    """Check if two CASAImages are identical or not up to a defined numerical precision
-    This function is used to test certain piepline features.
-
-    Note: NaN-s are trethed as equals, and the :numprec: parameter only sets the relative difference limit.
-
-    Parameters
-    ==========
-    cimpath_a: str
-        The input CASAImage parth of Alice
-
-    cimpath_b: str
-        The input CASAImage parth of Bob
-
-    numprec: float
-        The numerical precision limit of the maximum allowed relative
-        difference between CASAImages Alice and Bob.
-        If set to zero, equity is checked.
-
-    Returns
-    =======
-    equity: bool
-        True or False, base on the equity of Alice and Bob
-    """
-
-    cimA = casaimage.image(cimpath_a)
-    cimB = casaimage.image(cimpath_b)
-
-    assert cimA.ndim() == cimB.ndim(), 'The dimension of the two input CASAImage is not equal!'
-
-    if numprec == 0.:
-        return np.array_equiv(cimA.getdata(),cimB.getdata())
-    else:
-        return np.allclose(cimA.getdata(),cimB.getdata(),atol=0,rtol=numprec,equal_nan=True)
 
 def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=0,pol=0):
     """Compute the difference of two CASAImage, and return it as a numpy array.
