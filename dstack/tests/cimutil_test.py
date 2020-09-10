@@ -23,8 +23,10 @@ def setup_CIMutil_unittest(parset_path):
 
     The config section has to be [CASAImageUtil]
 
-    The parset has to contain the following lines:
-    - CIMpath: full path to the CASAImage e.g. /home/user/example]
+    The parset has to contain all the lines diven in the return parameters.
+    - CIMpathA: full path to the CASAImage e.g. /home/user/example
+    - CIMpathB: full path to the CASAImage that have the same coordinate system as CIMpathA e.g. /home/user/example
+    - NumericalPrecision: The relative precision for which images CIMpathA and CIMpathB are equal. Can be zero.
     - NChannels: Number of channels of the MS e.g. 11
     - NPolarisations: Numvber of polarisations e.g. 4
 
@@ -37,10 +39,10 @@ def setup_CIMutil_unittest(parset_path):
     Returns
     =======
     CIMPathA: str
-        Full path to a test CASAImage, that is used for unittesting of the utilms functions
+        A ``casacore.images.image.image`` object given by the full path of a test grid in CASAImage format in the parset for Alice
 
     CIMPathB: str
-        Full path to a second test CASAImage
+        A ``casacore.images.image.image`` object given by the full path of a test grid in CASAImage format in the parset for Bob
 
     NumPrec: float
         The numerical precision limit for testing CASAImage equity
@@ -56,8 +58,8 @@ def setup_CIMutil_unittest(parset_path):
     config = configparser.ConfigParser()
     config.read(parset_path)
 
-    CIMPathA =  config.get('CASAImageUtil','CIMpath_A')
-    CIMPathB =  config.get('CASAImageUtil','CIMpath_B')
+    CIMPathA =  ds.cimutil.create_CIM_object(config.get('CASAImageUtil','CIMpath_A'))
+    CIMPathB =  ds.cimutil.create_CIM_object(config.get('CASAImageUtil','CIMpath_B'))
     NumPrec =  float(config.get('CASAImageUtil','NumericalPrecision'))
     assert NumPrec >= 0., 'The NumericalPrecision given is below zero!'
     NChan = int(config.get('CASAImageUtil','NChannels'))
@@ -74,11 +76,15 @@ class TestCIMUtil(unittest.TestCase):
 
     def test_get_N_chan_from_CIM(self):
         C = ds.cimutil.get_N_chan_from_CIM(self.CIMPathA)
-        assert C == self.NChan, 'Reference and MS channel number is not the same!'
+        assert C == self.NChan, 'Reference and CASAImage channel number is not the same!'
 
     def test_get_N_pol_from_CIM(self):
         P = ds.cimutil.get_N_pol_from_CIM(self.CIMPathA)
-        assert P == self.NPol, 'Reference and MS polarisation number is not the same!'
+        assert P == self.NPol, 'Reference and CASAImage polarisation number is not the same!'
+
+    def test_check_CIM_coordinate_equity(self):
+        assert ds.cimutil.check_CIM_coordinate_equity(self.CIMPathA,self.CIMPathB) == True, \
+        'The two given CASAImages have different coordinate systems! '
 
 if __name__ == "__main__":
     unittest.main()

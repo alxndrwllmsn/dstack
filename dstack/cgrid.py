@@ -13,6 +13,8 @@ import warnings
 
 from casacore import images as casaimage
 
+import dstack as ds
+
 def measure_grid_sparseness(cimgrid_path,chan=0,pol=0):
     """Measure the sparseness of the input grid, given in a complex CASAImage format
 
@@ -46,7 +48,7 @@ def measure_grid_sparseness(cimgrid_path,chan=0,pol=0):
     sparseness: float
         Sparseness of the grid
     """
-    cgrid = casaimage.image(cimgrid_path)
+    cgrid = ds.cimutil.create_CIM_object(cimgrid_path)
 
     assert cgrid.datatype() == 'Complex', 'Input CASAImage is not complex, and grids are axpected to be complex!'
 
@@ -111,7 +113,7 @@ def grid_stacking_base(cgridpath_list,cgrid_output_path,cgrid_outputh_name,coord
 
     if os.path.isdir(output_cgrid): assert overwrite, 'Stacked grid already exist, and the overwrite parameters is set to False!'
 
-    base_cgrid = casaimage.image(cgridpath_list[0])
+    base_cgrid = ds.cimutil.create_CIM_object(cgridpath_list[0])
 
     assert base_cgrid.datatype() == 'Complex', 'Input grid {0:s} is not complex, and grids are axpected to be complex!'.format(cgrid.name())
 
@@ -136,13 +138,14 @@ def grid_stacking_base(cgridpath_list,cgrid_output_path,cgrid_outputh_name,coord
     stacked_cgrid_data = base_cgrid.getdata()
 
     for i in range(1,len(cgridpath_list)):
-        cgrid = casaimage.image(cgridpath_list[i])
+        cgrid = ds.cimutil.create_CIM_object(cgridpath_list[i])
 
         assert cgrid.datatype() == 'Complex', 'Input grid {0:s} is not complex, and grids are axpected to be complex!'.format(cgrid.name())
         assert base_cgrid.ndim() == cgrid.ndim(), 'The dimension of the two input grids ({0:s} and {1:s}) are not equal!'.format(base_cgrid.name(),cgrid.name())
 
-        #Need to write a function that checks the coordinate equivalence!
-        #assert cgrid.coordinates() == coordsys, 'The coordinate system of the two input grids ({0:s} and {1:s}) are not equal!'.format(base_cgrid.name(),cgrid.name())
+        #This is slow as it reads in the grids again!
+        assert ds.cimutil.check_CIM_coordinate_equity(cgrid,stacked_cgrid), \
+        'The created stacked grid and the grid {0:s} have different coordinate systems!'.format(cgrid.name())
 
         check_attrgroup_empty(base_cgrid)
         check_history_empty(base_cgrid)

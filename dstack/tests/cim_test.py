@@ -40,8 +40,8 @@ def setup_CIM_unittest(parset_path):
 
     Returns
     =======
-    CIMPathA: str
-        Full path to a test CASAImage, that is used for unittesting of the cim functions
+    CIMPath: str
+        A ``casacore.images.image.image`` object given by the full path of a test grid in CASAImage format in the parset
 
     RMS: float
         Root Mean Square for the first channel and ploarisation in the image cube given by CIMPath
@@ -52,7 +52,7 @@ def setup_CIM_unittest(parset_path):
     config = configparser.ConfigParser()
     config.read(parset_path)
 
-    CIMPath =  config.get('CASAImage','CIMpath')
+    CIMPath =  ds.cimutil.create_CIM_object(config.get('CASAImage','CIMpath'))
     RMS = float(config.get('CASAImage','RMS'))
 
     return CIMPath, RMS

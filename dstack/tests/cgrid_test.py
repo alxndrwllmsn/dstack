@@ -39,7 +39,7 @@ def setup_CIM_unittest(parset_path):
     Returns
     =======
     GridPath: str
-        Full path to a test grid in CASAImage format
+        A ``casacore.images.image.image`` object given by the full path of a test grid in CASAImage format in the parset
 
     Sparseness: float
         Sparseness for the first channel and ploarisation in the image cube of the grid given by CIMGridPath
@@ -50,7 +50,7 @@ def setup_CIM_unittest(parset_path):
     config = configparser.ConfigParser()
     config.read(parset_path)
 
-    GridPath = config.get('CGrid','GridPath')
+    GridPath = ds.cimutil.create_CIM_object(config.get('CGrid','GridPath'))
     Sparseness = float(config.get('CGrid','Sparseness'))
     
     return GridPath, Sparseness

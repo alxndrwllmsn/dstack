@@ -9,6 +9,8 @@ import numpy as np
 
 from casacore import images as casaimage
 
+import dstack as ds
+
 def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=0,pol=0):
     """Compute the difference of two CASAImage, and return it as a numpy array.
     Either the entire difference cube, or only the difference of a selected channel 
@@ -16,6 +18,8 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
 
     The code computes the first minus second image given, and normalises with the
     second one if the rel_diff parameter is set to True.
+
+    This function maskes sense mostly on images not on grids, that is why I put it under this module.
 
     Parameters
     ==========
@@ -44,8 +48,8 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
         Either a single channel and polarisation slice difference,
         or the difference cube of the two input CASAImages
     """
-    cimA = casaimage.image(cimpath_a)
-    cimB = casaimage.image(cimpath_b)
+    cimA = ds.cimutil.create_CIM_object(cimpath_a)
+    cimB = ds.cimutil.create_CIM_object(cimpath_b)
 
     assert cimA.ndim() == cimB.ndim(), 'The dimension of the two input CASAImage is not equal!'
 
@@ -87,7 +91,7 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0):
         containing the RMS for the corresponding channel and ploarisation
     
     """
-    cim = casaimage.image(cimpath)
+    cim = ds.cimutil.create_CIM_object(cimpath)
 
     if all_dim:
         rms_matrix = np.zeros((cim.shape()[0],cim.shape()[1]))
