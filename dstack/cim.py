@@ -41,7 +41,8 @@ def create_CIM_object(cimpath):
 
     """
     #create an empty image in-memory to check the object type
-    if type(cimpath) == type(casaimage.image(imagename='',shape=np.ones(1))):
+    #if type(cimpath) == type(casaimage.image(imagename='',shape=np.ones(1))):
+    if type(cimpath) == 'casacore.images.image.image':
         return cimpath
     else:
         cim = casaimage.image(cimpath)
@@ -335,8 +336,14 @@ def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=Fa
     The given imaes have to have the same:
         - shape
         - coordinates
+        - pixel value unit (e.g. Jy/beam)
 
-    NOTE, that there are better tools in YadaSoft and casacore to cretate stacked images.
+    NOTE, that there are better tools in YadaSoft and casacore to cretate stacked images,
+    but no option to stack and modify grids.
+
+    Also, the resultant CASAImage will have an empty pixel unit.
+    Thius needs to be fixed, but I can't figure out how to grab and put the
+    unoits in the resultant image.
 
     Parameters
     ==========
@@ -392,10 +399,8 @@ def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=Fa
 
         assert base_cim.datatype() == cim.datatype(), 'The data type of the two input images ({0:s} and {1:s}) are not equal!'.format(base_cim.name(),cim.name())
         assert base_cim.ndim() == cim.ndim(), 'The dimension of the two input images ({0:s} and {1:s}) are not equal!'.format(base_cim.name(),cim.name())
-
-        #This is slow as it reads in the grids again!
         assert ds.cim.check_CIM_coordinate_equity(cim,stacked_cim), \
-        'The created stacked grid and the grid {0:s} have different coordinate systems!'.format(cim.name())
+        'The created stacked image and the image {0:s} have different coordinate systems!'.format(cim.name())
 
         check_attrgroup_empty(cim)
         check_history_empty(cim)
@@ -413,6 +418,8 @@ if __name__ == "__main__":
                     '/home/krozgonyi/Desktop/list_imaging_test/dumpgrid_second_night/image.restored.test'],
                     '/home/krozgonyi/Desktop','a.image', normalise=True,overwrite=True)
     
+    exit()
+
     import logging;
     import sys
     log = logging.getLogger();

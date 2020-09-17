@@ -42,7 +42,8 @@ def create_MS_object(mspath,ack=False):
 
     """
     #create an empty MS in-memory to check the object type
-    if type(mspath) == type(casatables.table('',casatables.maketabdesc([casatables.makescacoldesc('DATA',0)]),memorytable=True,ack=False)):
+    #if type(mspath) == type(casatables.table('',casatables.maketabdesc([casatables.makescacoldesc('DATA',0)]),memorytable=True,ack=False)):
+    if type(mspath) == 'casacore.tables.table.table':
         return mspath
     else:
         MS = casatables.table(mspath, ack=ack)
