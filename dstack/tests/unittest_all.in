@@ -3,18 +3,14 @@
 GridPath = /home/krozgonyi/Desktop/ASKAP_high_res_grid_example/grid.wr.1.sim_PC
 Sparseness = 0.943396125
 
-[CASAImage]
-
-CIMpath = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
-RMS = 0.04308076
-
-[CASAImageUtil]
+[CImage]
 
 CIMpath_A = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
 CIMpath_B = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
 NumericalPrecision = 0
 NChannels = 11
 NPolarisations = 1
+RMS = 0.04308076
 
 [MSUtil]
 

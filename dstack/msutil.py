@@ -2,8 +2,8 @@
 Collection of utility functions to interact with Measurement Sets
 """
 
-__all__ = ['get_MS_phasecentre_all','get_single_phasecentre_from_MS','check_phaseref_in_MS',
-            'get_N_chan_from_MS']
+__all__ = ['create_MS_object', 'get_N_chan_from_MS','get_MS_phasecentre_all',
+            'get_single_phasecentre_from_MS','check_phaseref_in_MS']
 
 import numpy as np
 
@@ -11,6 +11,70 @@ from casacore import tables as casatables
 
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+
+import dstack as ds
+
+def create_MS_object(mspath,ack=False):
+    """This function aims to speed up other bits of this module, 
+    by returning a ``casacore.tables.table.table`` object.
+
+    The trick is, that the ``mspath`` argument can be either a string i.e. the path
+    to the MS wich will be read in and returned, **or** it can be already an
+    in-memory ``casacore.tables.table.table`` object.
+
+    This might not be the best solution, but I hope overall a check in a lot of cases will
+    speed up code, rather than readiung in the same MS again-and again. So ideally, only
+    one reading in happends for each MS and all inside this function!
+
+    Parameters
+    ==========
+    mspath: str
+        The input MS parth or a ``casacore.tables.table.table`` object
+
+    ack: bool, optional
+        Enabling messages of successful interaction with the MS
+        e.g. successful opening of a table
+    
+    Returns
+    =======
+    MS: ``casacore.tables.table.table`` object
+        The in-memory Measurement Set
+
+    """
+    #create an empty MS in-memory to check the object type
+    if type(mspath) == type(casatables.table('',casatables.maketabdesc([casatables.makescacoldesc('DATA',0)]),memorytable=True,ack=False)):
+        return mspath
+    else:
+        MS = casatables.table(mspath, ack=ack)
+        return MS
+
+def get_N_chan_from_MS(mspath, ack=False):
+    """Get the number of channels from an MS
+
+    Parameters
+    ==========
+    mspath: str
+        The input MS path
+
+    ack: bool, optional
+        Enabling messages of successful interaction with the MS
+        e.g. successful opening of a table
+    
+    Returns
+    =======
+    N_chan: int
+        Number of channels in the MS
+    """
+    MS = ds.msutil.create_MS_object(mspath, ack=ack)
+
+    spectral_windows_table = casatables.table(mspath + '/SPECTRAL_WINDOW', ack=ack)
+
+    #Select firts index, channels can be different for different fields and dds maybe
+    N_chan = spectral_windows_table.getcol('NUM_CHAN')[0]
+
+    MS.close()
+
+    return N_chan
 
 def get_MS_phasecentre_all(mspath, frame='icrs', ack=False):
     """Get the list of the phase centres for each field and direction of the MS
@@ -43,7 +107,7 @@ def get_MS_phasecentre_all(mspath, frame='icrs', ack=False):
         i.e. each element is a list
 
     """
-    MS = casatables.table(mspath, ack=ack)
+    MS = ds.msutil.create_MS_object(mspath, ack=ack)
 
     #Get the number of unique fields and data descriptoions (e.g. footprints)
     fields = np.unique(MS.getcol('FIELD_ID'))
@@ -121,7 +185,7 @@ def get_single_phasecentre_from_MS(mspath, field_ID=0, dd_ID=0, frame='icrs', ac
     phasecentre: Astropy coordinate 
         Phasecentre of the given field and direction
     """
-    MS = casatables.table(mspath, ack=ack)
+    MS = ds.msutil.create_MS_object(mspath, ack=ack)
 
     fields_table = casatables.table(mspath + '/FIELD', ack=ack)    
 
@@ -178,7 +242,7 @@ def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=F
     """
     assert type(phaseref) == type(SkyCoord(ra = 0 * u.deg, dec = 0 * u.deg, frame=frame, equinox='J2000')), 'Input phaseref is not an astropy SkyCoord object!'
 
-    MS = casatables.table(mspath, ack=ack)
+    MS = ds.msutil.create_MS_object(mspath, ack=ack)
 
     fields_table = casatables.table(mspath + '/FIELD', ack=ack)    
 
@@ -201,33 +265,8 @@ def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=F
 
     return IDs
 
-def get_N_chan_from_MS(mspath, ack=False):
-    """Get the number of channels from an MS
-
-    Parameters
-    ==========
-    mspath: str
-        The input MS path
-
-    ack: bool, optional
-        Enabling messages of successful interaction with the MS
-        e.g. successful opening of a table
-    
-    Returns
-    =======
-    N_chan: int
-        Number of channels in the MS
-    """
-    MS = casatables.table(mspath, ack=ack)
-
-    spectral_windows_table = casatables.table(mspath + '/SPECTRAL_WINDOW', ack=ack)
-
-    #Select firts index, channels can be different for different fields and dds maybe
-    N_chan = spectral_windows_table.getcol('NUM_CHAN')[0]
-
-    MS.close()
-
-    return N_chan
-
 if __name__ == "__main__":
+    MS = create_MS_object('/home/krozgonyi/Desktop/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms')
+    print(type(MS))
+
     pass

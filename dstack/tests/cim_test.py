@@ -25,7 +25,7 @@ def setup_CIM_unittest(parset_path):
     
     The code uses the configparser package to read the config file
 
-    The config section has to be [CASAImage]
+    The config section has to be [CImage]
 
     The parset has to contain the following lines:
     - CIMpath: Full path to the CASAImage e.g. /home/user/example]
@@ -40,34 +40,74 @@ def setup_CIM_unittest(parset_path):
 
     Returns
     =======
-    CIMPath: str
-        A ``casacore.images.image.image`` object given by the full path of a test grid in CASAImage format in the parset
+    CIMPathA: str
+        A ``casacore.images.image.image`` object given by the full path of a test grid in CASAImage format in the parset for Alice
+
+    CIMPathB: str
+        A ``casacore.images.image.image`` object given by the full path of a test grid in CASAImage format in the parset for Bob
+
+    NumPrec: float
+        The numerical precision limit for testing CASAImage equity
+
+    NChan: int
+        Number of channels in the CASAImage given by CIMPathA
+
+    NPol: int
+        Number of polarisations in the CASAImage given by CIMPathA
 
     RMS: float
         Root Mean Square for the first channel and ploarisation in the image cube given by CIMPath
-
     """
     assert os.path.exists(parset_path)
 
     config = configparser.ConfigParser()
     config.read(parset_path)
 
-    CIMPath =  ds.cimutil.create_CIM_object(config.get('CASAImage','CIMpath'))
-    RMS = float(config.get('CASAImage','RMS'))
+    CIMPathA =  ds.cim.create_CIM_object(config.get('CImage','CIMpath_A'))
+    CIMPathB =  ds.cim.create_CIM_object(config.get('CImage','CIMpath_B'))
+    NumPrec =  float(config.get('CImage','NumericalPrecision'))
+    assert NumPrec >= 0., 'The NumericalPrecision given is below zero!'
+    NChan = int(config.get('CImage','NChannels'))
+    NPol = int(config.get('CImage','NPolarisations'))
+    RMS = float(config.get('CImage','RMS'))
 
-    return CIMPath, RMS
+    return CIMPathA, CIMPathB, NumPrec, NChan, NPol, RMS
 
 class TestCIM(unittest.TestCase):
-    CIMPath, RMS = setup_CIM_unittest(PARSET)
+    CIMPathA, CIMPathB, NumPrec, NChan, NPol, RMS = setup_CIM_unittest(PARSET)
+
+    def test_check_CIM_equity(self):
+        assert ds.cim.check_CIM_equity(self.CIMPathA,self.CIMPathB, numprec=self.NumPrec) == True, \
+        'The given images differ more than the provided numerical precision tolerance!'
+
+    def test_get_N_chan_from_CIM(self):
+        C = ds.cim.get_N_chan_from_CIM(self.CIMPathA)
+        assert C == self.NChan, 'Reference and CASAImage channel number is not the same!'
+
+    def test_get_N_pol_from_CIM(self):
+        P = ds.cim.get_N_pol_from_CIM(self.CIMPathA)
+        assert P == self.NPol, 'Reference and CASAImage polarisation number is not the same!'
+
+    def test_check_CIM_coordinate_equity(self):
+        assert ds.cim.check_CIM_coordinate_equity(self.CIMPathA,self.CIMPathB) == True, \
+        'The two given CASAImages have different coordinate systems! '
 
     def test_create_CIM_diff_array(self):
-        assert np.array_equiv(ds.cim.create_CIM_diff_array(self.CIMPath,self.CIMPath),
-        np.zeros((np.shape(casaimage.image(self.CIMPath).getdata())[2],np.shape(casaimage.image(self.CIMPath).getdata())[3]))) == True, \
+        assert np.array_equiv(ds.cim.create_CIM_diff_array(self.CIMPathA,self.CIMPathA),
+        np.zeros((np.shape(casaimage.image(self.CIMPathA).getdata())[2],np.shape(casaimage.image(self.CIMPathA).getdata())[3]))) == True, \
         'Failed to produce a difference image of zeros using CIM A!'
 
     def test_measure_CIM_RMS(self):
-        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPath),self.RMS,rtol=1e-7), \
+        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA),self.RMS,rtol=1e-7), \
         'The given RMS and the RMS measured on the image are not matching!'
+
+    def test_CIM_stacking_base(self):
+        #Working on UNIX systems as it creates a stacked grid at /var/tmp
+        test_dir = '/var/tmp'
+        ds.cim.CIM_stacking_base([self.CIMPathA,self.CIMPathA],test_dir,'test_CIM_stacking_base',overwrite=True)
+
+        assert np.array_equiv(np.multiply(casaimage.image(self.CIMPathA).getdata(),2),casaimage.image('{0:s}/test_CIM_stacking_base'.format(test_dir)).getdata()), \
+        'Stacking the same image not equivalent with multiplying with two!'
 
 if __name__ == "__main__":
     unittest.main()

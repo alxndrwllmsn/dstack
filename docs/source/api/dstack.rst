@@ -8,5 +8,4 @@ Subpackages
 
    dstack.cgrid
    dstack.cim
-   dstack.cimutil
    dstack.msutil

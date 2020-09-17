@@ -50,7 +50,7 @@ def setup_CIM_unittest(parset_path):
     config = configparser.ConfigParser()
     config.read(parset_path)
 
-    GridPath = ds.cimutil.create_CIM_object(config.get('CGrid','GridPath'))
+    GridPath = ds.cim.create_CIM_object(config.get('CGrid','GridPath'))
     Sparseness = float(config.get('CGrid','Sparseness'))
     
     return GridPath, Sparseness
@@ -61,13 +61,6 @@ class TestCIM(unittest.TestCase):
     def test_measure_grid_sparseness(self):
         assert np.isclose(ds.cgrid.measure_grid_sparseness(self.GridPath),self.Sparseness,rtol=1e-7), \
         'The given sparseness and the sparseness measured on the grid are not matching!'
-
-    def test_grid_stacking_base(self):
-        #Working on UNIX systems as it creates a stacked grid at /var/tmp
-        ds.cgrid.grid_stacking_base([self.GridPath,self.GridPath],'/var/tmp','test_grid_stacking_base',overwrite=True)
-
-        assert np.array_equiv(np.multiply(casaimage.image(self.GridPath).getdata(),2),casaimage.image('/var/tmp/test_grid_stacking_base').getdata()), \
-        'Stacking the same grid not equivalent with multiplying with two!'
 
 if __name__ == "__main__":
     unittest.main()
