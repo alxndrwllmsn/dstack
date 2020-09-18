@@ -14,7 +14,7 @@ from astropy import units as u
 
 import dstack as ds
 
-def create_MS_object(mspath,ack=False):
+def create_MS_object(mspath,ack=False,readonly=True):
     """This function aims to speed up other bits of this module, 
     by returning a ``casacore.tables.table.table`` object.
 
@@ -31,10 +31,13 @@ def create_MS_object(mspath,ack=False):
     mspath: str
         The input MS parth or a ``casacore.tables.table.table`` object
 
+    readonly: bool, optional
+        If True, the tables of the MS can be read only, but if set to False one can modify the MS
+
     ack: bool, optional
         Enabling messages of successful interaction with the MS
         e.g. successful opening of a table
-    
+
     Returns
     =======
     MS: ``casacore.tables.table.table`` object
@@ -46,7 +49,7 @@ def create_MS_object(mspath,ack=False):
     if type(mspath) == 'casacore.tables.table.table':
         return mspath
     else:
-        MS = casatables.table(mspath, ack=ack)
+        MS = casatables.table(mspath, ack=ack, readonly=readonly)
         return MS
 
 def get_N_chan_from_MS(mspath, ack=False):

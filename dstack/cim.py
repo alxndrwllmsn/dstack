@@ -2,6 +2,7 @@
 Collection of functions operating on images in CASAImageformat.
 The functions defined here are expected to work on grids as well, as grids are currently dumped in casaimage format,
 hence functions defined in this module works on both images and grids.
+The image I/O management is kinda manually at this point, but hopefully will be handeled on higher level applications in the future.
 """
 
 __all__ = ['create_CIM_object', 'get_N_chan_from_CIM', 'get_N_pol_from_CIM',
@@ -14,6 +15,7 @@ import numpy as np
 import warnings
 
 from casacore import images as casaimage
+from casacore import tables as casatables
 
 import dstack as ds
 
@@ -48,7 +50,7 @@ def create_CIM_object(cimpath):
         cim = casaimage.image(cimpath)
         return cim
 
-def get_N_chan_from_CIM(cimpath):
+def get_N_chan_from_CIM(cimpath,close=False):
     """Get the number of channels from a CASAImage
 
     CASAImage indices: [freq, Stokes, x, y]
@@ -58,6 +60,11 @@ def get_N_chan_from_CIM(cimpath):
     cimpath: str
         The input CASAImage parth or a ``casacore.images.image.image`` object
     
+    close: bool, optional
+        If True the in-memory CASAIMage is deleted, and the optional write-lock releases
+        Set to true if this is the last operation on the image, but False if other functions
+        called that operation on the same image. This avoids multiple read-in of the image.
+
     Returns
     =======
     N_chan: int
@@ -68,9 +75,12 @@ def get_N_chan_from_CIM(cimpath):
 
     N_chan = np.shape(cim.getdata())[0]
 
+    if close:
+        del cim
+
     return N_chan
 
-def get_N_pol_from_CIM(cimpath):
+def get_N_pol_from_CIM(cimpath,close=False):
     """Get the number of polarisations from a CASAImage. Note, that the
     polarisation type is not returned!
 
@@ -81,6 +91,11 @@ def get_N_pol_from_CIM(cimpath):
     cimpath: str
         The input CASAImage parth or a ``casacore.images.image.image`` object
     
+    close: bool, optional
+        If True the in-memory CASAIMage is deleted, and the optional write-lock releases
+        Set to true if this is the last operation on the image, but False if other functions
+        called that operation on the same image. This avoids multiple read-in of the image.
+
     Returns
     =======
     N_pol: int
@@ -91,9 +106,12 @@ def get_N_pol_from_CIM(cimpath):
 
     N_pol = np.shape(cim.getdata())[1]
 
+    if close:
+        del cim
+
     return N_pol
 
-def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8):
+def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8,close=False):
     """Check if two CASAImages are identical or not up to a defined numerical precision
     This function is used to test certain piepline features.
 
@@ -112,6 +130,11 @@ def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8):
         difference between CASAImages Alice and Bob.
         If set to zero, equity is checked.
 
+    close: bool, optional
+        If True the in-memory CASAIMage is deleted, and the optional write-lock releases
+        Set to true if this is the last operation on the image, but False if other functions
+        called that operation on the same image. This avoids multiple read-in of the image.
+
     Returns
     =======
     equity: bool
@@ -124,11 +147,17 @@ def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8):
     assert cimA.ndim() == cimB.ndim(), 'The dimension of the two input CASAImage is not equal!'
 
     if numprec == 0.:
-        return np.array_equiv(cimA.getdata(),cimB.getdata())
+        equviv = np.array_equiv(cimA.getdata(),cimB.getdata())
     else:
-        return np.allclose(cimA.getdata(),cimB.getdata(),atol=0,rtol=numprec,equal_nan=True)
+        equviv = np.allclose(cimA.getdata(),cimB.getdata(),atol=0,rtol=numprec,equal_nan=True)
 
-def check_CIM_coordinate_equity(cimpath_a,cimpath_b):
+    if close:
+        del cimA
+        del cimB
+
+    return equviv
+
+def check_CIM_coordinate_equity(cimpath_a,cimpath_b,close=False):
     """Basic cehck if the associated coordinate information of two images are somewhat equal.
     This is **not** an equity check for all coordinate values, as the reference pixels can be differnt,
     even for images (grids) with the same coordinate system. Hence, the rigorous part of the check is
@@ -149,6 +178,11 @@ def check_CIM_coordinate_equity(cimpath_a,cimpath_b):
     cimpath_b: str
         The input CASAImage path of Bob or a ``casacore.images.image.image`` object
 
+    close: bool, optional
+        If True the in-memory CASAIMages are deleted, and the optional write-lock releases
+        Set to true if this is the last operation on the image, but False if other functions
+        called that operation on the same image. This avoids multiple read-in of the image.
+
     Returns
     =======
     equity: bool
@@ -158,6 +192,7 @@ def check_CIM_coordinate_equity(cimpath_a,cimpath_b):
     cimB = ds.cim.create_CIM_object(cimpath_b)
 
     assert cimA.ndim() == cimB.ndim(), 'The dimension of the two input CASAImage is not equal!'
+    assert cimA.unit() == cimB.unit(), 'The pixel units of the two input CASAImage is not equal!'
 
     coordsA = cimA.coordinates()
     coordsB = cimA.coordinates()
@@ -231,9 +266,47 @@ def check_CIM_coordinate_equity(cimpath_a,cimpath_b):
         warnings.warn('The input images {0:s} and {1:s} have different (x,y) direction coordinate units!'.format(
                     cimA.name(),cimB.name()))
 
+    if close:
+        del cimA
+        del cimB
+
     return True
 
-def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=0,pol=0):
+def set_CIM_unit(cimpath,unit,overwrite=False):
+    """When a CASAImage is created using the ``casaimage.image()`` routine, the pixel unit of the image is empty by default.
+    There is no way to set the unit by using the ``casacore.images`` module. However, we can workaround this by opening the
+    image as a CASATable. Hooray. When no unit is defined the keyword *units* will be missing, hence we need to add this
+    together with the unit value.
+
+    Parameters
+    ==========
+    cimpath: str
+        The input CASAImage path
+
+    unit: str
+        The unit of the image pixels e.g. Jy/Beam 
+
+    overwrite: bool, optional
+        If True, the existing unit is overwritten with the input ``unit`` parameter
+
+    Returns
+    ======= 
+    Saves the image with the pixel unit included
+    """
+    CIMTable = ds.msutil.create_MS_object(cimpath,readonly=False)
+
+    try:
+        CIM_unit = CIMTable.getkeyword('units')
+        if CIM_unit != unit and overwrite == False:
+            warnings.warn('The image {0:s} already has a pixel unit: {1:s} that is different from the given unit: {2:s}!'.format(cimpath,CIM_unit,unit))
+        else:
+            CIMTable.putkeyword('units', unit)
+    except:
+        CIMTable.putkeyword('units', unit)
+
+    CIMTable.close()
+
+def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=0,pol=0,close=False):
     """Compute the difference of two CASAImage, and return it as a numpy array.
     Either the entire difference cube, or only the difference of a selected channel 
     and polarisation slice is returned.
@@ -246,10 +319,10 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
     Parameters
     ==========
     cimpath_a: str
-        The input CASAImage parth of Alice
+        The input CASAImage path of Alice
 
     cimpath_b: str
-        The input CASAImage parth of Bob
+        The input CASAImage path of Bob
     
     rel_diff: bool
         If True, the relative difference is returned. The code uses Bob to normalise.
@@ -264,6 +337,11 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
     pol: int
         Index of the polarisation in the image cube
 
+    close: bool, optional
+        If True the in-memory CASAIMage is deleted, and the optional write-lock releases
+        Set to true if this is the last operation on the image, but False if other functions
+        called that operation on the same image. This avoids multiple read-in of the image.
+
     Returns
     =======
     diff_array: numpy ndarray
@@ -277,17 +355,22 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
 
     if all_dim:
         if rel_diff:
-            return np.divide(np.subtract(cimA.getdata(),cimB.getdata()),cimB.getdata())
+            diff_array = np.divide(np.subtract(cimA.getdata(),cimB.getdata()),cimB.getdata())
         else:
-            return np.subtract(cimA.getdata(),cimB.getdata())
+            diff_array = np.subtract(cimA.getdata(),cimB.getdata())
     else:
         if rel_diff:
-            return np.divide(np.subtract(cimA.getdata()[chan,pol,...],cimB.getdata()[chan,pol,...]),cimB.getdata()[chan,pol,...])
+            diff_array = np.divide(np.subtract(cimA.getdata()[chan,pol,...],cimB.getdata()[chan,pol,...]),cimB.getdata()[chan,pol,...])
         else:
-            return np.subtract(cimA.getdata()[chan,pol,...],cimB.getdata()[chan,pol,...])
+            diff_array = np.subtract(cimA.getdata()[chan,pol,...],cimB.getdata()[chan,pol,...])
 
+    if close:
+        del cimA
+        del cimB            
 
-def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0):
+    return diff_array
+
+def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0,close=False):
     """Measure the RMS on a CASAImage either for a given channel and polarisation,
     or for ALL channels and polarisations. This could be very slow though.
 
@@ -306,6 +389,11 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0):
     pol: int
         Index of the polarisation in the image cube
 
+    close: bool, optional
+        If True the in-memory CASAIMage is deleted, and the optional write-lock releases
+        Set to true if this is the last operation on the image, but False if other functions
+        called that operation on the same image. This avoids multiple read-in of the image.
+
     Returns
     =======
     rms: float or list of floats
@@ -322,10 +410,15 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0):
             for pol_j in range(0,cim.shape()[1]):
                 rms_matrix[i,j] = np.sqrt(np.mean(np.square(cim.getdata()[chan_i,pol_j,...])))
 
+        if close:
+            del cim
         return rms_matrix
 
     else:
-        return np.sqrt(np.mean(np.square(cim.getdata()[chan,pol,...])))
+        rms = np.sqrt(np.mean(np.square(cim.getdata()[chan,pol,...])))
+        if close:
+            del cim
+        return rms
 
 def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=False,overwrite=False):
     """This function is one of the core functions of the imge stacking stacking deep spectral line pipelines.
@@ -340,10 +433,6 @@ def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=Fa
 
     NOTE, that there are better tools in YadaSoft and casacore to cretate stacked images,
     but no option to stack and modify grids.
-
-    Also, the resultant CASAImage will have an empty pixel unit.
-    Thius needs to be fixed, but I can't figure out how to grab and put the
-    unoits in the resultant image.
 
     Parameters
     ==========
@@ -391,8 +480,18 @@ def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=Fa
                     coordsys=coordsys,
                     values=base_cim.getdata(),
                     overwrite=overwrite)
-
+    
+    #Keep the data in memory
     stacked_cim_data = base_cim.getdata()
+
+    #Close the image so the unit can be set
+    del stacked_cim
+
+    #Set the unit of the resultant image based on the first image
+    ds.cim.set_CIM_unit(output_cim, base_cim.unit())
+
+    #Read back the stacked image
+    stacked_cim = ds.cim.create_CIM_object(output_cim)
 
     for i in range(1,len(cimpath_list)):
         cim = ds.cim.create_CIM_object(cimpath_list[i])
@@ -412,8 +511,17 @@ def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=Fa
 
     stacked_cim.putdata(stacked_cim_data)
 
+    #Deleting the CIM variable closes the image, which release the lock
+    del stacked_cim
+    del output_cim
+    del base_cim
+
 
 if __name__ == "__main__":
+    #set_CIM_unit('/home/krozgonyi/Desktop/list_imaging_test/dumpgrid_first_night/image.restored.test', 'Jy/beam',overwrite=True)
+
+    #exit()
+
     CIM_stacking_base(['/home/krozgonyi/Desktop/list_imaging_test/dumpgrid_first_night/image.restored.test',
                     '/home/krozgonyi/Desktop/list_imaging_test/dumpgrid_second_night/image.restored.test'],
                     '/home/krozgonyi/Desktop','a.image', normalise=True,overwrite=True)
