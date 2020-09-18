@@ -1,7 +1,7 @@
 """
 Unit testing for the cgrid module using the unittest module
 The test libraries are not part of the module!
-Hence, they needs to be handeled separately for now.
+Hence, they needs to be handled separately for now.
 """
 
 import os
@@ -28,7 +28,7 @@ def setup_CIM_unittest(parset_path):
 
     The parset has to contain the following lines:
     - GridPath: Full path to a grid in CASAImage format (should be a small grid)
-    - Sparseness: Sparseness of the CIMGridPath grid for the first channel and ploarisation in the image cube
+    - Sparseness: Sparseness of the CIMGridPath grid for the first channel and polarization in the image cube
 
     Parameters
     ==========
@@ -42,7 +42,7 @@ def setup_CIM_unittest(parset_path):
         A ``casacore.images.image.image`` object given by the full path of a test grid in CASAImage format in the parset
 
     Sparseness: float
-        Sparseness for the first channel and ploarisation in the image cube of the grid given by CIMGridPath
+        Sparseness for the first channel and polarization in the image cube of the grid given by CIMGridPath
 
     """
     assert os.path.exists(parset_path)

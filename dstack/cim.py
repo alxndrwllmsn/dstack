@@ -2,7 +2,7 @@
 Collection of functions operating on images in CASAImageformat.
 The functions defined here are expected to work on grids as well, as grids are currently dumped in casaimage format,
 hence functions defined in this module works on both images and grids.
-The image I/O management is kinda manually at this point, but hopefully will be handeled on higher level applications in the future.
+The image I/O management is kinda manually at this point, but hopefully will be handled on higher level applications in the future.
 """
 
 __all__ = ['create_CIM_object', 'get_N_chan_from_CIM', 'get_N_pol_from_CIM',
@@ -28,13 +28,13 @@ def create_CIM_object(cimpath):
     in-memory ``casacore.images.image.image`` object.
 
     This might not be the best solution, but I hope overall a check in a lot of cases will
-    speed up code, rather than readiung in the same CASAImage again-and again. So ideally, only
-    one reading in happends for each CASAImage and all inside this function!
+    speed up code, rather than reading in the same CASAImage again-and again. So ideally, only
+    one reading in happens for each CASAImage and all inside this function!
 
     Parameters
     ==========
     cimpath: str
-        The input CASAImage parth or a ``casacore.images.image.image`` object
+        The input CASAImage path or a ``casacore.images.image.image`` object
 
     Returns
     =======
@@ -58,7 +58,7 @@ def get_N_chan_from_CIM(cimpath,close=False):
     Parameters
     ==========
     cimpath: str
-        The input CASAImage parth or a ``casacore.images.image.image`` object
+        The input CASAImage path or a ``casacore.images.image.image`` object
     
     close: bool, optional
         If True the in-memory CASAIMage is deleted, and the optional write-lock releases
@@ -81,15 +81,15 @@ def get_N_chan_from_CIM(cimpath,close=False):
     return N_chan
 
 def get_N_pol_from_CIM(cimpath,close=False):
-    """Get the number of polarisations from a CASAImage. Note, that the
-    polarisation type is not returned!
+    """Get the number of polarizations from a CASAImage. Note, that the
+    polarization type is not returned!
 
     CASAImage indices: [freq, Stokes, x, y]
 
     Parameters
     ==========
     cimpath: str
-        The input CASAImage parth or a ``casacore.images.image.image`` object
+        The input CASAImage path or a ``casacore.images.image.image`` object
     
     close: bool, optional
         If True the in-memory CASAIMage is deleted, and the optional write-lock releases
@@ -99,7 +99,7 @@ def get_N_pol_from_CIM(cimpath,close=False):
     Returns
     =======
     N_pol: int
-        Number of polarisations in the CASAImage
+        Number of polarizations in the CASAImage
     """
     cim = ds.cim.create_CIM_object(cimpath)
     assert cim.ndim() == 4, 'The image has more than 4 axes!'
@@ -113,9 +113,9 @@ def get_N_pol_from_CIM(cimpath,close=False):
 
 def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8,close=False):
     """Check if two CASAImages are identical or not up to a defined numerical precision
-    This function is used to test certain piepline features.
+    This function is used to test certain pipeline features.
 
-    Note: NaN-s are trethed as equals, and the ``numprec`` parameter only sets the relative difference limit.
+    Note: NaN-s are treated as equals, and the ``numprec`` parameter only sets the relative difference limit.
 
     Parameters
     ==========
@@ -158,8 +158,8 @@ def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8,close=False):
     return equviv
 
 def check_CIM_coordinate_equity(cimpath_a,cimpath_b,close=False):
-    """Basic cehck if the associated coordinate information of two images are somewhat equal.
-    This is **not** an equity check for all coordinate values, as the reference pixels can be differnt,
+    """Basic check if the associated coordinate information of two images are somewhat equal.
+    This is **not** an equity check for all coordinate values, as the reference pixels can be different,
     even for images (grids) with the same coordinate system. Hence, the rigorous part of the check is
     the increment between channels/pixels. The main idea behind this function is to check if
     images (grids) can be stacked together.
@@ -223,11 +223,11 @@ def check_CIM_coordinate_equity(cimpath_a,cimpath_b,close=False):
         warnings.warn('The input images {0:s} and {1:s} have different spectral coordinate units!'.format(
                     cimA.name(),cimB.name()))
 
-    #Polarisation coordinates
+    #Polarization coordinates
     coords_axis = 'stokes'
 
     assert coordsA[coords_axis].get_stokes() == coordsB[coords_axis].get_stokes(), \
-    'The polarisation frame is different for images {0:s} and {1:s}!'.format(cimA.name(),cimB.name())
+    'The polarization frame is different for images {0:s} and {1:s}!'.format(cimA.name(),cimB.name())
 
     #Direction coordinates if images and linear coordinates if grids
     coords_axis = 'direction'
@@ -309,12 +309,12 @@ def set_CIM_unit(cimpath,unit,overwrite=False):
 def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=0,pol=0,close=False):
     """Compute the difference of two CASAImage, and return it as a numpy array.
     Either the entire difference cube, or only the difference of a selected channel 
-    and polarisation slice is returned.
+    and polarization slice is returned.
 
-    The code computes the first minus second image given, and normalises with the
+    The code computes the first minus second image given, and normalizes with the
     second one if the rel_diff parameter is set to True.
 
-    This function maskes sense mostly on images not on grids, that is why I put it under this module.
+    This function makes sense mostly on images not on grids!
 
     Parameters
     ==========
@@ -325,17 +325,17 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
         The input CASAImage path of Bob
     
     rel_diff: bool
-        If True, the relative difference is returned. The code uses Bob to normalise.
+        If True, the relative difference is returned. The code uses Bob to normalize.
 
     all_dim: bool
-        If True, the difference across all channels and polarisations will be computed.
+        If True, the difference across all channels and polarizations will be computed.
         Note taht it can be **very slow and memory heavy**!
 
     chan: int
         Index of the channel in the image cube
 
     pol: int
-        Index of the polarisation in the image cube
+        Index of the polarization in the image cube
 
     close: bool, optional
         If True the in-memory CASAIMage is deleted, and the optional write-lock releases
@@ -345,7 +345,7 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
     Returns
     =======
     diff_array: numpy ndarray
-        Either a single channel and polarisation slice difference,
+        Either a single channel and polarization slice difference,
         or the difference cube of the two input CASAImages
     """
     cimA = ds.cim.create_CIM_object(cimpath_a)
@@ -371,23 +371,23 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
     return diff_array
 
 def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0,close=False):
-    """Measure the RMS on a CASAImage either for a given channel and polarisation,
-    or for ALL channels and polarisations. This could be very slow though.
+    """Measure the RMS on a CASAImage either for a given channel and polarization,
+    or for ALL channels and polarizations. This could be very slow though.
 
     Parameters
     ==========
     cimgpath: str
-        The input CASAImage parth
+        The input CASAImage path
 
     all_dim: bool
-        If True, the RMS will be computed for all channels and polarisations in the image cube
+        If True, the RMS will be computed for all channels and polarizations in the image cube
         Note that, this can be **very slow**!
 
     chan: int
         Index of the channel in the image cube
 
     pol: int
-        Index of the polarisation in the image cube
+        Index of the polarization in the image cube
 
     close: bool, optional
         If True the in-memory CASAIMage is deleted, and the optional write-lock releases
@@ -398,7 +398,7 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0,close=False):
     =======
     rms: float or list of floats
         The RMS value for the given channel or a numpy ndarray
-        containing the RMS for the corresponding channel and ploarisation
+        containing the RMS for the corresponding channel and polarization
     
     """
     cim = ds.cim.create_CIM_object(cimpath)
@@ -421,17 +421,17 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0,close=False):
         return rms
 
 def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=False,overwrite=False):
-    """This function is one of the core functions of the imge stacking stacking deep spectral line pipelines.
+    """This function is one of the core functions of the image stacking stacking deep spectral line pipelines.
 
     This function takes a list of CASAImages and creates the stacked CASAIMage.
     The resultant image can be a simple sum or an average.
 
-    The given imaes have to have the same:
+    The given images have to have the same:
         - shape
         - coordinates
         - pixel value unit (e.g. Jy/beam)
 
-    NOTE, that there are better tools in YadaSoft and casacore to cretate stacked images,
+    NOTE, that there are better tools in YadaSoft and casacore to create stacked images,
     but no option to stack and modify grids.
 
     Parameters
@@ -443,7 +443,7 @@ def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=Fa
         The full path to the folder in which the stacked image will be saved
 
     cim_outputh_name: str
-        The name of the stacked imae
+        The name of the stacked image
 
     normalise: bool
         If True, the images will be averaged instead of just summing them
@@ -466,7 +466,7 @@ def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=Fa
 
     base_cim = ds.cim.create_CIM_object(cimpath_list[0])
 
-    #Coordinate system is initialised by the first CASAImages coordinate system
+    #Coordinate system is initialized by the first CASAImages coordinate system
     coordsys = base_cim.coordinates()
 
     check_attrgroup_empty = lambda x: None if x.attrgroupnames() == [] else warnings.warn('Input image {0:s} has a non-empty attribute list!'.format(x.name()))
@@ -518,51 +518,6 @@ def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=Fa
 
 
 if __name__ == "__main__":
-    #set_CIM_unit('/home/krozgonyi/Desktop/list_imaging_test/dumpgrid_first_night/image.restored.test', 'Jy/beam',overwrite=True)
-
-    #exit()
-
     CIM_stacking_base(['/home/krozgonyi/Desktop/list_imaging_test/dumpgrid_first_night/image.restored.test',
                     '/home/krozgonyi/Desktop/list_imaging_test/dumpgrid_second_night/image.restored.test'],
                     '/home/krozgonyi/Desktop','a.image', normalise=True,overwrite=True)
-    
-    exit()
-
-    import logging;
-    import sys
-    log = logging.getLogger();
-
-    log.setLevel(logging.INFO);
-    log.addHandler(logging.StreamHandler(sys.stdout));
-
-    def log_image_diff_RMS(type_string_one,type_string_two,imager_string_one,imager_string_two,image_one,image_two,string_one,string_two):
-        rms = np.sqrt(np.mean(np.square(ds.cim.create_CIM_diff_array('{0:s}{1:s}/{2:s}'.format(type_string_one,imager_string_one,image_one),
-                                '{0:s}{1:s}/{2:s}'.format(type_string_two,imager_string_two,image_two),
-                                rel_diff=False,all_dim=False,chan=0,pol=0))))
-
-        log.info("{0:s} -- {1:s}: {2:.4e}".format('{0:s}: {1:s}'.format(type_string_one,string_one),string_two,rms))
-
-    def log_image_equity(rprec,type_string_one,type_string_two,imager_string_one,imager_string_two,image_one,image_two,string_one,string_two):
-        log.info("{0:s} -- {1:s}: {2:s}".format('{0:s}: {1:s}'.format(type_string_one,string_one),string_two,
-            str(ds.cim.check_CIM_equity('{0:s}{1:s}/{2:s}'.format(type_string_one,imager_string_one,image_one),
-                                '{0:s}{1:s}/{2:s}'.format(type_string_two,imager_string_two,image_two),numprec=rprec))))
-
-        if ds.cim.check_CIM_equity('{0:s}{1:s}/{2:s}'.format(type_string_one,imager_string_one,image_one),'{0:s}{1:s}/{2:s}'.format(type_string_two,imager_string_two,image_two),numprec=rprec) == False:
-            log_image_diff_RMS(type_string_one,type_string_two,imager_string_one,imager_string_two,image_one,image_two,string_one,string_two)
-
-    import matplotlib.pyplot as plt
-    def show_difference_slice(ima,imb,chan=0,pol=0):
-        diffmap = np.real(ds.cim.create_CIM_diff_array(ima,imb,rel_diff=False,all_dim=False,chan=chan,pol=pol))
-        plt.matshow(diffmap,cmap='viridis')
-        plt.colorbar()
-        plt.show()
-        plt.close()
-
-
-    #log_image_equity(0,'/home/krozgonyi/','/home/krozgonyi/','Desktop','Desktop/list_imaging_test/dumpgrid_list_ms','a.image','image.restored.test','stacked','list')
-    #log_image_equity(0,'/home/krozgonyi/','/home/krozgonyi/','Desktop','Desktop/list_imaging_test/dumpgrid_concentrated_ms','a.image','image.restored.test','stacked','concentrated')
-
-    for i in range(0,11):
-        show_difference_slice('/home/krozgonyi/Desktop/a.image','/home/krozgonyi/Desktop/dstacked_grids/image.test.restored',chan=i)
-
-    #pass

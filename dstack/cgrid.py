@@ -1,6 +1,6 @@
 """
 Collection of specific functions operating on grids, which are stored in CASAImageformat. The main reason for a separate module,
-is to logicaly separate the grid-specific functions. The ``cim`` module functions are working on grids as well, however the grids
+is to logically separate the grid-specific functions. The ``cim`` module functions are working on grids as well, however the grids
 data array is complex that can complicate things...
 """
 
@@ -23,7 +23,7 @@ def measure_grid_sparseness(cimgrid_path,chan=0,pol=0):
     .. math:: S = G_0 / G
     
     where :math:`G` representing all the grid cells and :math:`G_0` he empty grid cells.
-    However due to optimisation the code actually computes:
+    However due to optimization the code actually computes:
 
     .. math:: S = (G - G_N) / G
 
@@ -35,13 +35,13 @@ def measure_grid_sparseness(cimgrid_path,chan=0,pol=0):
     Parameters
     ==========
     cimgrid_path: str
-        The input grid parth (CASAImage format)
+        The input grid path (CASAImage format)
 
     chan: int
         Index of the channel in the grid cube
 
     pol: int
-        Index of the polarisation in the grid cube
+        Index of the polarization in the grid cube
 
     Returns
     =======

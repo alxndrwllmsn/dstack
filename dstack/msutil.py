@@ -19,17 +19,17 @@ def create_MS_object(mspath,ack=False,readonly=True):
     by returning a ``casacore.tables.table.table`` object.
 
     The trick is, that the ``mspath`` argument can be either a string i.e. the path
-    to the MS wich will be read in and returned, **or** it can be already an
+    to the MS which will be read in and returned, **or** it can be already an
     in-memory ``casacore.tables.table.table`` object.
 
     This might not be the best solution, but I hope overall a check in a lot of cases will
-    speed up code, rather than readiung in the same MS again-and again. So ideally, only
-    one reading in happends for each MS and all inside this function!
+    speed up code, rather than reading in the same MS again-and again. So ideally, only
+    one reading in happens for each MS and all inside this function!
 
     Parameters
     ==========
     mspath: str
-        The input MS parth or a ``casacore.tables.table.table`` object
+        The input MS path or a ``casacore.tables.table.table`` object
 
     readonly: bool, optional
         If True, the tables of the MS can be read only, but if set to False one can modify the MS
@@ -84,9 +84,9 @@ def get_MS_phasecentre_all(mspath, frame='icrs', ack=False):
     """Get the list of the phase centres for each field and direction of the MS
     and return a list of astropy skycoord values
 
-    Both field and direcrion IDs are expected to increment from zero, and the maximum
-    ID can be the number of unique fields/dds. However, less than the maxumum number of
-    valid IDs can occure and this code can handle that.
+    Both field and direction IDs are expected to increment from zero, and the maximum
+    ID can be the number of unique fields/dds. However, less than the maximum number of
+    valid IDs can occurs and this code can handle that.
 
     e.g. one field and one direction ID, but in the PHASE_DIR table, 
     phase centre for two directions are existing, the code chooses the valid one
@@ -208,8 +208,8 @@ def get_single_phasecentre_from_MS(mspath, field_ID=0, dd_ID=0, frame='icrs', ac
     return direction
 
 def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=False):
-    """Check if a given phasereference point is amongst the phase cntre of an MS for any
-    firld and direction existing in that MS
+    """Check if a given phase-reference point is amongst the phase centre of an MS for any
+    field and direction existing in that MS
 
     This function is needed as the Phase centre referencing is NOT clear in the MS format
     using ASKAP observations.
@@ -238,10 +238,10 @@ def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=F
     =======
     IDs: list of lists
         If the phase reference given matches with at least one of the 
-        phasecentre in the MS, the filed index and direction idex is returned as a list.
+        phasecentre in the MS, the filed index and direction index is returned as a list.
         Else an empty list is returned.
 
-        The returned indices are the field folloved by direction for ecah match
+        The returned indices are the field followed by direction for each match
 
     """
     assert type(phaseref) == type(SkyCoord(ra = 0 * u.deg, dec = 0 * u.deg, frame=frame, equinox='J2000')), 'Input phaseref is not an astropy SkyCoord object!'

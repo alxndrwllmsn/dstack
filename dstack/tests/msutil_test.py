@@ -1,7 +1,7 @@
 """
 Unit testing for the msutils module using the unittest module
-The trest libraries are not part of the module!
-Hence, they needs to be handeled separately for now.
+The test libraries are not part of the module!
+Hence, they needs to be handled separately for now.
 """
 
 import os
@@ -31,7 +31,7 @@ def setup_MSutil_unittest(parset_path):
     - PhaseCentre: RA and Dec coordinates of the PhaseCentre from the MS in a list,
                     both given in radians e.g. [1.2576,-0.23497]
     - IDs: Field and Direction ID of the PhaseCentre in the MS. Not the reference values,
-                    but the 1nd and 0th indices of the FIELD tables PHASE_DIR column
+                    but the 1st and 0th indices of the FIELD tables PHASE_DIR column
                     e.g. [0,1]
     - NChannels: Number of channels of the MS e.g. 11
 
@@ -54,7 +54,7 @@ def setup_MSutil_unittest(parset_path):
         The ID of the field and direction of the reference PhaseCentre
     
     NPol: int
-        Number of polarisations in the CASAImage
+        Number of polarizations in the CASAImage
     """
     assert os.path.exists(parset_path)
 

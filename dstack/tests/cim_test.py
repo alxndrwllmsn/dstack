@@ -1,7 +1,7 @@
 """
 Unit testing for the cim module using the unittest module
 The test libraries are not part of the module!
-Hence, they needs to be handeled separately for now.
+Hence, they needs to be handled separately for now.
 """
 
 import os
@@ -32,7 +32,7 @@ def setup_CIM_unittest(parset_path):
     The parset has to contain the following lines:
     - CIMpath: Full path to the CASAImage e.g. /home/user/example]
     - NumericalPrecision: Maximum absolute difference between ASAImages A and B. Have to be >= 0.
-    - RMS: the measured RMS of the CIMpath_A image for the first channel and ploarisation in the image cube (the RMS should be measured by using all pixels)
+    - RMS: the measured RMS of the CIMpath_A image for the first channel and polarization in the image cube (the RMS should be measured by using all pixels)
 
     Parameters
     ==========
@@ -55,10 +55,10 @@ def setup_CIM_unittest(parset_path):
         Number of channels in the CASAImage given by CIMPathA
 
     NPol: int
-        Number of polarisations in the CASAImage given by CIMPathA
+        Number of polarizations in the CASAImage given by CIMPathA
 
     RMS: float
-        Root Mean Square for the first channel and ploarisation in the image cube given by CIMPath
+        Root Mean Square for the first channel and polarization in the image cube given by CIMPath
     """
     assert os.path.exists(parset_path)
 
