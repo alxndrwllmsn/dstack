@@ -45,7 +45,7 @@ def setup_CIM_unittest(parset_path):
         Sparseness for the first channel and polarization in the image cube of the grid given by CIMGridPath
 
     """
-    assert os.path.exists(parset_path)
+    assert os.path.exists(parset_path), 'Test parset does not exist!'
 
     config = configparser.ConfigParser()
     config.read(parset_path)

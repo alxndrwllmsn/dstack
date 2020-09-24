@@ -60,7 +60,7 @@ def setup_CIM_unittest(parset_path):
     RMS: float
         Root Mean Square for the first channel and polarization in the image cube given by CIMPath
     """
-    assert os.path.exists(parset_path)
+    assert os.path.exists(parset_path), 'Test parset does not exist!'
 
     config = configparser.ConfigParser()
     config.read(parset_path)

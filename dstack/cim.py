@@ -440,10 +440,10 @@ def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=Fa
         A list of the full paths of the images to be stacked
     
     cim_output_path: str
-        The full path to the folder in which the stacked image will be saved
+        Full path to the folder in which the stacked image will be saved
 
     cim_outputh_name: str
-        The name of the stacked image
+        Name of the stacked image
 
     normalise: bool
         If True, the images will be averaged instead of just summing them

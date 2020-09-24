@@ -56,7 +56,7 @@ def setup_MSutil_unittest(parset_path):
     NPol: int
         Number of polarizations in the CASAImage
     """
-    assert os.path.exists(parset_path)
+    assert os.path.exists(parset_path), 'Test parset does not exist!'
 
     config = configparser.ConfigParser()
     config.read(parset_path)
