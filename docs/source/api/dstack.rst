@@ -8,4 +8,5 @@ Subpackages
 
    dstack.cgrid
    dstack.cim
+   dstack.parset
    dstack.msutil
