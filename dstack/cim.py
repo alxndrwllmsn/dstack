@@ -47,10 +47,46 @@ def create_CIM_object(cimpath):
     if type(cimpath) == 'casacore.images.image.image':
         return cimpath
     else:
-        cim = casaimage.image(cimpath)
-        return cim
+        # We could simply return, no need to assign the return value of
+        # `casaimage.image(cimpath)` to a new variable.
+        return casaimage.image(cimpath)
 
-def get_N_chan_from_CIM(cimpath,close=False):
+def check_axes(cim, required_axes=4):
+    """Checks if the ``cim`` image object has the correct number of
+    axes or dimensions. Raises
+    
+    Notes
+    =====
+    I would refactor this safety check into this separate function, even
+    though it is only used in two functions. Couple of reasons:
+    
+    If later it is decided that a different number of axes needs
+    to be used, this function can simply be updated so that
+    ``required_axes`` will have a different default value and there will
+    be no need to copy and paste changes in different parts of the code.
+    
+    This function can be used in different modules if the need arises,
+    and there will be no need to copy-paste the code segment.
+    
+    Parameters
+    ==========
+    cim: ``casacore.images.image.image`` object
+        In-memory CASAImage
+    required_axes: int
+        Number of required axes or dimensions for the ``cim`` image
+        object.
+    
+    Raises
+    ======
+    AssertionError
+        If the number of axes is does not equal the required
+        numbers.
+    """
+    assert cim.ndim() == required_axes, 'The image has more than 4 axes!'
+    
+
+# one space should follow each comma (,)
+def get_N_chan_from_CIM(cimpath, close=False):
     """Get the number of channels from a CASAImage
 
     CASAImage indices: [freq, Stokes, x, y]
@@ -80,7 +116,8 @@ def get_N_chan_from_CIM(cimpath,close=False):
 
     return N_chan
 
-def get_N_pol_from_CIM(cimpath,close=False):
+# one space should follow each comma (,)
+def get_N_pol_from_CIM(cimpath, close=False):
     """Get the number of polarizations from a CASAImage. Note, that the
     polarization type is not returned!
 
@@ -111,7 +148,8 @@ def get_N_pol_from_CIM(cimpath,close=False):
 
     return N_pol
 
-def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8,close=False):
+# one space should follow each comma (,)
+def check_CIM_equity(cimpath_a, cimpath_b, numprec=1e-8, close=False):
     """Check if two CASAImages are identical or not up to a defined numerical precision
     This function is used to test certain pipeline features.
 
@@ -157,7 +195,28 @@ def check_CIM_equity(cimpath_a,cimpath_b,numprec=1e-8,close=False):
 
     return equviv
 
-def check_CIM_coordinate_equity(cimpath_a,cimpath_b,close=False):
+def ensure_same_dims(a, b):
+    """Checks if the ``a`` and ``b`` image objects have the same number
+    of dimensions.
+    
+    Parameters
+    ==========
+    a: ``casacore.images.image.image`` object
+        In-memory CASAImage
+    b: ``casacore.images.image.image`` object
+        In-memory CASAImage
+    
+    Raises
+    ======
+    AssertionError
+        If the number of dimensions is not equal for ``a`` and ``b``.
+    
+    """
+    assert a.ndim() == b.ndim(), 'The dimension of the two input CASAImage is not equal!'
+    
+
+# one space should follow each comma (,)
+def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
     """Basic check if the associated coordinate information of two images are somewhat equal.
     This is **not** an equity check for all coordinate values, as the reference pixels can be different,
     even for images (grids) with the same coordinate system. Hence, the rigorous part of the check is
@@ -190,8 +249,9 @@ def check_CIM_coordinate_equity(cimpath_a,cimpath_b,close=False):
     """
     cimA = ds.cim.create_CIM_object(cimpath_a)
     cimB = ds.cim.create_CIM_object(cimpath_b)
-
-    assert cimA.ndim() == cimB.ndim(), 'The dimension of the two input CASAImage is not equal!'
+    
+    ensure_same_dims(cimA, cimB)
+    # Similarly I would refactor the unit checks.
     assert cimA.unit() == cimB.unit(), 'The pixel units of the two input CASAImage is not equal!'
 
     coordsA = cimA.coordinates()
@@ -199,21 +259,32 @@ def check_CIM_coordinate_equity(cimpath_a,cimpath_b,close=False):
 
     #Spectral coordinates
     coords_axis = 'spectral'
-
-    assert coordsA[coords_axis].get_frame() == coordsB[coords_axis].get_frame(), \
+    
+    # Since variables ``coordsA[coords_axis]`` and
+    # ``coordsB[coords_axis]`` are used multiple times I would
+    # save their value into a separate variable. This also saves
+    # some CPU time by executing the "lookup" operation
+    # (the [] operator)only once.
+    # Similarly other temporary values that are used more than one
+    # time, could be saved into a variable. E.g. ``cimA.name()`` and
+    # ``cimB.name()``.
+    
+    axis_a, axis_b = coordsA[coords_axis], coordsB[coords_axis]
+    
+    assert axis_a.get_frame() == axis_b.get_frame(), \
     'The given images {0:s} and {1:s} have different frames!'.format(cimA.name(),cimB.name())
 
-    if coordsA[coords_axis].get_unit() == coordsB[coords_axis].get_unit():
-        assert coordsA[coords_axis].get_increment() == coordsB[coords_axis].get_increment(), \
+    if axis_a.get_unit() == axis_b.get_unit():
+        assert axis_a.get_increment() == axis_b.get_increment(), \
         'The increment of the two spectral coordinates are different for images {0:s} and {1:s}'.format(
         cimA.name(),cimB.name())
         
-        assert coordsA[coords_axis].get_restfrequency() == coordsB[coords_axis].get_restfrequency(), \
+        assert axis_a.get_restfrequency() == axis_b.get_restfrequency(), \
         'The rest frame frequency of the two spectral coordinates are different for images {0:s} and {1:s}'.format(
         cimA.name(),cimB.name())
 
-        if coordsA[coords_axis].get_referencepixel() == coordsB[coords_axis].get_referencepixel():
-            assert coordsA[coords_axis].get_referencevalue() == coordsB[coords_axis].get_referencevalue(), \
+        if axis_a.get_referencepixel() == axis_b.get_referencepixel():
+            assert axis_a.get_referencevalue() == axis_b.get_referencevalue(), \
             'The reference values of the spectral corrdinates are different for images {0:s} and {1:s}'.format(
             cimA.name(),cimB.name())
         else:
@@ -226,37 +297,37 @@ def check_CIM_coordinate_equity(cimpath_a,cimpath_b,close=False):
     #Polarization coordinates
     coords_axis = 'stokes'
 
-    assert coordsA[coords_axis].get_stokes() == coordsB[coords_axis].get_stokes(), \
+    assert axis_a.get_stokes() == axis_b.get_stokes(), \
     'The polarization frame is different for images {0:s} and {1:s}!'.format(cimA.name(),cimB.name())
 
     #Direction coordinates if images and linear coordinates if grids
     coords_axis = 'direction'
     try:
-        assert coordsA[coords_axis].get_frame() == coordsB[coords_axis].get_frame(), \
+        assert axis_a.get_frame() == axis_b.get_frame(), \
         'The given images {0:s} and {1:s} have different frames!'.format(cimA.name(),cimB.name())
 
-        assert coordsA[coords_axis].get_projection() == coordsB[coords_axis].get_projection(), \
+        assert axis_a.get_projection() == axis_b.get_projection(), \
         'The given images {0:s} and {1:s} have different projections!'.format(cimA.name(),cimB.name())
 
     except AssertionError:
         #re-run the assertion to actually fail the code
-        assert coordsA[coords_axis].get_frame() == coordsB[coords_axis].get_frame(), \
+        assert axis_a.get_frame() == axis_b.get_frame(), \
         'The given images {0:s} and {1:s} have different frames!'.format(cimA.name(),cimB.name())
 
-        assert coordsA[coords_axis].get_projection() == coordsB[coords_axis].get_projection(), \
+        assert axis_a.get_projection() == axis_b.get_projection(), \
         'The given images {0:s} and {1:s} have different projections!'.format(cimA.name(),cimB.name())
     
     except:
         #Change to linear coord as the given CASAimage is a grid!
         coords_axis = 'linear'
 
-    if np.all(np.array(coordsA[coords_axis].get_unit()) == np.array(coordsB[coords_axis].get_unit())):
-        assert np.all(np.array(coordsA[coords_axis].get_increment()) == np.array(coordsB[coords_axis].get_increment())), \
+    if np.all(np.array(axis_a.get_unit()) == np.array(axis_b.get_unit())):
+        assert np.all(np.array(axis_a.get_increment()) == np.array(axis_b.get_increment())), \
         'The increment of the (x,y) direction coordinates are different for the input images {0:s} and {1:s}'.format(
         cimA.name(),cimB.name())
 
-        if np.all(np.array(coordsA[coords_axis].get_referencepixel()) == np.array(coordsB[coords_axis].get_referencepixel())):
-            assert np.all(np.array(coordsA[coords_axis].get_referencevalue()) == np.array(coordsB[coords_axis].get_referencevalue())), \
+        if np.all(np.array(axis_a.get_referencepixel()) == np.array(axis_b.get_referencepixel())):
+            assert np.all(np.array(axis_a.get_referencevalue()) == np.array(axis_b.get_referencevalue())), \
             'The reference values of the (x,y) direction corrdinates are different for images {0:s} and {1:s}'.format(
             cimA.name(),cimB.name())
         else:
@@ -272,7 +343,8 @@ def check_CIM_coordinate_equity(cimpath_a,cimpath_b,close=False):
 
     return True
 
-def set_CIM_unit(cimpath,unit,overwrite=False):
+# one space should follow each comma (,)
+def set_CIM_unit(cimpath, unit, overwrite=False):
     """When a CASAImage is created using the ``casaimage.image()`` routine, the pixel unit of the image is empty by default.
     There is no way to set the unit by using the ``casacore.images`` module. However, we can workaround this by opening the
     image as a CASATable. Hooray. When no unit is defined the keyword *units* will be missing, hence we need to add this
@@ -306,7 +378,8 @@ def set_CIM_unit(cimpath,unit,overwrite=False):
 
     CIMTable.close()
 
-def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=0,pol=0,close=False):
+# one space should follow each comma (,)
+def create_CIM_diff_array(cimpath_a, cimpath_b, rel_diff=False, all_dim=False, chan=0, pol=0, close=False):
     """Compute the difference of two CASAImage, and return it as a numpy array.
     Either the entire difference cube, or only the difference of a selected channel 
     and polarization slice is returned.
@@ -350,8 +423,8 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
     """
     cimA = ds.cim.create_CIM_object(cimpath_a)
     cimB = ds.cim.create_CIM_object(cimpath_b)
-
-    assert cimA.ndim() == cimB.ndim(), 'The dimension of the two input CASAImage is not equal!'
+    
+    ensure_same_dims(a, b)
 
     if all_dim:
         if rel_diff:
@@ -370,7 +443,8 @@ def create_CIM_diff_array(cimpath_a,cimpath_b,rel_diff=False,all_dim=False,chan=
 
     return diff_array
 
-def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0,close=False):
+# one space should follow each comma (,)
+def measure_CIM_RMS(cimpath, all_dim=False, chan=0, pol=0, close=False):
     """Measure the RMS on a CASAImage either for a given channel and polarization,
     or for ALL channels and polarizations. This could be very slow though.
 
@@ -406,6 +480,8 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0,close=False):
     if all_dim:
         rms_matrix = np.zeros((cim.shape()[0],cim.shape()[1]))
 
+        # I will think about how this operation could be vectorised
+        # so ther will be no need for Python loops.
         for chan_i in range(0,cim.shape()[0]):
             for pol_j in range(0,cim.shape()[1]):
                 rms_matrix[i,j] = np.sqrt(np.mean(np.square(cim.getdata()[chan_i,pol_j,...])))
@@ -420,7 +496,8 @@ def measure_CIM_RMS(cimpath,all_dim=False,chan=0,pol=0,close=False):
             del cim
         return rms
 
-def CIM_stacking_base(cimpath_list,cim_output_path,cim_outputh_name,normalise=False,overwrite=False):
+# one space should follow each comma (,)
+def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise=False,overwrite=False):
     """This function is one of the core functions of the image stacking stacking deep spectral line pipelines.
 
     This function takes a list of CASAImages and creates the stacked CASAIMage.
