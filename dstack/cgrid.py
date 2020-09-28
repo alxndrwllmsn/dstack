@@ -15,7 +15,7 @@ from casacore import images as casaimage
 
 import dstack as ds
 
-def measure_grid_sparseness(cimgrid_path,chan=0,pol=0):
+def measure_grid_sparseness(cimgrid_path, chan=0,pol=0):
     """Measure the sparseness of the input grid, given in a complex CASAImage format
 
     The sparseness is defined as:

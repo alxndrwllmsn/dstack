@@ -14,7 +14,7 @@ from astropy import units as u
 
 import dstack as ds
 
-def create_MS_object(mspath,ack=False,readonly=True):
+def create_MS_object(mspath, ack=False, readonly=True):
     """This function aims to speed up other bits of this module, 
     by returning a ``casacore.tables.table.table`` object.
 

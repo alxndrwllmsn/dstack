@@ -58,7 +58,7 @@ def check_preconditioner_suppoort(preconditioners=_DEFAULT_PRECONDITIONER):
                 return False
     return True
 
-def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES,gridder_name=_DEFAULT_GRIDDER_NAME):
+def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAULT_GRIDDER_NAME):
     """This function creates a mapping between the ``dstack`` and ``YandaSoft`` parset variables.
     The imager used is not included in the ``YandaSoft`` variables. However, when reading in a template parset
     using the ``__init__()`` method of the Parset class, the imager name have to be included in the parset file.
@@ -225,7 +225,7 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES,gridder_name=_DEFAULT
 
     return parset_mapping, inverse_parset_mapping
 
-def check_parameter_and_Imager_compatibility(parset_param,imager=_DEFAULT_IMAGER):
+def check_parameter_and_Imager_compatibility(parset_param, imager=_DEFAULT_IMAGER):
     """This function defines which parameters the supported imagers are not compatible with.
 
     This check returns False if the given parameter is not compatible with the imager
@@ -267,7 +267,7 @@ def check_parameter_and_Imager_compatibility(parset_param,imager=_DEFAULT_IMAGER
         #Everything goes with the dstack imager :O
         return True
 
-def check_parameter_and_Preconditioner_compatibility(parset_param,preconditioners=_DEFAULT_PRECONDITIONER):
+def check_parameter_and_Preconditioner_compatibility(parset_param, preconditioners=_DEFAULT_PRECONDITIONER):
     """This function defines which parameters the preconditioners used are not compatible with.
 
     This check returns False if the given parameter is not compatible with the preconditioner
@@ -359,7 +359,7 @@ class Parset(object):
         The ``gridder`` parameter of ``YandaSoft`` imager task.
 
     """
-    def __init__(self,template_path=None,imager=_DEFAULT_IMAGER,image_names=_DEFAULT_IMAGE_NAMES,gridder_name=_DEFAULT_GRIDDER_NAME):
+    def __init__(self, template_path=None, imager=_DEFAULT_IMAGER, image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAULT_GRIDDER_NAME):
         object.__setattr__(self, "_parset", {})
 
         assert imager in _SUPPORTED_IMAGERS, 'Imager {0:s} is not supported!'.format(imager)
@@ -445,7 +445,7 @@ class Parset(object):
         lines += '}'
         return lines
 
-    def update_parset_mapping(self,image_names=_DEFAULT_IMAGE_NAMES,gridder_name=_DEFAULT_GRIDDER_NAME):
+    def update_parset_mapping(self, image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAULT_GRIDDER_NAME):
         """Update the mapping used between the ``dstack`` and ``YandaSoft`` parset variables.
         It also updates the parameters defined. Therefore, ths function supposed to be used when
         one wants to change the attributes affecting the mapping, as this keeps everything consistent.
@@ -473,7 +473,7 @@ class Parset(object):
         self._mapping = pm
         self._inverse_mapping = ipm
 
-    def update_imager(self,imager=_DEFAULT_IMAGER):
+    def update_imager(self, imager=_DEFAULT_IMAGER):
         """Go-to routine when updating the imager.
 
         Parameters
@@ -490,7 +490,7 @@ class Parset(object):
         assert imager in _SUPPORTED_IMAGERS, 'Imager {0:s} is not supported!'.format(imager)
         self._imager = imager
 
-    def save_parset(self,output_path,parset_name,overwrite=True):
+    def save_parset(self, output_path, parset_name, overwrite=True):
         """Save the in-memory ``Parset`` to ``output_path/parset_name``.
         The saved parset can be fed into ``YandaSoft``
 

@@ -78,6 +78,15 @@ def setup_CIM_unittest(parset_path):
 class TestCIM(unittest.TestCase):
     CIMPathA, CIMPathB, NumPrec, NChan, NPol, RMS = setup_CIM_unittest(PARSET)
 
+    def test_check_CIM_axes(self):
+        ds.cim.check_CIM_axes(self.CIMPathA)
+
+    def test_CIM_dim_equity_check(self):
+        ds.cim.CIM_dim_equity_check(self.CIMPathA,self.CIMPathB)
+
+    def test_CIM_unit_equity_check(self):
+        ds.cim.CIM_unit_equity_check(self.CIMPathA,self.CIMPathB)
+
     def test_check_CIM_equity(self):
         assert ds.cim.check_CIM_equity(self.CIMPathA,self.CIMPathB, numprec=self.NumPrec) == True, \
         'The given images differ more than the provided numerical precision tolerance!'
@@ -100,13 +109,13 @@ class TestCIM(unittest.TestCase):
         'Failed to produce a difference image of zeros using CIM A!'
 
     def test_measure_CIM_RMS(self):
-        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA),self.RMS,rtol=1e-7), \
+        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA), self.RMS, rtol=1e-7), \
         'The given RMS and the RMS measured on the image are not matching!'
 
     def test_CIM_stacking_base(self):
-        ds.cim.CIM_stacking_base([self.CIMPathA,self.CIMPathA],TEST_DIR,'test_CIM_stacking_base',overwrite=True)
+        ds.cim.CIM_stacking_base([self.CIMPathA,self.CIMPathA],TEST_DIR,'test_CIM_stacking_base', overwrite=True)
 
-        assert np.array_equiv(np.multiply(casaimage.image(self.CIMPathA).getdata(),2),casaimage.image('{0:s}/test_CIM_stacking_base'.format(TEST_DIR)).getdata()), \
+        assert np.array_equiv(np.multiply(casaimage.image(self.CIMPathA).getdata(),2), casaimage.image('{0:s}/test_CIM_stacking_base'.format(TEST_DIR)).getdata()), \
         'Stacking the same image not equivalent with multiplying with two!'
 
     def test_set_CIM_unit(self):

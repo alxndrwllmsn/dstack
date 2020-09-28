@@ -59,7 +59,7 @@ class TestCIM(unittest.TestCase):
     GridPath, Sparseness = setup_CIM_unittest(PARSET)
 
     def test_measure_grid_sparseness(self):
-        assert np.isclose(ds.cgrid.measure_grid_sparseness(self.GridPath),self.Sparseness,rtol=1e-7), \
+        assert np.isclose(ds.cgrid.measure_grid_sparseness(self.GridPath), self.Sparseness, rtol=1e-7), \
         'The given sparseness and the sparseness measured on the grid are not matching!'
 
 if __name__ == "__main__":
