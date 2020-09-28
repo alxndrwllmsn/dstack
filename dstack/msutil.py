@@ -169,12 +169,12 @@ def get_single_phasecentre_from_MS(mspath, field_ID=0, dd_ID=0, frame='icrs', ac
     mspath: str
         The input MS path
 
-    field_ID: int >= 0
+    field_ID: int >= 0, optional
         Field ID in the FIELD table. Note, that the FIELD_ID in the MAIN table can
         have a different value. e.g. FIELD_ID = 1, but only one filed exists, then the
         field_ID should be 0!
 
-    dd_ID: int >= 0
+    dd_ID: int >= 0, optional
         Direction ID in the FIELD table.
 
     frame: str, optional
@@ -222,7 +222,7 @@ def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=F
     phaseref: Astropy coordinate
         Astropy SkyCoord object with the same frame as the :param frame: parameter 
 
-    sep_threshold: float
+    sep_threshold: float, optional
         Maximum allowed separation between the given phaseref and the phasecentres in the MS.
         The separation is defined in arcesconds. If the phaseref and the phasecentre within the
         separation, it counts as a match

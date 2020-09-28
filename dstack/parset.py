@@ -4,8 +4,9 @@ The code takes template parset(s) and creates custom parsets for pipelines such 
 Currently not everything is supported and the wrapper is not complete, i.e. the user can break the wrapper if not careful!
 """
 
-__all__ = ['check_preconditioner_suppoort', 'create_parset_mapping', 'Parset',
-            'check_parameter_and_Imager_compatibility', 'check_parameter_and_Preconditioner_compatibility']
+__all__ = ['list_supported_parset_settings', 'create_parset_mapping','check_preconditioner_suppoort',
+            'check_parameter_and_Imager_compatibility', 'check_parameter_and_Preconditioner_compatibility',
+            'Parset']
 
 import os
 import warnings
@@ -23,40 +24,25 @@ _DEFAULT_IMAGE_NAMES = 'image.dstack.test'
 _DEFAULT_GRIDDER_NAME = 'WProject'
 _DEFAULT_PRECONDITIONER = []
 
-#TO DO:
-#======
-"""
-Create a _preconditioners attribute to the Parset class.
-Initialise as an empty list and fill up from the template parset
-Or have the user-defined list which is cross-matched against the template parset
-Make a function where the user can modify this value
-When saving a parset only use the lines compatible with the preonditioners defined
-
-Create a function that prints out what is supported
-"""
-
 #=== Functions ===
-def check_preconditioner_suppoort(preconditioners=_DEFAULT_PRECONDITIONER):
-    """Check if the list of preconditioners given is supported
+def list_supported_parset_settings():
+    """List the ``YandaSoft`` parset settings that are currently supported by ``dstack``.
 
     Parameters
     ==========
-    preconditioners: list
-        A list containing the preconditioners to test
 
     Returns
     =======
-    allowded: bool
-        True, if the given list contains only allowed preconditioners,
-        and False if not
+    Prints out the supported settings
     """
-    if preconditioners == []:
-        return True
-    else:
-        for preconditioner in preconditioners:
-            if preconditioner not in _SUPPORTED_PRECONDITIONERS:
-                return False
-    return True
+    print_support = lambda functionality, flist: print('Supported {0:s}: '.format(functionality) + ' '.join(map(str, flist)))
+
+    print('Settings for YandaSoft parsets supported by the dstack wrapper:')
+    print_support('Imagers',_SUPPORTED_IMAGERS)
+    print_support('Solvers',_SUPPORTED_SOLVERS)
+    print_support('Gridders',_SUPPORTED_GRIDDER_NAMES)
+    print_support('Preconditioners',_SUPPORTED_PRECONDITIONERS)
+
 
 def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAULT_GRIDDER_NAME):
     """This function creates a mapping between the ``dstack`` and ``YandaSoft`` parset variables.
@@ -76,12 +62,15 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
     Currently not all parset parameters are supported.
     e.g. only the Clean solvers are supported in the current version of ``dstcak``
 
+    The mapping uses the ``Python 3.7+`` feature that dictionaries sorted as they created.
+    I.e. the mapping is sorted as it is hard-coded in this function!
+
     Parameters
     ==========
-    image_names: str
+    image_names: str, optional
         The ``Names`` parameter of ``YandaSoft`` imager task. The code *currelntly not supporting a list of Names only a single Name can be used*!
 
-    gridder_name: str
+    gridder_name: str, optional
         The ``gridder`` parameter of ``YandaSoft`` imager task.
 
     Returns
@@ -90,8 +79,12 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         The dictionary that is the mapping between the ``dstack`` and ``YandaSoft`` parset variables
     inverse_parset_mapping: dict
         Inverse dictionary of ``parset_mapping``
+    mapping_order? dict
+        A dictionary defines the order of ``dstack`` parset parameters in which they
+        written out to prompt or to file.
     """
     parset_mapping = {
+        #Basic parameters
         'dataset': 'dataset',
         'grid' : 'grid',
         'psfgrid' : 'psfgrid',
@@ -117,7 +110,6 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'restore' : 'restore',
         'nUVWMachines' : 'nUVWMachines',
         'uvwMachineDirTolerance' : 'uvwMachineDirTolerance',
-        'gridder' : 'gridder',
         'MaxUV' : 'MaxUV',
         'MinUV' : 'MinUV',
         'usetmpfs' : 'usetmpfs',
@@ -125,13 +117,13 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'rankstoringcf' : 'rankstoringcf',
         'visweights' : 'visweights',
         'VMFSreffreq' : 'visweights.MFS.reffreq',
-        'solver' : 'solver',
         'ncycles' : 'ncycles',
         'sensitivityimage' : 'sensitivityimage',
         'Scutoff' : 'sensitivityimage.cutoff',
         'channeltolerance' : 'channeltolerance',
         'dumpgrids' : 'dumpgrids',
         'memorybuffers' : 'memorybuffers',
+        #Images settings
         'Ireuse' : 'Images.reuse',
         'Ishape' : 'Images.shape',
         'Icellsize' : 'Images.cellsize',
@@ -148,6 +140,8 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'INpolarisation' : 'Images.{0:s}.polarisation'.format(image_names),
         'INnterms' : 'Images.{0:s}.nterms'.format(image_names),
         'INfacetstep' : 'Images.{0:s}.facetstep'.format(image_names),
+        #Gridding setup
+        'gridder' : 'gridder',
         'Gpadding' : 'gridder.padding',
         'Galldatapsf' : 'gridder.alldatapsf',
         'Goversampleweight' : 'gridder.oversampleweight',
@@ -185,6 +179,8 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'GNtablename' : 'gridder.{0:s}.tablename'.format(gridder_name),
         'GNusedouble' : 'gridder.{0:s}.usedouble'.format(gridder_name),
         'GNsharecf' : 'gridder.{0:s}.sharecf'.format(gridder_name),
+        #Deconvolutoin solver
+        'solver' : 'solver',
         'Cverbose' : 'solver.Clean.verbose',
         'Ctolerance' : 'solver.Clean.tolerance',
         'Cweightcutoff' : 'solver.Clean.weightcutoff',
@@ -204,6 +200,7 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'Tminorcycle' : 'threshold.minorcycle',
         'Tmajorcycle' : 'threshold.majorcycle',
         'Tmasking' : 'threshold.masking',
+        #Preconditioning
         'PNames' : 'preconditioner.Names',
         'Ppreservecf' : 'preconditioner.preservecf',
         'PWnoisepower' : 'preconditioner.Wiener.noisepower',
@@ -214,6 +211,7 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'PGaussianTaper' : 'preconditioner.GaussianTaper',
         'PGTisPsfSize' : 'preconditioner.GaussianTaper.isPsfSize',
         'PGTtolerance' : 'preconditioner.GaussianTaper.tolerance',
+        #Restoring cycles
         'Rbeam' : 'restore.beam',
         'Rbeamcutoff' : 'restore.beam.cutoff',
         'Requalise' : 'restore.equalise',
@@ -222,8 +220,31 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
     }
 
     inverse_parset_mapping = {v: k for k, v in parset_mapping.items()}
+    mapping_order = {k: i for i, (k, v) in zip(range(0,len(parset_mapping)),parset_mapping.items())}
 
-    return parset_mapping, inverse_parset_mapping
+    return parset_mapping, inverse_parset_mapping, mapping_order
+
+def check_preconditioner_suppoort(preconditioners=_DEFAULT_PRECONDITIONER):
+    """Check if the list of preconditioners given is supported
+
+    Parameters
+    ==========
+    preconditioners: list
+        A list containing the preconditioners to test
+
+    Returns
+    =======
+    allowded: bool, optional
+        True, if the given list contains only allowed preconditioners,
+        and False if not
+    """
+    if preconditioners == []:
+        return True
+    else:
+        for preconditioner in preconditioners:
+            if preconditioner not in _SUPPORTED_PRECONDITIONERS:
+                return False
+    return True
 
 def check_parameter_and_Imager_compatibility(parset_param, imager=_DEFAULT_IMAGER):
     """This function defines which parameters the supported imagers are not compatible with.
@@ -238,7 +259,7 @@ def check_parameter_and_Imager_compatibility(parset_param, imager=_DEFAULT_IMAGE
     parset_param: str
         The ``dstack`` parset parameter variable name
 
-    imager: str
+    imager: str, optional
         Imager to test against
 
     Returns
@@ -280,7 +301,7 @@ def check_parameter_and_Preconditioner_compatibility(parset_param, preconditione
     parset_param: str
         The ``dstack`` parset parameter variable name
 
-    preconditioners: list
+    preconditioners: list, optional
         This is the list of preconditioners used
 
      Returns
@@ -336,15 +357,17 @@ class Parset(object):
 
     The mapping is an attribute of the ``Parset`` class.
 
-    The mapping is based on the ``ASKAPSOFT`` documentation.
-        - `imager <https://www.atnf.csiro.au/computing/software/askapsoft/sdp/docs/current/calim/imager.html>`_
+    The mapping is based on the ``ASKAPSOFT`` `documentation <https://www.atnf.csiro.au/computing/software/askapsoft/sdp/docs/current/calim/index.html>`_
+
+    Though the ``Parset`` class offers a range of flexibility, currently the template parset
+    have to consist only one Images Names and gridder. These must be specified when creating 
+    a ``Parset`` object and the template have to use the given naming convention in order to
+    be compatible with the mapping generated.
+
+    If no template is given, an empty parset is generated.
 
     Keyword Arguments
     =================
-    template_path: str or None
-        Full path to a template parset file, which can be used to 
-        initialize the parset parameters
-
     imager: str
         Have to be a selected ``YandaSoft`` Imager task. When a parset file is created
         this attribute is used to define the imager
@@ -358,8 +381,21 @@ class Parset(object):
     gridder_name: str
         The ``gridder`` parameter of ``YandaSoft`` imager task.
 
+    template_path: str or None, optional
+        Full path to a template parset file, which can be used to 
+        initialize the parset parameters
+
+    preconditioner: list or None, optional
+        The preconditioner(s) used when saving the parset. The ``Parset`` object is designed to be
+        flexible, allowing for parameters coexist even if it would make no sense. However, when 
+        saving a Parset, a series of check ensures that the parset is compatible with ``YandaSoft``.
+        The solution for preconditioning is that the user can define which preconditioner to use
+        when saving a parset. This argument enable the user to define what preconditioners to use
+        when saving the parset. If set to None, the preconditioners are read from the template if given.
+        It creates an empty list if no template is given or if the template defines no preconditioning.
+        Note, that if the template uses preconditioning not supported by ``dstack``, it will be ignored.
     """
-    def __init__(self, template_path=None, imager=_DEFAULT_IMAGER, image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAULT_GRIDDER_NAME):
+    def __init__(self, imager=_DEFAULT_IMAGER, image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAULT_GRIDDER_NAME, template_path=None, preconditioner=None):
         object.__setattr__(self, "_parset", {})
 
         assert imager in _SUPPORTED_IMAGERS, 'Imager {0:s} is not supported!'.format(imager)
@@ -368,48 +404,89 @@ class Parset(object):
         assert gridder_name in _SUPPORTED_GRIDDER_NAMES, 'Gridder {0:s} is not supported!'.format(gridder_name)
         self._gridder_name = gridder_name
 
-        pm, ipm = create_parset_mapping(image_names=self._image_names,gridder_name=self._gridder_name)
+        #Set up an empty list for ._preconditioner =>  I will fill this up with the preconditioner from the template file
+        assert check_preconditioner_suppoort(preconditioner) #Here I check if the given preconditioners are valid or not just before reading in the template
+        if preconditioner != None:
+            user_defined_preconditioner = True
+        self._preconditioner = []
+
+
+        pm, ipm, pmo = create_parset_mapping(image_names=self._image_names,gridder_name=self._gridder_name)
         object.__setattr__(self,"_mapping", pm)
         object.__setattr__(self,"_inverse_mapping", ipm)
+        object.__setattr__(self,"_mapping_order", pmo)
 
         if template_path != None:
             assert os.path.exists(template_path), 'Template parset does not exist!'
 
             with open(template_path, 'r') as f:
-                    for line in f.readlines():
-                        if line[0] == '#' or line.split() == []:
-                            continue
+                for line in f.readlines():
+                    if line[0] == '#' or line.split() == []:
+                        continue
+                    
+                    name = line.split()[0]
+
+                    #Check if the name starts with a string from the list of supported imagers
+                    if list(filter(name.startswith, _SUPPORTED_IMAGERS)) != []:
+                        name = '.'.join(name.split('.')[1:])#Name without imager
+                        value = line[line.index('= ')+2:].rstrip()#get rid of line separators with .rstrip()
+
+                        assert name in self._inverse_mapping, \
+                        'Can not interpret the parameter {0:s} given in the parset {1:s}!'.format(name,template_path)
                         
-                        name = line.split()[0]
+                        #Some consistency check
+                        if self._inverse_mapping[name] == 'INames':
+                            assert self._image_names in value, \
+                            'Parsed created with different image names ({0:s}) from that defined in the template parset {1:s}!'.format(
+                                self._image_names,template_path)
 
-                        #Check if the name starts with a string from the list of supported imagers
-                        if list(filter(name.startswith, _SUPPORTED_IMAGERS)) != []:
-                            name = '.'.join(name.split('.')[1:])#Name without imager
-                            value = line[line.index('= ')+2:].rstrip()#get rid of line separators with .rstrip()
+                        if self._inverse_mapping[name] == 'gridder':
+                            assert self._gridder_name in value, \
+                            'Parsed created with different gridder name ({0:s}) from that defined in the template parset {1:s}!'.format(
+                                self._gridder_name,template_path)
 
-                            assert name in self._inverse_mapping, \
-                            'Can not interpret the parameter {0:s} given in the parset {1:s}!'.format(name,template_path)
-                            
-                            #Some consistency check
-                            if self._inverse_mapping[name] == 'INames':
-                                assert self._image_names in value, \
-                                'Parsed created with different image names ({0:s}) from that defined in the template parset {1:s}!'.format(
-                                    self._image_names,template_path)
+                        if self._inverse_mapping[name] == 'solver':
+                            assert value in  _SUPPORTED_SOLVERS, \
+                            'The solver defined in the template {0:s} is not supported!'.format(template_path)
 
-                            if self._inverse_mapping[name] == 'gridder':
-                                assert self._gridder_name in value, \
-                                'Parsed created with different gridder name ({0:s}) from that defined in the template parset {1:s}!'.format(
-                                    self._gridder_name,template_path)
+                        if self._inverse_mapping[name] == 'PNames':
+                            valid_preconditioner = False
 
-                            if self._inverse_mapping[name] == 'solver':
-                                assert value in  _SUPPORTED_SOLVERS, \
-                                'The solver defined in the template {0:s} is not supported!'.format(template_path)
+                            if ''.join(value.split()) == '[]':
+                                valid_preconditioner = True
+                            else:
+                                for p in _SUPPORTED_PRECONDITIONERS:
+                                    if p in value:
+                                        valid_preconditioner = True
 
-                            self._parset[self._inverse_mapping[name]] = value
-                        else:
-                            warnings.warn('Invalid parset parameter: {0:s} as the imager used is {1:s}! (parameter skipped)'.format(
-                            name,self._imager,template_path))
+                                        #Add the preconditioner to the list
+                                        self.add_preconditioner(p)
 
+                            assert valid_preconditioner == True, \
+                            'The preconditioner defined in the template {0:s} is not supported!'.format(template_path)
+
+                            self._parset[self._inverse_mapping[name]] = self._preconditioner
+                            continue
+
+                        self._parset[self._inverse_mapping[name]] = value
+                    
+                    else:
+                        warnings.warn('Invalid parset parameter: {0:s} as the imager used is {1:s}! (parameter skipped)'.format(
+                        name,self._imager,template_path))
+
+            #Set up the Nnames key in the _parameters as it always have to exist in otder to save the Parset with correct preconditioning settings!
+            if 'PNames' not in self._parset.keys():
+                self._parset['PNames'] = []
+            elif isinstance(self._parset['PNames'],list) == False:
+                self._parset['PNames'] = eval(self._parset['PNames']) #Evaluate string input as a list             
+
+            #Now I overwrite the ._preconditioner attribute with the preconditioner defined by the user if given
+            if user_defined_preconditioner == True:
+                del self._preconditioner
+                self._preconditioner = preconditioner
+
+        #Oreder params according to mapping!
+        self.sort_parset()
 
     def __setattr__(self, name, value):
         """Add a new key and a corresponding value to the ``Parset``
@@ -428,7 +505,7 @@ class Parset(object):
         :obj:`Parset`
             The ``_parset`` dict is appended with the ``name`` and ``value``
         """
-        custom_attributes = ['_imager','_image_names', '_gridder_name','_mapping','_inverse_mapping']
+        custom_attributes = ['_imager','_image_names', '_gridder_name','_preconditioner','_mapping','_inverse_mapping', '_mapping_order']
         if name in custom_attributes:
             object.__setattr__(self, name, value)
         else:
@@ -437,28 +514,92 @@ class Parset(object):
     def __repr__(self):
         """Return the ``_parset`` dict as a line-by line string of keys and values.
         """
+        self.sort_parset() #To make it fancy and slow :O
         lines = 'Imager: {0:s}\n'.format(self._imager)
         lines += 'Image Names: {0:s}\n'.format(self._image_names)
+        lines += 'Preconditioner: {}\n'.format(self._preconditioner)
         lines += 'Parset parameters:\n{\n'
         for key, value in self._parset.items():
             lines += '\t{} = {}\n'.format(key, value)
         lines += '}'
         return lines
 
+    def check_if_parset_sorted(self):
+        """This function checks if the ._parset dictionary is sorted by ._mapping_order or not.
+
+        Parameters
+        ==========
+
+        Returns
+        =======
+        sorted: bool
+            True, if the ._parset dictionary is sorted and False if not
+
+        """
+        last_key_val = self._mapping_order[list(self._parset.keys())[0]]
+        for k in list(self._parset.keys()):
+            #print(self._mapping_order[k])
+            if self._mapping_order[k] < last_key_val:
+                return False
+            else:
+                last_key_val = self._mapping_order[k]
+
+        return True
+
+
+    def sort_parset(self):
+        """Sort the ._parset dictionary based on the ._mapping_oder parameter
+
+        This is a crucial function, especially when saving parsets as this bit of code
+        assures that the parset saved have the parameters in a logical order.
+
+        Parameters
+        ==========
+
+        Returns
+        =======
+        :obj: `Parset`
+            With updated ._parset dictionary if needed. Note that the ._parset attribute
+            is deleted and re-created within this function!
+
+        """
+        if not self.check_if_parset_sorted():
+
+            #Create a sorted list of the mapping keys where the keys not defined int the Parset are set to None
+            sorted_keys = [k if k in self._parset.keys() else None for k, v in sorted(self._mapping_order.items(), key=lambda item: item[1])]
+
+            #Remove Nones
+            sorted_keys = [k for k in sorted_keys if k != None]
+
+            #Sorted keys and values given in a list format
+            parset_buffer = sorted(self._parset.items(), key=lambda pair: sorted_keys.index(pair[0]))
+            
+            #Re-define ._parset where the sorting order will be determined by the order of parameters defined
+            del self._parset
+            object.__setattr__(self, "_parset", {})
+
+            for item in parset_buffer:
+                self._parset[item[0]] = item[1]
+
+            del parset_buffer
+
     def update_parset_mapping(self, image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAULT_GRIDDER_NAME):
         """Update the mapping used between the ``dstack`` and ``YandaSoft`` parset variables.
         It also updates the parameters defined. Therefore, ths function supposed to be used when
         one wants to change the attributes affecting the mapping, as this keeps everything consistent.
 
+        Note, that the preconditioner is not updated, as all supported preconditioners are included in the
+        default mapping!
+
         Parematers
         ==========
-        image_names: str
+        image_names: str, optional
             The ``Names`` parameter of the parset. The template parset has to have this ``Names``
             parameters (if used), when read in. Nevertheless, this can be changed on the fly, and
             parsets with different names can be created. Use the ``update_parset_mapping()`` function
             for this.
 
-        gridder_name: str
+        gridder_name: str, optional
             The ``gridder`` parameter of ``YandaSoft`` imager task.
 
         Returns
@@ -468,12 +609,20 @@ class Parset(object):
         """
         self._image_names = image_names
         self._gridder_name = gridder_name
-        pm, ipm = create_parset_mapping(image_names=self._image_names,
+        pm, ipm, pmo = create_parset_mapping(image_names=self._image_names,
                                         gridder_name=self._gridder_name)
+        
+        #NOTE that the ordering is not updated!
         self._mapping = pm
         self._inverse_mapping = ipm
 
-    def update_imager(self, imager=_DEFAULT_IMAGER):
+        #Also update the INames and gridder values in ._parset
+        self._parset['INames'] = str([self._image_names])
+        self._parset['gridder'] = str([self._gridder_name])
+
+
+
+    def update_imager(self, imager):
         """Go-to routine when updating the imager.
 
         Parameters
@@ -490,6 +639,44 @@ class Parset(object):
         assert imager in _SUPPORTED_IMAGERS, 'Imager {0:s} is not supported!'.format(imager)
         self._imager = imager
 
+    def add_preconditioner(self,preconditioner):
+        """Add a new preconditioner to the _preconditioner attribute
+
+        If the given preconditioner is already used, it won't be duplicated again
+
+        Parameters
+        ==========
+        preconditioner: str
+            A valid (supported) preconditioner that will be added to the
+            list of preconditioners inspected when saving a parset
+        Returns
+        =======
+        :obj:`Parset`
+            With an extra preconditioner in the _preconditioner attribute
+        """
+        assert preconditioner in _SUPPORTED_PRECONDITIONERS, 'Preconditioner {0:s} is not supported!'.format(preconditioner)
+        if preconditioner not in self._preconditioner:
+            self._preconditioner.append(preconditioner)
+
+    def remove_preconditioner(self,preconditioner):
+        """Remove the given preconditioner from the _preconditioner list attribute
+
+        If the given preconditioner is not in the list nothing happens
+
+        Parameters
+        ==========
+        preconditioner: str
+            A valid (supported) preconditioner that will be removed from the
+            list of preconditioners inspected when saving a parset
+        Returns
+        =======
+        :obj:`Parset`
+            Withouth the removed preconditioner in the _preconditioner attribute
+        """
+        assert preconditioner in _SUPPORTED_PRECONDITIONERS, 'Preconditioner {0:s} is not supported!'.format(preconditioner)
+        if preconditioner in self._preconditioner:
+            self._preconditioner.remove(preconditioner)
+
     def save_parset(self, output_path, parset_name, overwrite=True):
         """Save the in-memory ``Parset`` to ``output_path/parset_name``.
         The saved parset can be fed into ``YandaSoft``
@@ -502,7 +689,7 @@ class Parset(object):
         parset_name:
             Name of the parset file created
 
-        overwrite: bool
+        overwrite: bool, optional
             If True, then the parset will be overwritten if existed
 
         Returns
@@ -517,30 +704,43 @@ class Parset(object):
             assert os.path.isfile(parset_path), \
             'The parset file {0:s} exists and the parameter overwrite is set to false!'.format(parset_path)
 
+        #Sort the parset
+        self.sort_parset()
+
         with open(parset_path, 'w') as f:
             for key in self._parset.keys():
-                if check_parameter_and_Imager_compatibility(key, self._imager):
-                    print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._parset[key])),file=f)
+                if check_parameter_and_Imager_compatibility(key, imager=self._imager):
+                    #Check preconditioning and use the ._preconditioner attribute instead of the ._param['PNames'] attribute!
+                    if key == 'PNames':
+                        print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._preconditioner)),file=f)
+                    elif check_parameter_and_Preconditioner_compatibility(key, preconditioners=self._preconditioner):
+                        print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._parset[key])),file=f)
                 else:
                     continue
 
-
-if __name__ == "__main__":    
-
-    parset = Parset(template_path='/home/krozgonyi/Desktop/test_parset.in',imager='dstack',image_names='image.test',gridder_name='WProject')
+if __name__ == "__main__":
+    parset = Parset(template_path='/home/krozgonyi/Desktop/test_parset.in',imager='dstack',image_names='dstack',gridder_name='WProject', preconditioner=['Wiener'])
     #parset.set_parameters_from_template('/home/krozgonyi/Desktop/test_parset.in')
 
-    print(parset)
+    #parset.remove_preconditioner('Wiener')
 
-    exit()
+    #print(parset)
+
+    #parset.sort_parset()
+
+    print(parset)
+    
+    #exit()
 
     #parset._imager = 'Cimager'
 
-    #parset.INfacetstep = 1
+    parset.INfacetstep = 1
 
-    #parset.update_parset_mapping(image_names='dstack')
+    parset.update_parset_mapping(image_names='dstack')
 
     parset.update_imager('Cdeconvolver')
+
+    #print(parset)
 
     #exit()
 

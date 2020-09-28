@@ -77,7 +77,7 @@ def check_CIM_axes(cim, required_axes=_DEFAULT_REQUIRED_AXES):
     ==========
     cim: ``casacore.images.image.image`` object
         In-memory CASAImage
-    required_axes: int
+    required_axes: int, optional
         Number of required axes or dimensions for the ``cim`` image
         object.
     
@@ -141,7 +141,7 @@ def get_N_chan_from_CIM(cimpath, close=False, required_axes=_DEFAULT_REQUIRED_AX
         Set to true if this is the last operation on the image, but False if other functions
         called that operation on the same image. This avoids multiple read-in of the image.
 
-    required_axes: int
+    required_axes: int, optional
         Number of required axes or dimensions for the ``cim`` image
         object.
 
@@ -176,6 +176,10 @@ def get_N_pol_from_CIM(cimpath, close=False, required_axes=_DEFAULT_REQUIRED_AXE
         Set to true if this is the last operation on the image, but False if other functions
         called that operation on the same image. This avoids multiple read-in of the image.
 
+    required_axes: int, optional
+        Number of required axes or dimensions for the ``cim`` image
+        object.
+
     Returns
     =======
     N_pol: int
@@ -206,7 +210,7 @@ def check_CIM_equity(cimpath_a, cimpath_b, numprec=1e-8, close=False):
     cimpath_b: str
         The input CASAImage path of Bob or a ``casacore.images.image.image`` object
 
-    numprec: float
+    numprec: float, optional
         The numerical precision limit of the maximum allowed relative
         difference between CASAImages Alice and Bob.
         If set to zero, equity is checked.
@@ -406,17 +410,17 @@ def create_CIM_diff_array(cimpath_a, cimpath_b, rel_diff=False, all_dim=False, c
     cimpath_b: str
         The input CASAImage path of Bob
     
-    rel_diff: bool
+    rel_diff: bool, optional
         If True, the relative difference is returned. The code uses Bob to normalize.
 
-    all_dim: bool
+    all_dim: bool, optional
         If True, the difference across all channels and polarizations will be computed.
         Note taht it can be **very slow and memory heavy**!
 
-    chan: int
+    chan: int, optional
         Index of the channel in the image cube
 
-    pol: int
+    pol: int, optional
         Index of the polarization in the image cube
 
     close: bool, optional
@@ -461,14 +465,14 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, pol=0, close=False):
     cimgpath: str
         The input CASAImage path
 
-    all_dim: bool
+    all_dim: bool, optional
         If True, the RMS will be computed for all channels and polarizations in the image cube
         Note that, this can be **very slow**!
 
-    chan: int
+    chan: int, optional
         Index of the channel in the image cube
 
-    pol: int
+    pol: int, optional
         Index of the polarization in the image cube
 
     close: bool, optional
@@ -529,10 +533,10 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     cim_outputh_name: str
         Name of the stacked image
 
-    normalise: bool
+    normalise: bool, optional
         If True, the images will be averaged instead of just summing them
     
-    overwrite: bool
+    overwrite: bool, optional
         If True, the stacked image will be created regardless if another image exist
         in the same name. Note, that in this case the existing grid will be deleted!
 

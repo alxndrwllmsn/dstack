@@ -37,10 +37,10 @@ def measure_grid_sparseness(cimgrid_path, chan=0,pol=0):
     cimgrid_path: str
         The input grid path (CASAImage format)
 
-    chan: int
+    chan: int, optional
         Index of the channel in the grid cube
 
-    pol: int
+    pol: int, optional
         Index of the polarization in the grid cube
 
     Returns
