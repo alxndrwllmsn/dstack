@@ -7,7 +7,6 @@ Hence, they needs to be handled separately for now.
 import os
 import unittest
 import configparser
-import ast
 
 import dstack as ds
 import numpy as np
@@ -15,10 +14,10 @@ import numpy as np
 from casacore import images as casaimage
 
 #Setup the parset file for the unittest
-global PARSET
-PARSET = './unittest_all.in'
+global _PARSET
+_PARSET = './unittest_all.in'
 
-def setup_CIM_unittest(parset_path):
+def setup_Cgrid_unittest(parset_path):
     """For a general unittesting a parset file is used to define the actual CASAImage to test the
     cimagutil functions against. Thus, any CASAImage can be used for unittesting provided by the user.
     
@@ -26,9 +25,7 @@ def setup_CIM_unittest(parset_path):
 
     The config section has to be [CGrid]
 
-    The parset has to contain the following lines:
-    - GridPath: Full path to a grid in CASAImage format (should be a small grid)
-    - Sparseness: Sparseness of the CIMGridPath grid for the first channel and polarization in the image cube
+    The parset has to contain all variavbles and respective values this function returns.
 
     Parameters
     ==========
@@ -55,8 +52,8 @@ def setup_CIM_unittest(parset_path):
     
     return GridPath, Sparseness
 
-class TestCIM(unittest.TestCase):
-    GridPath, Sparseness = setup_CIM_unittest(PARSET)
+class TestCgrid(unittest.TestCase):
+    GridPath, Sparseness = setup_Cgrid_unittest(_PARSET)
 
     def test_measure_grid_sparseness(self):
         assert np.isclose(ds.cgrid.measure_grid_sparseness(self.GridPath), self.Sparseness, rtol=1e-7), \

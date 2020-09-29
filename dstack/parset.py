@@ -4,6 +4,16 @@ The code takes template parset(s) and creates custom parsets for pipelines such 
 Currently not everything is supported and the wrapper is not complete, i.e. the user can break the wrapper if not careful!
 """
 
+"""TO DO:
+Maybe create a check_parameter_and_Gridder_compatibility() function.
+I am not sure if this is needed, depends on if YandaSoft throws an error
+if you specify a parameter not valid with that gridder ot it just ignores it.
+I.e. the gridder is set to Box, but poarameters used in mitigating the non-coplanar
+baselie effect are defined and saved in the parset.
+As far as I am concerned, it is not a problem in YandaSoft.
+"""
+
+
 __all__ = ['list_supported_parset_settings', 'create_parset_mapping','check_preconditioner_suppoort',
             'check_parameter_and_Imager_compatibility', 'check_parameter_and_Preconditioner_compatibility',
             'Parset']
@@ -13,12 +23,22 @@ import warnings
 
 #A global variable defining the ``YandaSoft`` imagers supported for the template parset
 #the dstack is an extra option to create custom templates
+global _SUPPORTED_IMAGERS
+global _SUPPORTED_SOLVERS
+global _SUPPORTED_GRIDDER_NAMES
+global _SUPPORTED_PRECONDITIONERS
+
 _SUPPORTED_IMAGERS = ['Cimager', 'Cdeconvolver', 'dstack']
 _SUPPORTED_SOLVERS = ['Clean']
 _SUPPORTED_GRIDDER_NAMES = ['Box', 'SphFunc', 'WProject', 'WStack']
 _SUPPORTED_PRECONDITIONERS = ['Wiener','GaussianTaper']
 
 #Some default parameters
+global _DEFAULT_IMAGER
+global _DEFAULT_IMAGE_NAMES
+global _DEFAULT_GRIDDER_NAME
+global _DEFAULT_PRECONDITIONER
+
 _DEFAULT_IMAGER = 'Cimager'
 _DEFAULT_IMAGE_NAMES = 'image.dstack.test'
 _DEFAULT_GRIDDER_NAME = 'WProject'
@@ -129,6 +149,7 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'Icellsize' : 'Images.cellsize',
         'IwriteAtMajorCycle' : 'Images.writeAtMajorCycle',
         'INames' : 'Images.Names',
+        'IrestFrequency' : 'Images.restFrequency',
         'INnchan' : 'Images.{0:s}.nchan'.format(image_names),
         'INfrequency' : 'Images.{0:s}.frequency'.format(image_names),
         'INdirection' : 'Images.{0:s}.direction'.format(image_names),
@@ -191,6 +212,7 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'Cgain' : 'solver.Clean.gain',
         'Cspeedup' : 'solver.Clean.speedup',
         'Cpadding' : 'solver.Clean.padding',
+        'Csolutiontype' : 'solver.Clean.solutiontype',
         'Clogevery' : 'solver.Clean.logevery',
         'Csaveintermediate' : 'solver.Clean.saveintermediate',
         'CBpsfwidth' : 'solver.Clean.psfwidth',
@@ -405,11 +427,12 @@ class Parset(object):
         self._gridder_name = gridder_name
 
         #Set up an empty list for ._preconditioner =>  I will fill this up with the preconditioner from the template file
-        assert check_preconditioner_suppoort(preconditioner) #Here I check if the given preconditioners are valid or not just before reading in the template
         if preconditioner != None:
+            assert check_preconditioner_suppoort(preconditioner) #Here I check if the given preconditioners are valid or not just before reading in the template
             user_defined_preconditioner = True
+        else:
+            user_defined_preconditioner = False
         self._preconditioner = []
-
 
         pm, ipm, pmo = create_parset_mapping(image_names=self._image_names,gridder_name=self._gridder_name)
         object.__setattr__(self,"_mapping", pm)
@@ -546,7 +569,6 @@ class Parset(object):
 
         return True
 
-
     def sort_parset(self):
         """Sort the ._parset dictionary based on the ._mapping_oder parameter
 
@@ -619,8 +641,6 @@ class Parset(object):
         #Also update the INames and gridder values in ._parset
         self._parset['INames'] = str([self._image_names])
         self._parset['gridder'] = str([self._gridder_name])
-
-
 
     def update_imager(self, imager):
         """Go-to routine when updating the imager.

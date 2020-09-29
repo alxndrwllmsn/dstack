@@ -15,8 +15,8 @@ from astropy import units as u
 import dstack as ds
 
 #Setup the parset file for the unittest
-global PARSET
-PARSET = './unittest_all.in'
+global _PARSET
+_PARSET = './unittest_all.in'
 
 def setup_MSutil_unittest(parset_path):
     """For a general unittesting a parset file is used to define the actual MS to test the
@@ -26,14 +26,7 @@ def setup_MSutil_unittest(parset_path):
 
     The config section has to be [MSUtil]
 
-    The parset has to contain the following lines:
-    - MSpath: full path to the MS e.g. /home/user/example.ms
-    - PhaseCentre: RA and Dec coordinates of the PhaseCentre from the MS in a list,
-                    both given in radians e.g. [1.2576,-0.23497]
-    - IDs: Field and Direction ID of the PhaseCentre in the MS. Not the reference values,
-                    but the 1st and 0th indices of the FIELD tables PHASE_DIR column
-                    e.g. [0,1]
-    - NChannels: Number of channels of the MS e.g. 11
+    The parset has to contain all variavbles and respective values this function returns.
 
     Parameters
     ==========
@@ -75,7 +68,7 @@ def setup_MSutil_unittest(parset_path):
 
 
 class TestMSUtil(unittest.TestCase):
-    MSpath, PhaseCentre, IDs, NChan = setup_MSutil_unittest(PARSET)
+    MSpath, PhaseCentre, IDs, NChan = setup_MSutil_unittest(_PARSET)
 
     def test_get_MS_phasecentre_all(self):
         PhaseCentres = ds.msutil.get_MS_phasecentre_all(self.MSpath)

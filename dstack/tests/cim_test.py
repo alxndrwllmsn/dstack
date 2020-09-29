@@ -7,7 +7,6 @@ Hence, they needs to be handled separately for now.
 import os
 import unittest
 import configparser
-import ast
 import warnings
 
 import dstack as ds
@@ -16,23 +15,22 @@ import numpy as np
 from casacore import images as casaimage
 
 #Setup the parset file for the unittest
-global PARSET
-PARSET = './unittest_all.in'
+global _PARSET
+global _TEST_DIR
+
+_PARSET = './unittest_all.in'
 #Working on UNIX systems as it creates a stacked grid at /var/tmp
-TEST_DIR = '/var/tmp'
+_TEST_DIR = '/var/tmp'
 
 def setup_CIM_unittest(parset_path):
     """For a general unittesting a parset file is used to define the actual CASAImage to test the
-    cimagutil functions against. Thus, any CASAImage can be used for unittesting provided by the user.
+    dstack.cim functions against. Thus, any CASAImage can be used for unittesting provided by the user.
     
     The code uses the configparser package to read the config file
 
     The config section has to be [CImage]
 
-    The parset has to contain the following lines:
-    - CIMpath: Full path to the CASAImage e.g. /home/user/example]
-    - NumericalPrecision: Maximum absolute difference between ASAImages A and B. Have to be >= 0.
-    - RMS: the measured RMS of the CIMpath_A image for the first channel and polarization in the image cube (the RMS should be measured by using all pixels)
+    The parset has to contain all variavbles and respective values this function returns.
 
     Parameters
     ==========
@@ -76,7 +74,7 @@ def setup_CIM_unittest(parset_path):
     return CIMPathA, CIMPathB, NumPrec, NChan, NPol, RMS
 
 class TestCIM(unittest.TestCase):
-    CIMPathA, CIMPathB, NumPrec, NChan, NPol, RMS = setup_CIM_unittest(PARSET)
+    CIMPathA, CIMPathB, NumPrec, NChan, NPol, RMS = setup_CIM_unittest(_PARSET)
 
     def test_check_CIM_axes(self):
         ds.cim.check_CIM_axes(self.CIMPathA)
@@ -113,13 +111,13 @@ class TestCIM(unittest.TestCase):
         'The given RMS and the RMS measured on the image are not matching!'
 
     def test_CIM_stacking_base(self):
-        ds.cim.CIM_stacking_base([self.CIMPathA,self.CIMPathA],TEST_DIR,'test_CIM_stacking_base', overwrite=True)
+        ds.cim.CIM_stacking_base([self.CIMPathA,self.CIMPathA],_TEST_DIR,'test_CIM_stacking_base', overwrite=True)
 
-        assert np.array_equiv(np.multiply(casaimage.image(self.CIMPathA).getdata(),2), casaimage.image('{0:s}/test_CIM_stacking_base'.format(TEST_DIR)).getdata()), \
+        assert np.array_equiv(np.multiply(casaimage.image(self.CIMPathA).getdata(),2), casaimage.image('{0:s}/test_CIM_stacking_base'.format(_TEST_DIR)).getdata()), \
         'Stacking the same image not equivalent with multiplying with two!'
 
     def test_set_CIM_unit(self):
-        test_cim_name = '{0:s}/test_set_CIM_unit'.format(TEST_DIR)
+        test_cim_name = '{0:s}/test_set_CIM_unit'.format(_TEST_DIR)
         template_cim = ds.cim.create_CIM_object(self.CIMPathA)
         coordsys = template_cim.coordinates()
 
@@ -131,7 +129,7 @@ class TestCIM(unittest.TestCase):
 
         #Need to give a unit that is known to casacore
         ds.cim.set_CIM_unit(test_cim_name,'Jy')
-        CIM_with_unit = ds.cim.create_CIM_object('{0:s}/test_set_CIM_unit'.format(TEST_DIR))
+        CIM_with_unit = ds.cim.create_CIM_object('{0:s}/test_set_CIM_unit'.format(_TEST_DIR))
         assert CIM_with_unit.unit() == 'Jy', 'Unable to add unit to newly created CASAImage!'
 
 if __name__ == "__main__":

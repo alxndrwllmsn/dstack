@@ -1,0 +1,60 @@
+Cimager.dataset                                 = [/home/krozgonyi/Destkop/test.ms]
+Cimager.grid                                    = [/home/krozgonyi/Destkop/test_grid]
+Cimager.imagetype                               = casa
+Cimager.MaxUV                                   = 2000
+Cimager.MinUV                                   = 12
+
+Cimager.Images.Names                            = [image.test]
+Cimager.Images.restFrequency                    = HI
+Cimager.Images.writeAtMajorCycle                = false
+Cimager.Images.image.test.shape                 = [1024, 1024]
+Cimager.Images.image.test.cellsize              = [6arcsec, 6arcsec]
+Cimager.Images.image.test.direction             = [22h42m21.852, -30.24.58.46, J2000]
+Cimager.Images.image.test.nchan                 = 11
+Cimager.Images.image.test.polarisation          = ["I"]
+
+Cimager.nchanpercore                           = 1
+Cimager.usetmpfs                               = false
+Cimager.tmpfs                                   = /dev/shm
+Cimager.ncycles                                 = 1
+Cimager.solverpercore                           = true
+Cimager.nwriters                                = 1
+Cimager.singleoutputfile                        = true
+
+Cimager.gridder                                 = WProject
+Cimager.gridder.snapshotimaging                 = false
+Cimager.gridder.WProject.wmax                   = 35000
+Cimager.gridder.WProject.nwplanes               = 257
+Cimager.gridder.WProject.oversample             = 4
+Cimager.gridder.WProject.maxsupport             = 1024
+Cimager.gridder.WProject.variablesupport        = true
+Cimager.gridder.WProject.offsetsupport          = true
+Cimager.gridder.WProject.sharecf                = true
+
+Cimager.solver                                  = Clean
+Cimager.solver.Clean.algorithm                  = BasisfunctionMFS
+Cimager.solver.Clean.niter                      = 1000
+Cimager.solver.Clean.gain                       = 0.2
+Cimager.solver.Clean.scales                     = [0,6,15]
+Cimager.solver.Clean.solutiontype               = MAXBASE
+Cimager.solver.Clean.verbose                    = False
+Cimager.solver.Clean.tolerance                  = 0.01
+Cimager.solver.Clean.weightcutoff               = zero
+Cimager.solver.Clean.weightcutoff.clean         = false
+Cimager.solver.Clean.psfwidth                   = 768
+Cimager.solver.Clean.logevery                   = 50
+Cimager.threshold.minorcycle                    = [45%,1.0mJy,0.5mJy]
+Cimager.threshold.majorcycle                    = [0.5mJy]
+
+Cimager.preconditioner.Names                    = [Wiener,GaussianTaper]
+Cimager.preconditioner.GaussianTaper            = [30arcsec, 30arcsec, 0deg] 
+Cimager.preconditioner.GaussianTaper.isPsfSize  = true
+Cimager.preconditioner.GaussianTaper.tolerance  = 0.005
+Cimager.preconditioner.preservecf               = true
+Cimager.preconditioner.Wiener.robustness        = 0.5
+
+Cimager.restore                                 = true
+Cimager.restore.beam                            = fit
+Cimager.restore.beam.cutoff                     = 0.5
+Cimager.restore.beamReference                   = mid
+
