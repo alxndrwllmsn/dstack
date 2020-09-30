@@ -606,6 +606,4 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
 
 
 if __name__ == "__main__":
-    CIM_stacking_base(['/home/krozgonyi/Desktop/list_imaging_test/dumpgrid_first_night/image.restored.test',
-                    '/home/krozgonyi/Desktop/list_imaging_test/dumpgrid_second_night/image.restored.test'],
-                    '/home/krozgonyi/Desktop','a.image', normalise=True,overwrite=True)
+    pass

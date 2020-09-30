@@ -14,15 +14,14 @@ As far as I am concerned, it is not a problem in YandaSoft.
 """
 
 
-__all__ = ['list_supported_parset_settings', 'create_parset_mapping','check_preconditioner_suppoort',
-            'check_parameter_and_Imager_compatibility', 'check_parameter_and_Preconditioner_compatibility',
-            'Parset']
+__all__ = ['list_supported_parset_settings', 'create_parset_mapping',
+            'check_preconditioner_suppoort', 'check_parameter_and_Imager_compatibility', 
+            'check_parameter_and_Preconditioner_compatibility', 'Parset']
 
 import os
 import warnings
 
-#A global variable defining the ``YandaSoft`` imagers supported for the template parset
-#the dstack is an extra option to create custom templates
+#=== Globals ===
 global _SUPPORTED_IMAGERS
 global _SUPPORTED_SOLVERS
 global _SUPPORTED_GRIDDER_NAMES
@@ -43,6 +42,14 @@ _DEFAULT_IMAGER = 'Cimager'
 _DEFAULT_IMAGE_NAMES = 'image.dstack.test'
 _DEFAULT_GRIDDER_NAME = 'WProject'
 _DEFAULT_PRECONDITIONER = []
+
+
+#Globals defining the compatibility of different Preconditioners
+global _WIENER_FORBIDDEN_PARAMS
+global _GAUSSIANTAPER_FORBIDDEN_PARAMS
+
+_WIENER_FORBIDDEN_PARAMS = ['PWnoisepower', 'PWnormalise', 'PWrobustness', 'PWtaper']
+_GAUSSIANTAPER_FORBIDDEN_PARAMS = ['PGTisPsfSize', 'PGTtolerance']
 
 #=== Functions ===
 def list_supported_parset_settings():
@@ -229,7 +236,6 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'PWnormalise' : 'preconditioner.Wiener.normalise',
         'PWrobustness' : 'preconditioner.Wiener.robustness',
         'PWtaper' : 'preconditioner.Wiener.taper',
-        'PRrobustness' : 'Robust.robustness',
         'PGaussianTaper' : 'preconditioner.GaussianTaper',
         'PGTisPsfSize' : 'preconditioner.GaussianTaper.isPsfSize',
         'PGTtolerance' : 'preconditioner.GaussianTaper.tolerance',
@@ -332,25 +338,19 @@ def check_parameter_and_Preconditioner_compatibility(parset_param, preconditione
         True if the parameter is allowed with the given preconditioner(s),
         and False if not   
     """
-    General_forbidden_params = ['PRrobustness']
-    Wiener_forbidden_params = ['PWnoisepower', 'PWnormalise', 'PWrobustness', 'PWtaper']
-    GaussianTaper_forbidden_params = ['PGTisPsfSize', 'PGTtolerance']
-
     if preconditioners == []:
         #The Ppreservecf parameter is allowed due to the misterious ways YandaSoft works...
-        if parset_param in General_forbidden_params or \
-        parset_param in Wiener_forbidden_params or \
-        parset_param in GaussianTaper_forbidden_params:
+        if parset_param in _WIENER_FORBIDDEN_PARAMS + _GAUSSIANTAPER_FORBIDDEN_PARAMS:
             return False
         else:
             return True
     elif 'Wiener' not in preconditioners:
-        if parset_param in Wiener_forbidden_params:
+        if parset_param in _WIENER_FORBIDDEN_PARAMS:
             return False
         else:
             return True
     elif 'GaussianTaper' not in preconditioners:
-        if parset_param in GaussianTaper_forbidden_params:
+        if parset_param in _GAUSSIANTAPER_FORBIDDEN_PARAMS:
             return False
         else:
             return True
@@ -739,35 +739,5 @@ class Parset(object):
                     continue
 
 if __name__ == "__main__":
-    parset = Parset(template_path='/home/krozgonyi/Desktop/test_parset.in',imager='dstack',image_names='dstack',gridder_name='WProject', preconditioner=['Wiener'])
-    #parset.set_parameters_from_template('/home/krozgonyi/Desktop/test_parset.in')
-
-    #parset.remove_preconditioner('Wiener')
-
-    #print(parset)
-
-    #parset.sort_parset()
-
-    print(parset)
-    
-    #exit()
-
-    #parset._imager = 'Cimager'
-
-    parset.INfacetstep = 1
-
-    parset.update_parset_mapping(image_names='dstack')
-
-    parset.update_imager('Cdeconvolver')
-
-    #print(parset)
-
-    #exit()
-
-    #print(parset)
-
-    #parset.dataset = 'a.ms'
-    #parset.nUVWMachines = 0.2
-
-    parset.save_parset('/home/krozgonyi/Desktop','test_parset.in')
+    pass
 

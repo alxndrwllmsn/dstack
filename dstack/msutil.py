@@ -270,7 +270,4 @@ def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=F
     return IDs
 
 if __name__ == "__main__":
-    MS = create_MS_object('/home/krozgonyi/Desktop/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms')
-    print(type(MS))
-
     pass
