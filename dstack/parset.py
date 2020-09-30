@@ -4,14 +4,13 @@ The code takes template parset(s) and creates custom parsets for pipelines such 
 Currently not everything is supported and the wrapper is not complete, i.e. the user can break the wrapper if not careful!
 """
 
-"""TO DO:
-Maybe create a check_parameter_and_Gridder_compatibility() function.
-I am not sure if this is needed, depends on if YandaSoft throws an error
-if you specify a parameter not valid with that gridder ot it just ignores it.
-I.e. the gridder is set to Box, but poarameters used in mitigating the non-coplanar
-baselie effect are defined and saved in the parset.
-As far as I am concerned, it is not a problem in YandaSoft.
-"""
+#TO DO:
+#Maybe create a check_parameter_and_Gridder_compatibility() function.
+#I am not sure if this is needed, depends on if YandaSoft throws an error
+#if you specify a parameter not valid with that gridder ot it just ignores it.
+#I.e. the gridder is set to Box, but poarameters used in mitigating the non-coplanar
+#baselie effect are defined and saved in the parset.
+#As far as I am concerned, it is not a problem in YandaSoft.
 
 
 __all__ = ['list_supported_parset_settings', 'create_parset_mapping',
@@ -46,7 +45,6 @@ _DEFAULT_IMAGE_NAMES = 'image.dstack.test'
 _DEFAULT_GRIDDER_NAME = 'WProject'
 _DEFAULT_PRECONDITIONER = []
 
-
 #Globals defining the compatibility of different Preconditioners
 global _WIENER_FORBIDDEN_PARAMS
 global _GAUSSIANTAPER_FORBIDDEN_PARAMS
@@ -65,7 +63,7 @@ def list_supported_parset_settings():
 
     Returns
     =======
-    Prints out the supported settings
+    Prints out the supported settings: log
     """
     print_support = lambda functionality, flist: log.info('Supported {0:s}: '.format(functionality) + ' '.join(map(str, flist)))
 
@@ -547,8 +545,7 @@ class Parset(object):
             self._parset[self._inverse_mapping[self._mapping[name]]] = value
 
     def __repr__(self):
-        """Return the ``_parset`` dict as a line-by line string of keys and values.
-        """
+        """Return the ``_parset`` dict as a line-by line string of keys and values."""
         self.sort_parset() #To make it fancy and slow :O
         lines = 'Imager: {0:s}\n'.format(self._imager)
         lines += 'Image Names: {0:s}\n'.format(self._image_names)
@@ -628,7 +625,7 @@ class Parset(object):
         Note, that the preconditioner is not updated, as all supported preconditioners are included in the
         default mapping!
 
-        Parematers
+        Parameters
         ==========
         image_names: str, optional
             The ``Names`` parameter of the parset. The template parset has to have this ``Names``
@@ -735,7 +732,6 @@ class Parset(object):
         ========
         Parset file: Parset file readable by ``YandaSoft``
             Create the parset file at ``output_path/parset_name``
-
         """
         parset_path = os.path.join(output_path, parset_name)
 

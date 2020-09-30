@@ -24,5 +24,9 @@ setup(
     author='Kristof Rozgonyi',
     author_email='rstofi@gmail.com',
     description='Python package to stack images and grids for the DINGO survey',
-    install_requires=requirements
+    install_requires=requirements,
+    entry_points={
+    'console_scripts': [
+        'dstacking = dstack.applications:dstacking']
+        }
     )

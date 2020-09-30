@@ -6,6 +6,7 @@ Subpackages
 
 .. toctree::
 
+   dstack.applications
    dstack.cgrid
    dstack.cim
    dstack.parset
