@@ -27,6 +27,7 @@ setup(
     install_requires=requirements,
     entry_points={
     'console_scripts': [
-        'dstacking = dstack.applications:dstacking']
+        'dstacking = dstack.applications:dstacking',
+        'dparset = dstack.applications:dparset']
         }
     )

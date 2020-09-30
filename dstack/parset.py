@@ -337,7 +337,7 @@ def check_parameter_and_Preconditioner_compatibility(parset_param, preconditione
     preconditioners: list, optional
         This is the list of preconditioners used
 
-     Returns
+    Returns
     =======
     Compatibility: bool
         True if the parameter is allowed with the given preconditioner(s),
@@ -519,7 +519,10 @@ class Parset(object):
             self.sort_parset()
 
         else:
-            log.debug('No template parset provided when creating the Parset object, thus no ._parset parameters initialized!')
+            log.debug('No template parset provided when creating the Parset object!')
+            log.debug('Only two parameters set: INames and gridder (required for mapping)')
+            self._parset[self._inverse_mapping[self._mapping['INames']]] = self._image_names
+            self._parset[self._inverse_mapping[self._mapping['gridder']]] = self._gridder_name
 
     def __setattr__(self, name, value):
         """Add a new key and a corresponding value to the ``Parset``
@@ -655,6 +658,18 @@ class Parset(object):
         self._parset['INames'] = str([self._image_names])
         self._parset['gridder'] = str([self._gridder_name])
 
+    def update_image_names(self, image_names=_DEFAULT_IMAGE_NAMES):
+        """
+
+        """
+        self.update_parset_mapping(image_names=image_names,gridder_name=self._gridder_name)
+
+    def update_gridder_name(self, gridder_name=_DEFAULT_GRIDDER_NAME):
+        """
+
+        """
+        self.update_parset_mapping(image_names=self._image_names,gridder_name=gridder_name)
+
     def update_imager(self, imager):
         """Go-to routine when updating the imager.
 
@@ -720,13 +735,13 @@ class Parset(object):
         Parameters
         ==========
         output_path: str
-            Full path to the folder in which the parset will be saved
+            Full path to the folder in which the parset will be saved.
 
         parset_name:
-            Name of the parset file created
+            Name of the parset file created.
 
         overwrite: bool, optional
-            If True, then the parset will be overwritten if existed
+            If True, then the parset will be overwritten if existed.
 
         Returns
         ========
