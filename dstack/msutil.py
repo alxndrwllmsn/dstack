@@ -6,6 +6,7 @@ __all__ = ['create_MS_object', 'get_N_chan_from_MS','get_MS_phasecentre_all',
             'get_single_phasecentre_from_MS','check_phaseref_in_MS']
 
 import numpy as np
+import logging
 
 from casacore import tables as casatables
 
@@ -14,6 +15,10 @@ from astropy import units as u
 
 import dstack as ds
 
+#=== Setup logging ===
+log = logging.getLogger(__name__)
+
+#=== Functions ===
 def create_MS_object(mspath, ack=False, readonly=True):
     """This function aims to speed up other bits of this module, 
     by returning a ``casacore.tables.table.table`` object.
@@ -49,6 +54,7 @@ def create_MS_object(mspath, ack=False, readonly=True):
     if type(mspath) == 'casacore.tables.table.table':
         return mspath
     else:
+        log.debug('Open MS: {0:s}'.format(str(mspath))) #We know it is a string in this case
         MS = casatables.table(mspath, ack=ack, readonly=readonly)
         return MS
 
@@ -76,6 +82,7 @@ def get_N_chan_from_MS(mspath, ack=False):
     #Select firts index, channels can be different for different fields and dds maybe
     N_chan = spectral_windows_table.getcol('NUM_CHAN')[0]
 
+    log.debug('Close MS: {0:s}'.format(str(mspath)))
     MS.close()
 
     return N_chan
@@ -117,12 +124,17 @@ def get_MS_phasecentre_all(mspath, frame='icrs', ack=False):
     fields = np.unique(MS.getcol('FIELD_ID'))
     dds = np.unique(MS.getcol('DATA_DESC_ID'))
 
+    log.debug('Unique fields in the MS: {}'.format(fields))
+    log.debug('Unique Data Description IDs in the MS: {}'.format(dds))
+
     fields_table = casatables.table(mspath + '/FIELD', ack=ack)    
 
     phasecentres = []
 
     #Get the reference equinox from the table keywords
     equinox = fields_table.getcolkeyword('PHASE_DIR','MEASINFO')['Ref'] 
+
+    log.debug('Equinox used in the MS: {0:s}'.format(equinox))
 
     #Only can convert from radians
     assert fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] == 'rad', 'Phase centre direction is not in radians!'
@@ -156,6 +168,7 @@ def get_MS_phasecentre_all(mspath, frame='icrs', ack=False):
 
     i += 1
 
+    log.debug('Close MS: {0:s}'.format(str(mspath)))
     MS.close()
 
     return phasecentres
@@ -194,7 +207,8 @@ def get_single_phasecentre_from_MS(mspath, field_ID=0, dd_ID=0, frame='icrs', ac
     fields_table = casatables.table(mspath + '/FIELD', ack=ack)    
 
     #Get the reference equinox from the table keywords
-    equinox = fields_table.getcolkeyword('PHASE_DIR','MEASINFO')['Ref'] 
+    equinox = fields_table.getcolkeyword('PHASE_DIR','MEASINFO')['Ref']
+    log.debug('Equinox used in the MS: {0:s}'.format(equinox))
 
     #Only can convert from radians
     assert fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] == 'rad', 'Phase centre direction is not in radians!'
@@ -251,13 +265,16 @@ def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=F
     fields_table = casatables.table(mspath + '/FIELD', ack=ack)    
 
     #Get the reference equinox from the table keywords
-    equinox = fields_table.getcolkeyword('PHASE_DIR','MEASINFO')['Ref'] 
+    equinox = fields_table.getcolkeyword('PHASE_DIR','MEASINFO')['Ref']
+    log.debug('Equinox used in the MS: {0:s}'.format(equinox))
 
     #Only can convert from radians
     assert fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] == 'rad', 'Phase centre direction is not in radians!'
 
-    IDs = []
+    log.debug('Unique fields in the MS: {0:d}'.format(np.shape(fields_table.getcol('PHASE_DIR'))[0]))
+    log.debug('Unique Data Description IDs in the MS: {0:d}'.format(np.shape(fields_table.getcol('PHASE_DIR'))[0]))
 
+    IDs = []
     for d in range(0,np.shape(fields_table.getcol('PHASE_DIR'))[0]):
         for f in range(0,np.shape(fields_table.getcol('PHASE_DIR'))[1]):
             pc = fields_table.getcol('PHASE_DIR')[d,f, :]

@@ -12,16 +12,18 @@ __all__ = ['create_CIM_object', 'check_CIM_axes', 'CIM_dim_equity_check', 'CIM_u
 import os
 import shutil
 import numpy as np
-import warnings
+import logging
 
 from casacore import images as casaimage
 from casacore import tables as casatables
 
 import dstack as ds
 
+#=== Setup logging ===
+log = logging.getLogger(__name__)
+
 #=== Globals ===
 _DEFAULT_REQUIRED_AXES = 4 #Number of axes in a custom image: [freq, Stokes, x, y]
-
 
 #=== Functions ===
 def create_CIM_object(cimpath):
@@ -54,6 +56,7 @@ def create_CIM_object(cimpath):
     else:
         # We could simply return, no need to assign the return value of
         # `casaimage.image(cimpath)` to a new variable.
+        log.debug('Open image: {0:s}'.format(str(cimpath))) #We know it is a string in this case
         return casaimage.image(cimpath)
 
 def check_CIM_axes(cim, required_axes=_DEFAULT_REQUIRED_AXES):
@@ -156,6 +159,7 @@ def get_N_chan_from_CIM(cimpath, close=False, required_axes=_DEFAULT_REQUIRED_AX
     N_chan = np.shape(cim.getdata())[0]
 
     if close:
+        log.debug('Closing image: {0:s}'.format(cim.name()))
         del cim
 
     return N_chan
@@ -191,6 +195,7 @@ def get_N_pol_from_CIM(cimpath, close=False, required_axes=_DEFAULT_REQUIRED_AXE
     N_pol = np.shape(cim.getdata())[1]
 
     if close:
+        log.debug('Closing image: {0:s}'.format(cim.name()))
         del cim
 
     return N_pol
@@ -237,6 +242,8 @@ def check_CIM_equity(cimpath_a, cimpath_b, numprec=1e-8, close=False):
         equviv = np.allclose(cimA.getdata(),cimB.getdata(),atol=0,rtol=numprec,equal_nan=True)
 
     if close:
+        log.debug('Closing image: {0:s}'.format(cimA.name()))
+        log.debug('Closing image: {0:s}'.format(cimB.name()))
         del cimA
         del cimB
 
@@ -285,6 +292,7 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
 
     #Spectral coordinates
     coords_axis = 'spectral'
+    log.debug('Checking {0:s} axis equity'.format(coords_axis))
     
     assert coordsA[coords_axis].get_frame() == coordsB[coords_axis].get_frame(), \
     'The given images {0:s} and {1:s} have different frames!'.format(cimA.name(),cimB.name())
@@ -303,14 +311,15 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
             'The reference values of the spectral corrdinates are different for images {0:s} and {1:s}'.format(
             cimA.name(),cimB.name())
         else:
-            warnings.warn('The input images {0:s} and {1:s} have different spectral coordinate reference pixel!'.format(
+            log.warning('The input images {0:s} and {1:s} have different spectral coordinate reference pixel!'.format(
                     cimA.name(),cimB.name()))
     else:
-        warnings.warn('The input images {0:s} and {1:s} have different spectral coordinate units!'.format(
+        log.warning('The input images {0:s} and {1:s} have different spectral coordinate units!'.format(
                     cimA.name(),cimB.name()))
 
     #Polarization coordinates
     coords_axis = 'stokes'
+    log.debug('Checking {0:s} axis equity'.format(coords_axis))
 
     assert coordsA[coords_axis].get_stokes() == coordsB[coords_axis].get_stokes(), \
     'The polarization frame is different for images {0:s} and {1:s}!'.format(cimA.name(),cimB.name())
@@ -324,6 +333,8 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
         assert coordsA[coords_axis].get_projection() == coordsB[coords_axis].get_projection(), \
         'The given images {0:s} and {1:s} have different projections!'.format(cimA.name(),cimB.name())
 
+        log.debug("Image axis are: 'diretion'")
+
     except AssertionError:
         #re-run the assertion to actually fail the code
         assert coordsA[coords_axis].get_frame() == coordsB[coords_axis].get_frame(), \
@@ -331,10 +342,13 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
 
         assert coordsA[coords_axis].get_projection() == coordsB[coords_axis].get_projection(), \
         'The given images {0:s} and {1:s} have different projections!'.format(cimA.name(),cimB.name())
+
+        log.debug("Image axis are: 'diretion'")
     
     except:
         #Change to linear coord as the given CASAimage is a grid!
         coords_axis = 'linear'
+        log.debug("Image axis are: 'linear'")
 
     if np.all(np.array(coordsA[coords_axis].get_unit()) == np.array(coordsB[coords_axis].get_unit())):
         assert np.all(np.array(coordsA[coords_axis].get_increment()) == np.array(coordsB[coords_axis].get_increment())), \
@@ -346,13 +360,15 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
             'The reference values of the (x,y) direction corrdinates are different for images {0:s} and {1:s}'.format(
             cimA.name(),cimB.name())
         else:
-            warnings.warn('The input images {0:s} and {1:s} have different (x,y) direction coordinate reference pixels!'.format(
+            log.warning('The input images {0:s} and {1:s} have different (x,y) direction coordinate reference pixels!'.format(
                     cimA.name(),cimB.name()))
     else:
-        warnings.warn('The input images {0:s} and {1:s} have different (x,y) direction coordinate units!'.format(
+        log.warning('The input images {0:s} and {1:s} have different (x,y) direction coordinate units!'.format(
                     cimA.name(),cimB.name()))
 
     if close:
+        log.debug('Closing image: {0:s}'.format(cimA.name()))
+        log.debug('Closing image: {0:s}'.format(cimB.name()))
         del cimA
         del cimB
 
@@ -380,16 +396,18 @@ def set_CIM_unit(cimpath, unit, overwrite=False):
     Saves the image with the pixel unit included
     """
     CIMTable = ds.msutil.create_MS_object(cimpath,readonly=False)
+    log.debug('Open image as CASATable: {0:s}'.format(CIMTable.name()))
 
     try:
         CIM_unit = CIMTable.getkeyword('units')
         if CIM_unit != unit and overwrite == False:
-            warnings.warn('The image {0:s} already has a pixel unit: {1:s} that is different from the given unit: {2:s}!'.format(cimpath,CIM_unit,unit))
+            log.warning('The image {0:s} already has a pixel unit: {1:s} that is different from the given unit: {2:s}!'.format(cimpath,CIM_unit,unit))
         else:
             CIMTable.putkeyword('units', unit)
     except:
         CIMTable.putkeyword('units', unit)
 
+    log.debug('Close CASATable image: {0:s}'.format(CIMTable.name()))
     CIMTable.close()
 
 def create_CIM_diff_array(cimpath_a, cimpath_b, rel_diff=False, all_dim=False, chan=0, pol=0, close=False):
@@ -451,6 +469,8 @@ def create_CIM_diff_array(cimpath_a, cimpath_b, rel_diff=False, all_dim=False, c
             diff_array = np.subtract(cimA.getdata()[chan,pol,...],cimB.getdata()[chan,pol,...])
 
     if close:
+        log.debug('Closing image: {0:s}'.format(cimA.name()))
+        log.debug('Closing image: {0:s}'.format(cimB.name()))
         del cimA
         del cimB            
 
@@ -505,10 +525,11 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, pol=0, close=False):
     else:
         rms = np.sqrt(np.mean(np.square(cim.getdata()[chan,pol,...])))
         if close:
+            log.debug('Closing image: {0:s}'.format(cim.name()))
             del cim
         return rms
 
-def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise=False,overwrite=False):
+def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise=False,overwrite=False, close=False):
     """This function is one of the core functions of the image stacking stacking deep spectral line pipelines.
 
     This function takes a list of CASAImages and creates the stacked CASAIMage.
@@ -539,7 +560,12 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     overwrite: bool, optional
         If True, the stacked image will be created regardless if another image exist
         in the same name. Note, that in this case the existing grid will be deleted!
-
+    
+    close: bool, optional
+        If True the in-memory CASAIMages given by ``cimpath_list`` are deleted,
+        and the optional write-lock releases.
+        Set to true if this is the last operation on the images, but False if other functions
+        called that operation on the same images. This avoids multiple read-in of the image.
     Returns
     ========
     Stacked image: CASAImage
@@ -557,13 +583,14 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     #Coordinate system is initialized by the first CASAImages coordinate system
     coordsys = base_cim.coordinates()
 
-    check_attrgroup_empty = lambda x: None if x.attrgroupnames() == [] else warnings.warn('Input image {0:s} has a non-empty attribute list!'.format(x.name()))
-    check_history_empty = lambda x: None if x.history() == [] else warnings.warn('Input image {0:s} has a non-empty history field!'.format(x.name()))
+    check_attrgroup_empty = lambda x: None if x.attrgroupnames() == [] else log.warning('Input image {0:s} has a non-empty attribute list!'.format(x.name()))
+    check_history_empty = lambda x: None if x.history() == [] else log.warning('Input image {0:s} has a non-empty history field!'.format(x.name()))
 
     check_attrgroup_empty(base_cim)
     check_history_empty(base_cim)
 
     #If shape is given, the data type is automatically set to float!
+    log.debug('Create stacked image: {0:s}'.format(output_cim))
     stacked_cim = casaimage.image(output_cim,
                     coordsys=coordsys,
                     values=base_cim.getdata(),
@@ -597,12 +624,23 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     if normalise:
         stacked_cim_data = np.divide(stacked_cim_data,len(cimpath_list))
 
+    log.debug('Write the stacked data to {0:s}'.format(output_cim))
     stacked_cim.putdata(stacked_cim_data)
 
     #Deleting the CIM variable closes the image, which release the lock
+    log.debug('Closing image: {0:s}'.format(stacked_cim.name()))
+    log.debug('Closing image: {0:s}'.format(output_cim))
+    
     del stacked_cim
     del output_cim
-    del base_cim
+
+    if close:
+        log.debug('Closing image: {0:s}'.format(base_cim.name()))
+        del base_cim
+
+        for cim in range(1,len(cimpath_list)):
+            log.debug('Closing image: {0:s}'.format(cim.name()))
+            del cim
 
 if __name__ == "__main__":
     pass

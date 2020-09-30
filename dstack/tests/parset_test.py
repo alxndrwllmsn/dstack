@@ -14,7 +14,6 @@ and with a kinda general test parset...
 import os
 import unittest
 import configparser
-import warnings
 import copy
 
 import dstack as ds

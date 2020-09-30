@@ -19,7 +19,10 @@ __all__ = ['list_supported_parset_settings', 'create_parset_mapping',
             'check_parameter_and_Preconditioner_compatibility', 'Parset']
 
 import os
-import warnings
+import logging
+
+#=== Setup logging ===
+log = logging.getLogger(__name__)
 
 #=== Globals ===
 global _SUPPORTED_IMAGERS
@@ -55,6 +58,8 @@ _GAUSSIANTAPER_FORBIDDEN_PARAMS = ['PGTisPsfSize', 'PGTtolerance']
 def list_supported_parset_settings():
     """List the ``YandaSoft`` parset settings that are currently supported by ``dstack``.
 
+    This function uses logger level INFO to return the supported settings
+
     Parameters
     ==========
 
@@ -62,9 +67,9 @@ def list_supported_parset_settings():
     =======
     Prints out the supported settings
     """
-    print_support = lambda functionality, flist: print('Supported {0:s}: '.format(functionality) + ' '.join(map(str, flist)))
+    print_support = lambda functionality, flist: log.info('Supported {0:s}: '.format(functionality) + ' '.join(map(str, flist)))
 
-    print('Settings for YandaSoft parsets supported by the dstack wrapper:')
+    log.info('Settings for YandaSoft parsets supported by the dstack wrapper:')
     print_support('Imagers',_SUPPORTED_IMAGERS)
     print_support('Solvers',_SUPPORTED_SOLVERS)
     print_support('Gridders',_SUPPORTED_GRIDDER_NAMES)
@@ -251,6 +256,7 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
 #Generate the mapping order:
 #        A dictionary defines the order of ``dstack`` parset parameters in which they
 #        written out to prompt or to file.
+log.debug('Create _MAPPING_ORDER global variable')
 _MAPPING_ORDER = {k: i for i, k in zip(enumerate(create_parset_mapping()[0]),create_parset_mapping()[0])}
 
 def check_preconditioner_suppoort(preconditioners=_DEFAULT_PRECONDITIONER):
@@ -419,6 +425,7 @@ class Parset(object):
         Note, that if the template uses preconditioning not supported by ``dstack``, it will be ignored.
     """
     def __init__(self, imager=_DEFAULT_IMAGER, image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAULT_GRIDDER_NAME, template_path=None, preconditioner=None):
+        log.debug('Initialize new Parset object:')
         object.__setattr__(self, "_parset", {})
 
         assert imager in _SUPPORTED_IMAGERS, 'Imager {0:s} is not supported!'.format(imager)
@@ -443,6 +450,7 @@ class Parset(object):
             assert os.path.exists(template_path), 'Template parset does not exist!'
 
             with open(template_path, 'r') as f:
+                log.debug('Reading in template Parset file: {0:s}'.format(template_path))
                 for line in f.readlines():
                     if line[0] == '#' or line.split() == []:
                         continue
@@ -492,9 +500,10 @@ class Parset(object):
                             continue
 
                         self._parset[self._inverse_mapping[name]] = value
+                        log.debug('Parset parameter added: {0:s} = {1:s}'.format(self._inverse_mapping[name],value))
                     
                     else:
-                        warnings.warn('Invalid parset parameter: {0:s} as the imager used is {1:s}! (parameter skipped)'.format(
+                        log.warning('Invalid parset parameter: {0:s} as the imager used is {1:s}! (parameter skipped)'.format(
                         name,self._imager,template_path))
 
             #Set up the Nnames key in the _parameters as it always have to exist in otder to save the Parset with correct preconditioning settings!
@@ -508,8 +517,11 @@ class Parset(object):
                 del self._preconditioner
                 self._preconditioner = preconditioner
 
-        #Oreder params according to mapping!
-        self.sort_parset()
+            #Oreder params according to mapping!
+            self.sort_parset()
+
+        else:
+            log.debug('No template parset provided when creating the Parset object, thus no ._parset parameters initialized!')
 
     def __setattr__(self, name, value):
         """Add a new key and a corresponding value to the ``Parset``
@@ -586,6 +598,7 @@ class Parset(object):
 
         """
         if not self.check_if_parset_sorted():
+            log.debug('Sort parset parameters.')
 
             #Create a sorted list of the mapping keys where the keys not defined int the Parset are set to None
             sorted_keys = [k if k in self._parset.keys() else None for k, v in sorted(_MAPPING_ORDER.items(), key=lambda item: item[1])]
@@ -604,6 +617,8 @@ class Parset(object):
                 self._parset[item[0]] = item[1]
 
             del parset_buffer
+        else:
+            log.debug('Parset parameters are already sorted!')
 
     def update_parset_mapping(self, image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAULT_GRIDDER_NAME):
         """Update the mapping used between the ``dstack`` and ``YandaSoft`` parset variables.
@@ -629,6 +644,7 @@ class Parset(object):
         :obj:`Parset`
             With updated mapping attributes
         """
+        log.debug('Update Parset mapping with image_names:{0:s} and gridder:{1:s}'.format(image_names,gridder_name))
         self._image_names = image_names
         self._gridder_name = gridder_name
         pm, ipm = create_parset_mapping(image_names=self._image_names,
@@ -657,6 +673,7 @@ class Parset(object):
             With updated imager attribute
         """
         assert imager in _SUPPORTED_IMAGERS, 'Imager {0:s} is not supported!'.format(imager)
+        log.debug('Update Parset imager to {0:s}'.format(imager))
         self._imager = imager
 
     def add_preconditioner(self,preconditioner):
@@ -676,6 +693,7 @@ class Parset(object):
         """
         assert preconditioner in _SUPPORTED_PRECONDITIONERS, 'Preconditioner {0:s} is not supported!'.format(preconditioner)
         if preconditioner not in self._preconditioner:
+            log.debug('Preconditioner {0:s} added to Parset preconditioners'.format(preconditioner))
             self._preconditioner.append(preconditioner)
 
     def remove_preconditioner(self,preconditioner):
@@ -695,6 +713,7 @@ class Parset(object):
         """
         assert preconditioner in _SUPPORTED_PRECONDITIONERS, 'Preconditioner {0:s} is not supported!'.format(preconditioner)
         if preconditioner in self._preconditioner:
+            log.debug('Preconditioner {0:s} removed from Parset preconditioners'.format(preconditioner))
             self._preconditioner.remove(preconditioner)
 
     def save_parset(self, output_path, parset_name, overwrite=True):
@@ -724,6 +743,8 @@ class Parset(object):
             assert os.path.isfile(parset_path), \
             'The parset file {0:s} exists and the parameter overwrite is set to false!'.format(parset_path)
 
+        log.debug('Save Parset parameters to: {0:s}'.format(parset_path))
+
         #Sort the parset
         self.sort_parset()
 
@@ -739,5 +760,8 @@ class Parset(object):
                     continue
 
 if __name__ == "__main__":
+    #import sys
+    #logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    #list_supported_parset_settings()
     pass
 

@@ -7,7 +7,6 @@ Hence, they needs to be handled separately for now.
 import os
 import unittest
 import configparser
-import warnings
 
 import dstack as ds
 import numpy as np

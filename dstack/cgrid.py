@@ -9,12 +9,16 @@ __all__ = ['measure_grid_sparseness']
 import os
 import shutil
 import numpy as np
-import warnings
+import logging
 
 from casacore import images as casaimage
 
 import dstack as ds
 
+#=== Setup logging ===
+log = logging.getLogger(__name__)
+
+#=== Functions ===
 def measure_grid_sparseness(cimgrid_path, chan=0,pol=0):
     """Measure the sparseness of the input grid, given in a complex CASAImage format
 
