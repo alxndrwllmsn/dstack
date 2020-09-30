@@ -604,6 +604,5 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     del output_cim
     del base_cim
 
-
 if __name__ == "__main__":
     pass

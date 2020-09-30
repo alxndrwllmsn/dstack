@@ -106,9 +106,6 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         The dictionary that is the mapping between the ``dstack`` and ``YandaSoft`` parset variables
     inverse_parset_mapping: dict
         Inverse dictionary of ``parset_mapping``
-    mapping_order? dict
-        A dictionary defines the order of ``dstack`` parset parameters in which they
-        written out to prompt or to file.
     """
     parset_mapping = {
         #Basic parameters
@@ -248,9 +245,13 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
     }
 
     inverse_parset_mapping = {v: k for k, v in parset_mapping.items()}
-    mapping_order = {k: i for i, (k, v) in zip(range(0,len(parset_mapping)),parset_mapping.items())}
 
-    return parset_mapping, inverse_parset_mapping, mapping_order
+    return parset_mapping, inverse_parset_mapping
+
+#Generate the mapping order:
+#        A dictionary defines the order of ``dstack`` parset parameters in which they
+#        written out to prompt or to file.
+_MAPPING_ORDER = {k: i for i, k in zip(enumerate(create_parset_mapping()[0]),create_parset_mapping()[0])}
 
 def check_preconditioner_suppoort(preconditioners=_DEFAULT_PRECONDITIONER):
     """Check if the list of preconditioners given is supported
@@ -434,10 +435,9 @@ class Parset(object):
             user_defined_preconditioner = False
         self._preconditioner = []
 
-        pm, ipm, pmo = create_parset_mapping(image_names=self._image_names,gridder_name=self._gridder_name)
+        pm, ipm = create_parset_mapping(image_names=self._image_names,gridder_name=self._gridder_name)
         object.__setattr__(self,"_mapping", pm)
         object.__setattr__(self,"_inverse_mapping", ipm)
-        object.__setattr__(self,"_mapping_order", pmo)
 
         if template_path != None:
             assert os.path.exists(template_path), 'Template parset does not exist!'
@@ -528,7 +528,7 @@ class Parset(object):
         :obj:`Parset`
             The ``_parset`` dict is appended with the ``name`` and ``value``
         """
-        custom_attributes = ['_imager','_image_names', '_gridder_name','_preconditioner','_mapping','_inverse_mapping', '_mapping_order']
+        custom_attributes = ['_imager','_image_names', '_gridder_name','_preconditioner','_mapping','_inverse_mapping']
         if name in custom_attributes:
             object.__setattr__(self, name, value)
         else:
@@ -548,7 +548,7 @@ class Parset(object):
         return lines
 
     def check_if_parset_sorted(self):
-        """This function checks if the ._parset dictionary is sorted by ._mapping_order or not.
+        """This function checks if the ._parset dictionary is sorted by  the global _MAPPING_ORDER or not.
 
         Parameters
         ==========
@@ -559,13 +559,13 @@ class Parset(object):
             True, if the ._parset dictionary is sorted and False if not
 
         """
-        last_key_val = self._mapping_order[list(self._parset.keys())[0]]
+        last_key_val = _MAPPING_ORDER[list(self._parset.keys())[0]]
         for k in list(self._parset.keys()):
             #print(self._mapping_order[k])
-            if self._mapping_order[k] < last_key_val:
+            if _MAPPING_ORDER[k] < last_key_val:
                 return False
             else:
-                last_key_val = self._mapping_order[k]
+                last_key_val = _MAPPING_ORDER[k]
 
         return True
 
@@ -588,7 +588,7 @@ class Parset(object):
         if not self.check_if_parset_sorted():
 
             #Create a sorted list of the mapping keys where the keys not defined int the Parset are set to None
-            sorted_keys = [k if k in self._parset.keys() else None for k, v in sorted(self._mapping_order.items(), key=lambda item: item[1])]
+            sorted_keys = [k if k in self._parset.keys() else None for k, v in sorted(_MAPPING_ORDER.items(), key=lambda item: item[1])]
 
             #Remove Nones
             sorted_keys = [k for k in sorted_keys if k != None]
@@ -631,7 +631,7 @@ class Parset(object):
         """
         self._image_names = image_names
         self._gridder_name = gridder_name
-        pm, ipm, pmo = create_parset_mapping(image_names=self._image_names,
+        pm, ipm = create_parset_mapping(image_names=self._image_names,
                                         gridder_name=self._gridder_name)
         
         #NOTE that the ordering is not updated!
