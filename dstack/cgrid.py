@@ -54,7 +54,8 @@ def measure_grid_sparseness(cimgrid_path, chan=0,pol=0):
     """
     cgrid = ds.cim.create_CIM_object(cimgrid_path)
     
-    assert cgrid.datatype() == 'Complex', 'Input CASAImage is not complex, and grids are axpected to be complex!'
+    if cgrid.datatype() != 'Complex':
+        raise TypeError('Input CASAImage is not complex, and grids are axpected to be complex!')
 
     gird_size = cgrid.shape()[2] * cgrid.shape()[3]
 

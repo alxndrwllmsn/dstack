@@ -301,7 +301,8 @@ def check_parameter_and_Imager_compatibility(parset_param, imager=_DEFAULT_IMAGE
         True if the parameter is allowed with the given imager,
         and False if not
     """
-    assert imager in _SUPPORTED_IMAGERS, 'Imager {0:s} is not supported!'.format(imager)
+    if imager not in _SUPPORTED_IMAGERS:
+        raise TypeError('Imager {0:s} is not supported!'.format(imager))
 
     if imager == 'Cimager':
         forbidden_params = ['grid','psfgrid','pcf']
@@ -360,7 +361,8 @@ def check_parameter_and_Preconditioner_compatibility(parset_param, preconditione
         else:
             return True
     else:
-        assert check_preconditioner_suppoort(preconditioners), 'The preconditioner given is not allowed!'
+        if check_preconditioner_suppoort(preconditioners) == False:
+            raise TypeError('The preconditioner given is not allowed!')
         return True
 
 #=== CLASSES ===
@@ -426,16 +428,22 @@ class Parset(object):
         log.debug('Initialize new Parset object:')
         object.__setattr__(self, "_parset", {})
 
-        assert imager in _SUPPORTED_IMAGERS, 'Imager {0:s} is not supported!'.format(imager)
+        if imager not in _SUPPORTED_IMAGERS:
+            raise TypeError('Imager {0:s} is not supported!'.format(imager))
+
+        if gridder_name not in _SUPPORTED_GRIDDER_NAMES:
+            raise TypeError('Gridder {0:s} is not supported!'.format(gridder_name))
+
         self._imager = imager
         self._image_names = image_names
-        assert gridder_name in _SUPPORTED_GRIDDER_NAMES, 'Gridder {0:s} is not supported!'.format(gridder_name)
         self._gridder_name = gridder_name
 
         #Set up an empty list for ._preconditioner =>  I will fill this up with the preconditioner from the template file
         if preconditioner != None:
-            assert check_preconditioner_suppoort(preconditioner) #Here I check if the given preconditioners are valid or not just before reading in the template
-            user_defined_preconditioner = True
+            if check_preconditioner_suppoort(preconditioner) == False:
+                raise TypeError('The preconditioner given is not allowed!')
+            else:
+                user_defined_preconditioner = True
         else:
             user_defined_preconditioner = False
         self._preconditioner = []
@@ -445,7 +453,10 @@ class Parset(object):
         object.__setattr__(self,"_inverse_mapping", ipm)
 
         if template_path != None:
-            assert os.path.exists(template_path), 'Template parset does not exist!'
+            if os.path.exists(template_path) == False:
+                raise NameError('Template parset does not exist: {0:s}'.format(template_path))
+
+            log.info('Create Parset based on template: {0:s}'.format(template_path))
 
             with open(template_path, 'r') as f:
                 log.debug('Reading in template Parset file: {0:s}'.format(template_path))
@@ -460,23 +471,24 @@ class Parset(object):
                         name = '.'.join(name.split('.')[1:])#Name without imager
                         value = line[line.index('= ')+2:].rstrip()#get rid of line separators with .rstrip()
 
-                        assert name in self._inverse_mapping, \
-                        'Can not interpret the parameter {0:s} given in the parset {1:s}!'.format(name,template_path)
+                        if name not in self._inverse_mapping:
+                            raise TypeError('Can not interpret the parameter {0:s} given in the parset {1:s}!'.format(
+                                            name,template_path))
                         
                         #Some consistency check
                         if self._inverse_mapping[name] == 'INames':
-                            assert self._image_names in value, \
-                            'Parsed created with different image names ({0:s}) from that defined in the template parset {1:s}!'.format(
-                                self._image_names,template_path)
+                            if self._image_names not in value:
+                                raise NameError('Parsed created with different image names ({0:s}) from that defined in the template parset {1:s}!'.format(
+                                    self._image_names,template_path))
 
                         if self._inverse_mapping[name] == 'gridder':
-                            assert self._gridder_name in value, \
-                            'Parsed created with different gridder name ({0:s}) from that defined in the template parset {1:s}!'.format(
-                                self._gridder_name,template_path)
+                            if self._gridder_name not in value:
+                                raise NameError('Parsed created with different gridder name ({0:s}) from that defined in the template parset {1:s}!'.format(
+                                self._gridder_name,template_path))
 
                         if self._inverse_mapping[name] == 'solver':
-                            assert value in  _SUPPORTED_SOLVERS, \
-                            'The solver defined in the template {0:s} is not supported!'.format(template_path)
+                            if value not in  _SUPPORTED_SOLVERS:
+                                raise NameError('The solver defined in the template {0:s} is not supported!'.format(template_path))
 
                         if self._inverse_mapping[name] == 'PNames':
                             valid_preconditioner = False
@@ -491,8 +503,9 @@ class Parset(object):
                                         #Add the preconditioner to the list
                                         self.add_preconditioner(p)
 
-                            assert valid_preconditioner == True, \
-                            'The preconditioner defined in the template {0:s} is not supported!'.format(template_path)
+                            if valid_preconditioner == False:
+                                raise NameError('The preconditioner defined in the template {0:s} is not supported!'.format(
+                                                template_path))
 
                             self._parset[self._inverse_mapping[name]] = self._preconditioner
                             continue
@@ -518,11 +531,16 @@ class Parset(object):
             #Oreder params according to mapping!
             self.sort_parset()
 
+            log.info('Parset attributes: imager = {0:s}; image_names = {1:s}; gridder_name = {2:s}; preconditioner = {3:s}'.format(
+                    self._imager, self._image_names, self._gridder_name, str(self._preconditioner)))
+
         else:
-            log.debug('No template parset provided when creating the Parset object!')
-            log.debug('Only two parameters set: INames and gridder (required for mapping)')
             self._parset[self._inverse_mapping[self._mapping['INames']]] = self._image_names
             self._parset[self._inverse_mapping[self._mapping['gridder']]] = self._gridder_name
+            log.info('Create Parset without template parset and parameters: Inames = {0:s}; gridder = {1:s}'.format(
+                        self._image_names,self._gridder_name))
+            log.info('Parset attributes: imager = {0:s}; image_names = {1:s}; gridder_name = {2:s}; preconditioner = {3:s}'.format(
+                    self._imager, self._image_names, self._gridder_name, str(self._preconditioner)))
 
     def add_parset_parameter(self,name,value):
         """Add a new Parset parameter to the _parset attribute
@@ -546,6 +564,7 @@ class Parset(object):
         if name not in set(self._mapping.keys()): 
             log.info('Skip adding invalid parset paremater: {0:s}'.format(name))
         else:
+            log.debug('Add parset parameter: {0:s}'.format(name))
             self._parset[self._inverse_mapping[self._mapping[name]]] = value
 
     def remove_parset_parameter(self,name):
@@ -568,9 +587,9 @@ class Parset(object):
         else:
             try:
                 del self._parset[name]
-                log.info('Parameter removed from parset: {0:s}'.format(name))
+                log.debug('Parameter removed from parset: {0:s}'.format(name))
             except  KeyError:
-                log.info('Parset does not contain parameter: {0:s}'.format(name))
+                log.info('Parset do not contain parameter: {0:s}'.format(name))
 
     def __setattr__(self, name, value):
         """Add a new key and a corresponding value to the ``Parset``
@@ -617,7 +636,6 @@ class Parset(object):
         =======
         sorted: bool
             True, if the ._parset dictionary is sorted and False if not
-
         """
         last_key_val = _MAPPING_ORDER[list(self._parset.keys())[0]]
         for k in list(self._parset.keys()):
@@ -643,7 +661,6 @@ class Parset(object):
         :obj: `Parset`
             With updated ._parset dictionary if needed. Note that the ._parset attribute
             is deleted and re-created within this function!
-
         """
         if not self.check_if_parset_sorted():
             log.debug('Sort parset parameters.')
@@ -692,7 +709,7 @@ class Parset(object):
         :obj:`Parset`
             With updated mapping and associated attributes
         """
-        log.debug('Update Parset mapping with image_names:{0:s} and gridder:{1:s}'.format(image_names,gridder_name))
+        log.info('Update Parset mapping using image_names = {0:s} and gridder = {1:s}'.format(image_names,gridder_name))
         self._image_names = image_names
         self._gridder_name = gridder_name
         pm, ipm = create_parset_mapping(image_names=self._image_names,
@@ -753,8 +770,10 @@ class Parset(object):
         :obj:`Parset`
             With updated imager attribute
         """
-        assert imager in _SUPPORTED_IMAGERS, 'Imager {0:s} is not supported!'.format(imager)
-        log.debug('Update Parset imager to {0:s}'.format(imager))
+        if imager not in _SUPPORTED_IMAGERS:
+            raise NameError('Imager {0:s} is not supported!'.format(imager))
+
+        log.info('Update Parset imager to {0:s}'.format(imager))
         self._imager = imager
 
     def add_preconditioner(self,preconditioner):
@@ -772,9 +791,10 @@ class Parset(object):
         :obj:`Parset`
             With an extra preconditioner in the _preconditioner attribute
         """
-        assert preconditioner in _SUPPORTED_PRECONDITIONERS, 'Preconditioner {0:s} is not supported!'.format(preconditioner)
+        if preconditioner not in _SUPPORTED_PRECONDITIONERS:
+            raise NameError('Preconditioner {0:s} is not supported!'.format(preconditioner))
         if preconditioner not in self._preconditioner:
-            log.debug('Preconditioner {0:s} added to Parset preconditioners'.format(preconditioner))
+            log.info("Preconditioner '{0:s}' added to Parset preconditioners".format(preconditioner))
             self._preconditioner.append(preconditioner)
 
     def remove_preconditioner(self,preconditioner):
@@ -792,11 +812,11 @@ class Parset(object):
         :obj:`Parset`
             Withouth the removed preconditioner in the _preconditioner attribute
         """
-        assert preconditioner in _SUPPORTED_PRECONDITIONERS, 'Preconditioner {0:s} is not supported!'.format(preconditioner)
+        if preconditioner not in _SUPPORTED_PRECONDITIONERS:
+            raise NameError('Preconditioner {0:s} is not supported!'.format(preconditioner))
         if preconditioner in self._preconditioner:
-            log.debug('Preconditioner {0:s} removed from Parset preconditioners'.format(preconditioner))
+            log.info("Preconditioner '{0:s}' removed from Parset preconditioners".format(preconditioner))
             self._preconditioner.remove(preconditioner)
-
 
     def update_preconditioner(self,preconditioners):
         """Update the _preconditioner list attribute with the
@@ -813,11 +833,11 @@ class Parset(object):
         """
         if preconditioners != []:
             for preconditioner in preconditioners:
-                assert preconditioner in _SUPPORTED_PRECONDITIONERS, 'Preconditioner {0:s} is not supported!'.format(preconditioner)
+                if preconditioner not in _SUPPORTED_PRECONDITIONERS:
+                    raise NameError('Preconditioner {0:s} is not supported!'.format(preconditioner))
 
-        log.debug('Preconditioner updated.')
+        log.info('Update preconditioner to: {0:s}'.format(str(preconditioners)))
         self._preconditioner = preconditioners
-
 
     def save_parset(self, output_path, parset_name, overwrite=True):
         """Save the in-memory ``Parset`` to ``output_path/parset_name``.
@@ -841,14 +861,15 @@ class Parset(object):
         """
         parset_path = os.path.join(output_path, parset_name)
 
-        if os.path.isfile(parset_path) and overwrite == False:
-            assert os.path.isfile(parset_path), \
-            'The parset file {0:s} exists and the parameter overwrite is set to false!'.format(parset_path)
+        if os.path.isdir(parset_path) and overwrite == False: 
+            raise TypeError('Parset file already exist, and the overwrite parameters is set to False!')
 
         log.debug('Save Parset parameters to: {0:s}'.format(parset_path))
 
         #Sort the parset
         self.sort_parset()
+
+        log.info('Save parset as: {0:s}'.format(parset_path))
 
         with open(parset_path, 'w') as f:
             for key in self._parset.keys():

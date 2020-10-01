@@ -3,7 +3,7 @@ Collection of utility functions to interact with Measurement Sets
 """
 
 __all__ = ['create_MS_object', 'get_N_chan_from_MS','get_MS_phasecentre_all',
-            'get_single_phasecentre_from_MS','check_phaseref_in_MS']
+            'get_single_phasecentre_from_MS', 'check_phaseref_in_MS']
 
 import numpy as np
 import logging
@@ -127,7 +127,7 @@ def get_MS_phasecentre_all(mspath, frame='icrs', ack=False):
     log.debug('Unique fields in the MS: {}'.format(fields))
     log.debug('Unique Data Description IDs in the MS: {}'.format(dds))
 
-    fields_table = casatables.table(mspath + '/FIELD', ack=ack)    
+    fields_table = casatables.table(mspath + '/FIELD', ack=ack)   
 
     phasecentres = []
 
@@ -136,8 +136,9 @@ def get_MS_phasecentre_all(mspath, frame='icrs', ack=False):
 
     log.debug('Equinox used in the MS: {0:s}'.format(equinox))
 
-    #Only can convert from radians
-    assert fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] == 'rad', 'Phase centre direction is not in radians!'
+    #Can convert from radians only
+    if fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] != 'rad':
+        raise TypeError('Phase centre direction is not in radians!') 
 
     i = 0
     j = 0
@@ -210,8 +211,10 @@ def get_single_phasecentre_from_MS(mspath, field_ID=0, dd_ID=0, frame='icrs', ac
     equinox = fields_table.getcolkeyword('PHASE_DIR','MEASINFO')['Ref']
     log.debug('Equinox used in the MS: {0:s}'.format(equinox))
 
-    #Only can convert from radians
-    assert fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] == 'rad', 'Phase centre direction is not in radians!'
+    #Can convert from radians only
+    if fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] != 'rad':
+        raise TypeError('Phase centre direction is not in radians!')
+
 
     pc = fields_table.getcol('PHASE_DIR')[dd_ID,field_ID, :]
 
@@ -258,7 +261,10 @@ def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=F
         The returned indices are the field followed by direction for each match
 
     """
-    assert type(phaseref) == type(SkyCoord(ra = 0 * u.deg, dec = 0 * u.deg, frame=frame, equinox='J2000')), 'Input phaseref is not an astropy SkyCoord object!'
+    #assert type(phaseref) == type(SkyCoord(ra = 0 * u.deg, dec = 0 * u.deg, frame=frame, equinox='J2000')), 'Input phaseref is not an astropy SkyCoord object!'
+    #if type(phaseref) != 'astropy.coordinates.sky_coordinate.SkyCoord':
+    if type(phaseref) != type(SkyCoord(ra = 0 * u.deg, dec = 0 * u.deg, frame=frame, equinox='J2000')):
+        raise TypeError('Input phaseref is not an astropy SkyCoord object!')
 
     MS = ds.msutil.create_MS_object(mspath, ack=ack)
 
@@ -268,8 +274,10 @@ def check_phaseref_in_MS(mspath, phaseref, sep_threshold=1., frame='icrs', ack=F
     equinox = fields_table.getcolkeyword('PHASE_DIR','MEASINFO')['Ref']
     log.debug('Equinox used in the MS: {0:s}'.format(equinox))
 
-    #Only can convert from radians
-    assert fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] == 'rad', 'Phase centre direction is not in radians!'
+    #Can convert from radians only
+    if fields_table.getcolkeyword('PHASE_DIR','QuantumUnits')[0] != 'rad':
+        raise TypeError('Phase centre direction is not in radians!')
+
 
     log.debug('Unique fields in the MS: {0:d}'.format(np.shape(fields_table.getcol('PHASE_DIR'))[0]))
     log.debug('Unique Data Description IDs in the MS: {0:d}'.format(np.shape(fields_table.getcol('PHASE_DIR'))[0]))

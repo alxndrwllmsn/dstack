@@ -87,7 +87,7 @@ def check_CIM_axes(cim, required_axes=_DEFAULT_REQUIRED_AXES):
     
     Raises
     ======
-    AssertionError
+    ValueError
         If the number of axes is does not equal the required
         numbers.
     """
@@ -108,13 +108,12 @@ def CIM_dim_equity_check(cimpath_a, cimpath_b):
     
     Raises
     ======
-    AssertionError
+    ValueError
         If the number of dimensions is not equal for ``cimpath_a`` and ``cimpath_b``.
     
     """
     if cimpath_a.ndim() != cimpath_b.ndim():
-        raise
-    assert cimpath_a.ndim() == cimpath_b.ndim(), 'The dimension of the two input CASAImage is not equal!'
+        raise ValueError('The dimension of the two input CASAImage are not equal!')
 
 def CIM_unit_equity_check(cimpath_a, cimpath_b):
     """Checks if the ``cim_a`` and ``cimpath_b`` image objects have the same pixel units.
@@ -128,11 +127,12 @@ def CIM_unit_equity_check(cimpath_a, cimpath_b):
     
     Raises
     ======
-    AssertionError
+    ValueError
         If the number of dimensions is not equal for ``cimpath_a`` and ``cimpath_b``.
     
     """
-    assert cimpath_a.unit() == cimpath_b.unit(), 'The pixel units of the two input CASAImage is not equal!'
+    if cimpath_a.unit() != cimpath_b.unit():
+        raise ValueError('The pixel units of the two input CASAImage are not equal!')
 
 def get_N_chan_from_CIM(cimpath, close=False, required_axes=_DEFAULT_REQUIRED_AXES):
     """Get the number of channels from a CASAImage
@@ -299,22 +299,22 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
     coords_axis = 'spectral'
     log.debug('Checking {0:s} axis equity'.format(coords_axis))
     
-    assert coordsA[coords_axis].get_frame() == coordsB[coords_axis].get_frame(), \
-    'The given images {0:s} and {1:s} have different frames!'.format(cimA.name(),cimB.name())
+    if coordsA[coords_axis].get_frame() != coordsB[coords_axis].get_frame():
+        raise ValueError('The given images {0:s} and {1:s} have different frames!'.format(cimA.name(),cimB.name()))
 
     if coordsA[coords_axis].get_unit() == coordsB[coords_axis].get_unit():
-        assert coordsA[coords_axis].get_increment() == coordsB[coords_axis].get_increment(), \
-        'The increment of the two spectral coordinates are different for images {0:s} and {1:s}'.format(
-        cimA.name(),cimB.name())
-        
-        assert coordsA[coords_axis].get_restfrequency() == coordsB[coords_axis].get_restfrequency(), \
-        'The rest frame frequency of the two spectral coordinates are different for images {0:s} and {1:s}'.format(
-        cimA.name(),cimB.name())
+        if coordsA[coords_axis].get_increment() != coordsB[coords_axis].get_increment():
+            raise ValueError('The increment of the two spectral coordinates are different for images {0:s} and {1:s}'.format(
+                            cimA.name(),cimB.name()))
 
+        if coordsA[coords_axis].get_restfrequency() != coordsB[coords_axis].get_restfrequency():
+            raise ValueError('The rest frame frequency of the two spectral coordinates are different for images {0:s} and {1:s}'.format(
+                            cimA.name(),cimB.name()))
+        
         if coordsA[coords_axis].get_referencepixel() == coordsB[coords_axis].get_referencepixel():
-            assert coordsA[coords_axis].get_referencevalue() == coordsB[coords_axis].get_referencevalue(), \
-            'The reference values of the spectral corrdinates are different for images {0:s} and {1:s}'.format(
-            cimA.name(),cimB.name())
+            if coordsA[coords_axis].get_referencevalue() != coordsB[coords_axis].get_referencevalue():
+                raise ValueError('The reference values of the spectral corrdinates are different for images {0:s} and {1:s}'.format(
+                                cimA.name(),cimB.name()))
         else:
             log.warning('The input images {0:s} and {1:s} have different spectral coordinate reference pixel!'.format(
                     cimA.name(),cimB.name()))
@@ -326,8 +326,9 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
     coords_axis = 'stokes'
     log.debug('Checking {0:s} axis equity'.format(coords_axis))
 
-    assert coordsA[coords_axis].get_stokes() == coordsB[coords_axis].get_stokes(), \
-    'The polarization frame is different for images {0:s} and {1:s}!'.format(cimA.name(),cimB.name())
+    if coordsA[coords_axis].get_stokes() != coordsB[coords_axis].get_stokes():
+        raise ValueError('The polarization frame is different for images {0:s} and {1:s}!'.format(
+                        cimA.name(),cimB.name()))
 
     #Direction coordinates if images and linear coordinates if grids
     coords_axis = 'direction'
@@ -341,13 +342,12 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
         log.debug("Image axis are: 'diretion'")
 
     except AssertionError:
-        #re-run the assertion to actually fail the code
-        assert coordsA[coords_axis].get_frame() == coordsB[coords_axis].get_frame(), \
-        'The given images {0:s} and {1:s} have different frames!'.format(cimA.name(),cimB.name())
+        if coordsA[coords_axis].get_frame() != coordsB[coords_axis].get_frame():
+            raise ValueError('The given images {0:s} and {1:s} have different frames!'.format(cimA.name(),cimB.name()))
 
-        assert coordsA[coords_axis].get_projection() == coordsB[coords_axis].get_projection(), \
-        'The given images {0:s} and {1:s} have different projections!'.format(cimA.name(),cimB.name())
-
+        if coordsA[coords_axis].get_projection() != coordsB[coords_axis].get_projection():
+            raise ValueError('The given images {0:s} and {1:s} have different projections!'.format(cimA.name(),cimB.name()))
+        
         log.debug("Image axis are: 'diretion'")
     
     except:
@@ -356,14 +356,14 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
         log.debug("Image axis are: 'linear'")
 
     if np.all(np.array(coordsA[coords_axis].get_unit()) == np.array(coordsB[coords_axis].get_unit())):
-        assert np.all(np.array(coordsA[coords_axis].get_increment()) == np.array(coordsB[coords_axis].get_increment())), \
-        'The increment of the (x,y) direction coordinates are different for the input images {0:s} and {1:s}'.format(
-        cimA.name(),cimB.name())
+        if np.all(np.array(coordsA[coords_axis].get_increment()) != np.array(coordsB[coords_axis].get_increment())):
+            raise ValueError('The increment of the (x,y) direction coordinates are different for the input images {0:s} and {1:s}'.format(
+                            cimA.name(),cimB.name()))
 
         if np.all(np.array(coordsA[coords_axis].get_referencepixel()) == np.array(coordsB[coords_axis].get_referencepixel())):
-            assert np.all(np.array(coordsA[coords_axis].get_referencevalue()) == np.array(coordsB[coords_axis].get_referencevalue())), \
-            'The reference values of the (x,y) direction corrdinates are different for images {0:s} and {1:s}'.format(
-            cimA.name(),cimB.name())
+            if np.all(np.array(coordsA[coords_axis].get_referencevalue()) != np.array(coordsB[coords_axis].get_referencevalue())):
+                raise ValueError('The reference values of the (x,y) direction corrdinates are different for images {0:s} and {1:s}'.format(
+                                cimA.name(),cimB.name()))
         else:
             log.warning('The input images {0:s} and {1:s} have different (x,y) direction coordinate reference pixels!'.format(
                     cimA.name(),cimB.name()))
@@ -577,11 +577,13 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
         Create the stacked image at ``cim_output_path/cim_outputh_name``
 
     """
-    assert len(cimpath_list) >= 2, 'Less than two image given for stacking!'
+    if len(cimpath_list) < 2:
+        raise ValueError('Less than two image given for stacking!')
 
     output_cim = '{0:s}/{1:s}'.format(cim_output_path,cim_outputh_name)
 
-    if os.path.isdir(output_cim): assert overwrite, 'Stacked image already exist, and the overwrite parameters is set to False!'
+    if os.path.isdir(output_cim) and overwrite == False: 
+        raise TypeError('Stacked image already exist, and the overwrite parameters is set to False!') 
 
     base_cim = ds.cim.create_CIM_object(cimpath_list[0])
 
@@ -616,11 +618,13 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     for i in range(1,len(cimpath_list)):
         cim = ds.cim.create_CIM_object(cimpath_list[i])
 
-        assert base_cim.datatype() == cim.datatype(), 'The data type of the two input images ({0:s} and {1:s}) are not equal!'.format(base_cim.name(),cim.name())
-        assert base_cim.ndim() == cim.ndim(), 'The dimension of the two input images ({0:s} and {1:s}) are not equal!'.format(base_cim.name(),cim.name())
-        assert ds.cim.check_CIM_coordinate_equity(cim,stacked_cim), \
-        'The created stacked image and the image {0:s} have different coordinate systems!'.format(cim.name())
-
+        if base_cim.datatype() != cim.datatype():
+            raise TypeError('The data type of the two input images ({0:s} and {1:s}) are not equal!'.format(base_cim.name(),cim.name()))
+        if base_cim.ndim() != cim.ndim():
+            raise ValueError('The dimension of the two input images ({0:s} and {1:s}) are not equal!'.format(base_cim.name(),cim.name()))
+        if ds.cim.check_CIM_coordinate_equity(cim,stacked_cim) == False:
+            raise ValueError('The created stacked image and the image {0:s} have different coordinate systems!'.format(cim.name()))
+        
         check_attrgroup_empty(cim)
         check_history_empty(cim)
 
