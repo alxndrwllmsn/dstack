@@ -4,18 +4,10 @@ The code takes template parset(s) and creates custom parsets for pipelines such 
 Currently not everything is supported and the wrapper is not complete, i.e. the user can break the wrapper if not careful!
 """
 
-#TO DO:
-#Maybe create a check_parameter_and_Gridder_compatibility() function.
-#I am not sure if this is needed, depends on if YandaSoft throws an error
-#if you specify a parameter not valid with that gridder ot it just ignores it.
-#I.e. the gridder is set to Box, but poarameters used in mitigating the non-coplanar
-#baselie effect are defined and saved in the parset.
-#As far as I am concerned, it is not a problem in YandaSoft.
-
-
 __all__ = ['list_supported_parset_settings', 'create_parset_mapping',
             'check_preconditioner_suppoort', 'check_parameter_and_Imager_compatibility', 
-            'check_parameter_and_Preconditioner_compatibility', 'Parset']
+            'check_parameter_and_Preconditioner_compatibility', 
+            'check_parameter_and_Gridder_compatibility', 'Parset']
 
 import os
 import logging
@@ -31,7 +23,7 @@ global _SUPPORTED_PRECONDITIONERS
 
 _SUPPORTED_IMAGERS = ['Cimager', 'Cdeconvolver', 'dstack']
 _SUPPORTED_SOLVERS = ['Clean']
-_SUPPORTED_GRIDDER_NAMES = ['Box', 'SphFunc', 'WProject', 'WStack']
+_SUPPORTED_GRIDDER_NAMES = ['Box', 'SphFunc', 'WStack', 'WProject']
 _SUPPORTED_PRECONDITIONERS = ['Wiener','GaussianTaper']
 
 #Some default parameters
@@ -51,6 +43,17 @@ global _GAUSSIANTAPER_FORBIDDEN_PARAMS
 
 _WIENER_FORBIDDEN_PARAMS = ['PWnoisepower', 'PWnormalise', 'PWrobustness', 'PWtaper']
 _GAUSSIANTAPER_FORBIDDEN_PARAMS = ['PGTisPsfSize', 'PGTtolerance']
+
+#Globals defining the compatibility of different gridders
+global _COPLANAR_FORBIDDEN_PARAMS
+global _NON_ANTIALIASING_FORBIDDEN_PARAMS
+
+#Forbidden for gridders not taking the w-term into account
+#Basically everything except WProject and Wstack (currently including parameters supporting Non-linear sampling in w-space)
+_COPLANAR_FORBIDDEN_PARAMS = ['GNwmax', 'GNwmaxclip', 'GNnwplanes', 'GNwstats', 'GNwsampling', 'GNWexponent', 'GNWnwplanes50', 
+                                'GNWexport', 'GNcutoff', 'GNCabsolute', 'GNoversample', 'GNmaxsupport', 'GNlimitsupport',
+                                'GNvariablesupport', 'GNoffsetsupport', 'GNtablename', 'GNusedouble', 'GNsharecf'] 
+_NON_ANTIALIASING_FORBIDDEN_PARAMS = ['GNalpha'] #Forbidden params for everything except SphFunc and WProject
 
 #=== Functions ===
 def list_supported_parset_settings():
@@ -325,10 +328,10 @@ def check_parameter_and_Imager_compatibility(parset_param, imager=_DEFAULT_IMAGE
 def check_parameter_and_Preconditioner_compatibility(parset_param, preconditioners=_DEFAULT_PRECONDITIONER):
     """This function defines which parameters the preconditioners used are not compatible with.
 
-    This check returns False if the given parameter is not compatible with the preconditioner
+    This check returns False if the given parameter is not compatible with the preconditioner used.
 
     This function is only called when a parset is written to disc. The in-memory parest
-    can be really messed up for sake of flexibility 
+    can be really messed up for sake of flexibility.
 
     Parameters
     ==========
@@ -342,7 +345,7 @@ def check_parameter_and_Preconditioner_compatibility(parset_param, preconditione
     =======
     Compatibility: bool
         True if the parameter is allowed with the given preconditioner(s),
-        and False if not   
+        and False if not
     """
     if preconditioners == []:
         #The Ppreservecf parameter is allowed due to the misterious ways YandaSoft works...
@@ -362,7 +365,51 @@ def check_parameter_and_Preconditioner_compatibility(parset_param, preconditione
             return True
     else:
         if check_preconditioner_suppoort(preconditioners) == False:
-            raise TypeError('The preconditioner given is not allowed!')
+            raise TypeError('The preconditioner given is not supported!')
+        return True
+
+def check_parameter_and_Gridder_compatibility(parset_param, gridder_name=_DEFAULT_GRIDDER_NAME):
+    """This function defines which parameters the gridder used not compatible with.
+
+    This check returns False if the given parameter is not compatible with the gridder used.
+
+    This function is only called when a parset is written to disc. The in-memory parest
+    can be really messed up for sake of flexibility.
+
+    Parameters
+    ==========
+    parset_param: str
+        The ``dstack`` parset parameter variable name
+
+    gridder_name: str, optional
+        This is the name of the gridder used
+
+    Returns
+    =======
+    Compatibility: bool
+        True if the parameter is allowed with the given gridder(,
+        and False if not
+    """
+    if gridder_name == 'Box':
+        if parset_param in _COPLANAR_FORBIDDEN_PARAMS + _NON_ANTIALIASING_FORBIDDEN_PARAMS:
+            return False
+        else:
+            return True
+    elif gridder_name == 'SphFunc':
+        if parset_param in _COPLANAR_FORBIDDEN_PARAMS:
+            return False
+        else:
+            return True
+    elif gridder_name == 'WStack':
+        if parset_param in _NON_ANTIALIASING_FORBIDDEN_PARAMS:
+            return False
+        else:
+            return True
+    elif gridder_name == 'WProject':
+        return True
+    else:
+        if gridder_name not in _SUPPORTED_GRIDDER_NAMES:
+            raise TypeError('The gridder given is not supported!')
         return True
 
 #=== CLASSES ===
@@ -878,7 +925,9 @@ class Parset(object):
                     if key == 'PNames':
                         print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._preconditioner)),file=f)
                     elif check_parameter_and_Preconditioner_compatibility(key, preconditioners=self._preconditioner):
-                        print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._parset[key])),file=f)
+                        #We know that preconditioner and gridder settings are independent!
+                        if check_parameter_and_Gridder_compatibility(key, gridder_name=self._gridder_name):
+                            print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._parset[key])),file=f)
                 else:
                     continue
 

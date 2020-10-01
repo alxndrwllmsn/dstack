@@ -153,5 +153,38 @@ class TestParset(unittest.TestCase):
         assert saved_parset._preconditioner == [] and saved_parset._parset['PNames'] == [], \
         'Failed to properly save the preconditioners used!'
 
+    def test_gridding_compatibility(self):
+        output_parset_name = 'test_parset_gridding_compatibility.in'
+
+        initial_parset = ds.parset.Parset(template_path=self.ParsetPath,
+                                        imager='dstack',image_names=self.ImageNames,
+                                        gridder_name=self.GridderName)
+
+        gridders_to_test = ds.parset._SUPPORTED_GRIDDER_NAMES #['Box', 'SphFunc', 'WStack', 'WProject'] the order is important!
+        gridder_parameters_to_test = [ds.applications.argflatten([ds.parset._COPLANAR_FORBIDDEN_PARAMS + ds.parset._NON_ANTIALIASING_FORBIDDEN_PARAMS]),
+                                    ds.parset._COPLANAR_FORBIDDEN_PARAMS, ds.parset._NON_ANTIALIASING_FORBIDDEN_PARAMS,
+                                    ds.applications.argflatten([ds.parset._COPLANAR_FORBIDDEN_PARAMS + ds.parset._NON_ANTIALIASING_FORBIDDEN_PARAMS])]
+
+        for i, gridder in zip(range(len(gridders_to_test)),gridders_to_test):
+            initial_parset.update_gridder_name(gridder)
+            if gridder != 'WProject':
+                for param in gridder_parameters_to_test[i]:
+                    assert ds.parset.check_parameter_and_Gridder_compatibility(param, initial_parset._gridder_name) == False, \
+                    'The parameter {0:s} should not be compatible with the Parset, when {1:s} gridder is used!'.format(
+                    param,initial_parset._gridder_name)
+            else:
+                for param in gridder_parameters_to_test[i]:
+                    assert ds.parset.check_parameter_and_Gridder_compatibility(param, initial_parset._gridder_name) == True, \
+                    'WProject should be compatible with all supported gridder parameters including {0:s}!'.format(param)
+
+        #Save the parset and test if the gridder name is set correctly
+        initial_parset.update_gridder_name('Box')
+        initial_parset.save_parset(output_path=_TEST_DIR, parset_name=output_parset_name)
+        saved_parset = ds.parset.Parset(template_path='{0:s}/{1:s}'.format(_TEST_DIR,output_parset_name),
+                                        imager='dstack',image_names=self.ImageNames,
+                                        gridder_name='Box')
+
+        assert saved_parset._gridder_name == 'Box', 'Failed to properly save the updated gridder!'
+
 if __name__ == "__main__":
     unittest.main()

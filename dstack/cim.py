@@ -548,6 +548,8 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     NOTE, that there are better tools in YadaSoft and casacore to create stacked images,
     but no option to stack and modify grids.
 
+    TO DO: maybe add xarray and dask to support distributed and parallel averaging
+
     Parameters
     ==========
     cimpath_list: list
