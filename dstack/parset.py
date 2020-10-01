@@ -524,16 +524,53 @@ class Parset(object):
             self._parset[self._inverse_mapping[self._mapping['INames']]] = self._image_names
             self._parset[self._inverse_mapping[self._mapping['gridder']]] = self._gridder_name
 
-
     def add_parset_parameter(self,name,value):
+        """Add a new Parset parameter to the _parset attribute
+
+        This is the preferred method to add parameters to the parset.
+
+        Parameters
+        ==========
+        name: str
+            Name of the parameter. Have to be in ``self._mapping`` keys.
+
+        value: str (or almost anything)
+            The value of the parameter. When the ``Parset`` is saved
+            the value will be converted to a string.
+
+        Returns
+        =======
+        :obj:`Parset`
+            The ``_parset`` dict is appended with the ``name`` and ``value``
         """
+        if name not in set(self._mapping.keys()): 
+            log.info('Skip adding invalid parset paremater: {0:s}'.format(name))
+        else:
+            self._parset[self._inverse_mapping[self._mapping[name]]] = value
 
+    def remove_parset_parameter(self,name):
+        """Remove a parset parameter from the _parset attribute
+
+        This is the preferred method to remove parameters.
+
+        Parameters
+        ==========
+        name: str
+            Name of the parameter. Have to be in ``self._mapping`` keys.
+
+        Returns
+        =======
+        :obj:`Parset`
+            The ``_parset`` dict is without with the element called ``name``
         """
-        assert name in self._inverse_mapping, 'Invalid parset paremater: {0:s}'.format(name)
-        self._parset[self._inverse_mapping[self._mapping[name]]] = value
-
-
-
+        if name not in set(self._mapping.keys()): 
+            log.info('Can not remove invalid parset parameter: {0:s}'.format(name))
+        else:
+            try:
+                del self._parset[name]
+                log.info('Parameter removed from parset: {0:s}'.format(name))
+            except  KeyError:
+                log.info('Parset does not contain parameter: {0:s}'.format(name))
 
     def __setattr__(self, name, value):
         """Add a new key and a corresponding value to the ``Parset``
@@ -555,12 +592,8 @@ class Parset(object):
         custom_attributes = ['_parset', '_imager','_image_names', '_gridder_name','_preconditioner','_mapping','_inverse_mapping']
         if name in custom_attributes:
             object.__setattr__(self, name, value)
-        elif name in self._inverse_mapping:
-            self.add_parset_parameter(name,value)
         else:
-            print('AAAAAAA')
-            #self.add_parset_parameter(name,value)
-            #self._parset[self._inverse_mapping[self._mapping[name]]] = value
+            self.add_parset_parameter(name,value)
 
     def __repr__(self):
         """Return the ``_parset`` dict as a line-by line string of keys and values."""

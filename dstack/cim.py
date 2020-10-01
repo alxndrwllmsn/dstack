@@ -80,6 +80,7 @@ def check_CIM_axes(cim, required_axes=_DEFAULT_REQUIRED_AXES):
     ==========
     cim: ``casacore.images.image.image`` object
         In-memory CASAImage
+    
     required_axes: int, optional
         Number of required axes or dimensions for the ``cim`` image
         object.
@@ -90,7 +91,9 @@ def check_CIM_axes(cim, required_axes=_DEFAULT_REQUIRED_AXES):
         If the number of axes is does not equal the required
         numbers.
     """
-    assert cim.ndim() == required_axes, 'The image has more or less than the required {0:d} axes!'.format(int(required_axes))
+    if cim.ndim() != required_axes:
+        raise ValueError('The image has more or less than the required {0:d} axes!'.format(int(required_axes)))
+
 
 def CIM_dim_equity_check(cimpath_a, cimpath_b):
     """Checks if the ``cimpath_a`` and ``cimpath_b`` image objects have the same number
@@ -109,6 +112,8 @@ def CIM_dim_equity_check(cimpath_a, cimpath_b):
         If the number of dimensions is not equal for ``cimpath_a`` and ``cimpath_b``.
     
     """
+    if cimpath_a.ndim() != cimpath_b.ndim():
+        raise
     assert cimpath_a.ndim() == cimpath_b.ndim(), 'The dimension of the two input CASAImage is not equal!'
 
 def CIM_unit_equity_check(cimpath_a, cimpath_b):

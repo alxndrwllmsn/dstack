@@ -8,6 +8,7 @@ as arguments.
 
 __all__ = ['dstacking', 'dparset']
 
+import sys
 import argparse
 import logging
 
@@ -62,6 +63,10 @@ def dstacking():
         Boolean argument, if not given set to False otherwise True.
         If True the in-memory CASAIMages given by ``cimpath_list`` are deleted, and the optional write-lock releases.
 
+    Returns
+    =======
+    Stacked CASAImage: file
+        Creates the stacked CASAImage.
     """
     parser = argparse.ArgumentParser(description='This is an application to stack CASAImages.')
 
@@ -129,6 +134,9 @@ def dparset():
     str -pn or --parset_name:
         Name of the parset file created.
 
+    optional -l or --log:
+        Boolean. If True the logger level set to INFO.
+
     optional -t or --template_path:
         String. Full path to a template parset file, which can be used to initialize the parset parameters.
 
@@ -140,10 +148,19 @@ def dparset():
 
     optional -p or --preconditioner:
         String(s). A list of the preconditioners used to create the parset. If not given, 
-        the preconditioners read from the template if given. A simple -p with no raguments 
+        the preconditioners read from the template if given. A simple -p with no arguments 
         results in an empty list i.e. no preconditioners defined.
+    
+    optional -a or --append_preconditioner_settings:
+        List of dstack parameter keys and values in the format of  "key=value". The parset parameters are appended with the list elements.
 
+    optional -d or --delete_preconditioner_settings:
+        List of dstack parameter keys to remove from the parset.
 
+    Returns
+    =======
+    parset: file
+        Creates the parset file defined by the arguments.
     """
     parser = argparse.ArgumentParser(description='This is an application to create parset files for YandaSoft.')
 
@@ -169,6 +186,10 @@ def dparset():
                         required=True, action="store", type=str)
 
     #=== Optional arguments ===
+    parser.add_argument('-l', '--log', 
+                        help='', 
+                        required=False, action="store_true")
+
     parser.add_argument('-t', '--template_path', 
                         help='Full path to a template parset file, which can be used to initialize the parset parameters.', 
                         required=False, action="store", type=str)
@@ -183,19 +204,23 @@ def dparset():
 
     parser.add_argument('-p', '--preconditioner', 
                         help='A list of the preconditioners used to create the parset. If not given, the preconditioners read from the template if given. \
-                            A simple -p with no raguments results in an empty list i.e. no preconditioners defined.', 
+                            A simple -p with no arguments results in an empty list i.e. no preconditioners defined.', 
                         required=False, action="append", nargs='*', type=str)
 
     parser.add_argument('-a', '--append_preconditioner_settings',
-                        help='A',
+                        help='List of dstack parameter keys and values in the format of  "key=value". The parset parameters are appended with the list elements.',
                         required=False, action="append", nargs='+', type=str)
 
     parser.add_argument('-d', '--delete_preconditioner_settings',
-                        help='A',
+                        help='List of dstack parameter keys to remove from the parset.',
                         required=False, action="append", nargs='+', type=str)
 
     #=== Application MAIN ===
     args = parser.parse_args()
+
+    #Set up logging if needed
+    if args.log:
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     #Initialise parset, check template and if given set the gridder_name and image_names parameters
     if args.template_path != None:
@@ -247,22 +272,15 @@ def dparset():
         for new_prec_param in args.append_preconditioner_settings:
             param_key = new_prec_param.split("=")[0]
             param_val = new_prec_param.split("=")[1]
-            #assert param_key in parset._mapping.keys(), 'Invalid '
-            parset._parset[param_key] = param_val
-
-            #parset.add_parset_parameter(param_key,param_val)
-
-    print(parset._parset)
+            parset.add_parset_parameter(param_key,param_val)
 
     #Delete parset settings
-    if args.append_preconditioner_settings != None:
-        args.append_preconditioner_settings = argflatten(args.append_preconditioner_settings)
+    if args.delete_preconditioner_settings != None:
+        args.delete_preconditioner_settings = argflatten(args.delete_preconditioner_settings)
+        for prec_param_to_remove in args.delete_preconditioner_settings:
+            parset.remove_parset_parameter(prec_param_to_remove)
 
-
-
-    #print(parset)
-
-    #parset.save_parset(output_path=args.output_path, parset_name=args.parset_name)
+    parset.save_parset(output_path=args.output_path, parset_name=args.parset_name)
 
 if __name__ == "__main__":
     pass
