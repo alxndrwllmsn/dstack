@@ -524,6 +524,17 @@ class Parset(object):
             self._parset[self._inverse_mapping[self._mapping['INames']]] = self._image_names
             self._parset[self._inverse_mapping[self._mapping['gridder']]] = self._gridder_name
 
+
+    def add_parset_parameter(self,name,value):
+        """
+
+        """
+        assert name in self._inverse_mapping, 'Invalid parset paremater: {0:s}'.format(name)
+        self._parset[self._inverse_mapping[self._mapping[name]]] = value
+
+
+
+
     def __setattr__(self, name, value):
         """Add a new key and a corresponding value to the ``Parset``
 
@@ -541,11 +552,15 @@ class Parset(object):
         :obj:`Parset`
             The ``_parset`` dict is appended with the ``name`` and ``value``
         """
-        custom_attributes = ['_imager','_image_names', '_gridder_name','_preconditioner','_mapping','_inverse_mapping']
+        custom_attributes = ['_parset', '_imager','_image_names', '_gridder_name','_preconditioner','_mapping','_inverse_mapping']
         if name in custom_attributes:
             object.__setattr__(self, name, value)
+        elif name in self._inverse_mapping:
+            self.add_parset_parameter(name,value)
         else:
-            self._parset[self._inverse_mapping[self._mapping[name]]] = value
+            print('AAAAAAA')
+            #self.add_parset_parameter(name,value)
+            #self._parset[self._inverse_mapping[self._mapping[name]]] = value
 
     def __repr__(self):
         """Return the ``_parset`` dict as a line-by line string of keys and values."""
@@ -642,7 +657,7 @@ class Parset(object):
         Returns
         =======
         :obj:`Parset`
-            With updated mapping attributes
+            With updated mapping and associated attributes
         """
         log.debug('Update Parset mapping with image_names:{0:s} and gridder:{1:s}'.format(image_names,gridder_name))
         self._image_names = image_names
@@ -659,14 +674,35 @@ class Parset(object):
         self._parset['gridder'] = str([self._gridder_name])
 
     def update_image_names(self, image_names=_DEFAULT_IMAGE_NAMES):
-        """
+        """Update the INames parameter and also the mapping. Basically calls
+        ``update_parset_mapping()`` but only update Inames.
 
+        Parameters
+        ==========
+        image_names: str, optional
+            The ``Names`` parameter of the parset. The template parset has to have this ``Names``
+            parameters (if used), when read in. Nevertheless, this can be changed on the fly, and
+            parsets with different names can be created. Use the ``update_parset_mapping()`` function
+            for this.
+        Returns
+        =======
+        :obj:`Parset`
+            With updated Inames and mapping attributes
         """
         self.update_parset_mapping(image_names=image_names,gridder_name=self._gridder_name)
 
     def update_gridder_name(self, gridder_name=_DEFAULT_GRIDDER_NAME):
-        """
+        """Update the gridder parameter and also the mapping. Basically calls
+        ``update_parset_mapping()`` but only update the gridder.
 
+        Parameters
+        ==========
+        gridder_name: str, optional
+            The ``gridder`` parameter of ``YandaSoft`` imager task.
+        Returns
+        =======
+        :obj:`Parset`
+            With updated gridder and mapping attributes
         """
         self.update_parset_mapping(image_names=self._image_names,gridder_name=gridder_name)
 
@@ -727,6 +763,28 @@ class Parset(object):
         if preconditioner in self._preconditioner:
             log.debug('Preconditioner {0:s} removed from Parset preconditioners'.format(preconditioner))
             self._preconditioner.remove(preconditioner)
+
+
+    def update_preconditioner(self,preconditioners):
+        """Update the _preconditioner list attribute with the
+        given list of preconditioners.
+
+        Parameters
+        ==========
+        preconditioners: list
+            List of valid (supported) preconditioners that will be used as the new _preconditioner list
+        Returns
+        =======
+        :obj:`Parset`
+            With updated _preconditioner attribute
+        """
+        if preconditioners != []:
+            for preconditioner in preconditioners:
+                assert preconditioner in _SUPPORTED_PRECONDITIONERS, 'Preconditioner {0:s} is not supported!'.format(preconditioner)
+
+        log.debug('Preconditioner updated.')
+        self._preconditioner = preconditioners
+
 
     def save_parset(self, output_path, parset_name, overwrite=True):
         """Save the in-memory ``Parset`` to ``output_path/parset_name``.

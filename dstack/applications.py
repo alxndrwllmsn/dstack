@@ -17,6 +17,24 @@ import dstack as ds
 log = logging.getLogger(__name__)
 
 #=== Functions ===
+def argflatten(arg_list):
+    """Some list arguments is actually a list of lists.
+    A simple routine to faltten list of lists to a simple list
+
+    Parameters
+    ==========
+    arg_list: list of lists
+        Value of a list argument needs to be flatten
+
+    Return
+    ======
+    arg_as_list: list
+        The flattened list of lists
+
+    """
+    return [p for sublist in arg_list for p in sublist]
+
+
 def dstacking():
     """Stacks series of CASAImages using ``CIM_stacking_base()``
 
@@ -77,7 +95,7 @@ def dstacking():
     #=== Application MAIN ===
     args = parser.parse_args()
     #Flatten out the cimpat_list argument, which currently a list of lists 
-    args.cimpath_list = [cimpath for sublist in args.cimpath_list for cimpath in sublist]
+    args.cimpath_list = arg_list(args.cimpath_list)
 
     ds.cim.CIM_stacking_base(cimpath_list= args.cimpath_list,
                             cim_output_path = args.cim_output_path,
@@ -90,12 +108,40 @@ def dparset():
     """Creates a ``YandaSoft`` parset file from template and other parameters.
 
     A flexible application around the :obj:`Parset` class, which instantly creates
-    parset files.
+    and saves a parset file. Using this application allows the user to read in
+    a template parset and save a parset with additional parameters, using a different
+    mapping...etc.
 
     Keyword Arguments
     =================
+    str -i or --imager:
+        The Imager used in the parset. Has to be supported by dstack.
     
+    str -n or ..image_names:
+        The Images.Names parameters used to create the parset file.
 
+    str -g or --gridder_name:
+        The gridder parameter used to create the parset file.
+
+    str -op or --output_path:
+        Full path to the folder in which the parset will be saved.
+         
+    str -pn or --parset_name:
+        Name of the parset file created.
+
+    optional -t or --template_path:
+        String. Full path to a template parset file, which can be used to initialize the parset parameters.
+
+    optional -tn or --template_image_names:
+        String. The Images.Names parameters used in the parset template. If not given, the ``--imager_names`` argument value used instead.
+
+    optional -tg or --teamplate_gridder_name:
+        The gridder parameter used in the parset template. If not given, the ``--gridder_name`` argument value used instead.
+
+    optional -p or --preconditioner:
+        String(s). A list of the preconditioners used to create the parset. If not given, 
+        the preconditioners read from the template if given. A simple -p with no raguments 
+        results in an empty list i.e. no preconditioners defined.
 
 
     """
@@ -103,7 +149,7 @@ def dparset():
 
     #=== Required arguments ===
     parser.add_argument('-i', '--imager', 
-                        help='The Imager used in the parset. Have to be supported by dstack.',
+                        help='The Imager used in the parset. Has to be supported by dstack.',
                         required=True, action="store", type=str)
 
     parser.add_argument('-n', '--image_names', 
@@ -136,9 +182,17 @@ def dparset():
                         required=False, action="store", type=str)
 
     parser.add_argument('-p', '--preconditioner', 
-                        help='A list of the preconditioners used to create the parset. If not given, the preconditioners read from the template if given, otherwise an empty list.', 
-                        required=False, action="append", nargs='+', type=str)    
+                        help='A list of the preconditioners used to create the parset. If not given, the preconditioners read from the template if given. \
+                            A simple -p with no raguments results in an empty list i.e. no preconditioners defined.', 
+                        required=False, action="append", nargs='*', type=str)
 
+    parser.add_argument('-a', '--append_preconditioner_settings',
+                        help='A',
+                        required=False, action="append", nargs='+', type=str)
+
+    parser.add_argument('-d', '--delete_preconditioner_settings',
+                        help='A',
+                        required=False, action="append", nargs='+', type=str)
 
     #=== Application MAIN ===
     args = parser.parse_args()
@@ -151,7 +205,6 @@ def dparset():
             if args.teamplate_gridder_name == None:
                 log.debug('Parset template provided but no specific teamplate_gridder_name is specified.')
                 
-                print(args.image_names)
                 parset = ds.parset.Parset(imager=args.imager, image_names=args.image_names,
                                         gridder_name=args.gridder_name, template_path=args.template_path)
 
@@ -160,7 +213,6 @@ def dparset():
                                         gridder_name=args.teamplate_gridder_name, template_path=args.template_path)
 
                 parset.update_gridder_name(gridder_name=args.gridder_name)
-
         else:
             if args.teamplate_gridder_name == None:
                 log.debug('Parset template provided but no specific teamplate_gridder_name is specified.')
@@ -183,18 +235,34 @@ def dparset():
     #Preconditioning
     if args.preconditioner != None:
         #Flatten out the preconditioner argument, which currently a list of lists 
-        args.preconditioner = [p for sublist in args.preconditioner for p in sublist]
-
-        #Update preconditioner
-        #Need to create this method
+        args.preconditioner = argflatten(args.preconditioner)
+        parset.update_preconditioner(args.preconditioner)
 
     else:
-        log.debug('Preconditioner set based on the template parset.')
+        log.debug('Preconditioner is set based on the template parset.')
+
+    #Append parset settings
+    if args.append_preconditioner_settings != None:
+        args.append_preconditioner_settings = argflatten(args.append_preconditioner_settings)
+        for new_prec_param in args.append_preconditioner_settings:
+            param_key = new_prec_param.split("=")[0]
+            param_val = new_prec_param.split("=")[1]
+            #assert param_key in parset._mapping.keys(), 'Invalid '
+            parset._parset[param_key] = param_val
+
+            #parset.add_parset_parameter(param_key,param_val)
+
+    print(parset._parset)
+
+    #Delete parset settings
+    if args.append_preconditioner_settings != None:
+        args.append_preconditioner_settings = argflatten(args.append_preconditioner_settings)
 
 
-    print(parset)
 
-    parset.save_parset(output_path=args.output_path, parset_name=args.parset_name)
+    #print(parset)
+
+    #parset.save_parset(output_path=args.output_path, parset_name=args.parset_name)
 
 if __name__ == "__main__":
     pass
