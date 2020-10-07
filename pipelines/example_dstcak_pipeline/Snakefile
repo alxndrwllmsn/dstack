@@ -1,0 +1,78 @@
+"""This is an example Snakemake makefile to
+run some grid stacking without slurm support so far
+"""
+
+CHANNELS = 12
+NIGHTS = ['1', '2', '3', '4', '5', '6', '7']
+#NIGHTS = ['1','2']
+
+
+#ruleorder: create_deep_parset > deep_imaging #only needed for rules writing the same files e.g. not in this pipeline
+
+#Master rule
+rule all:
+    input:
+        #['test/stacked_grids/deep.grid']
+        'test/stacked_grids/image.deep.restored'
+
+#Simple pipeline
+rule create_parset:
+    input:
+        MS = 'measurement_sets/night_{night_index}.ms',
+        template_parset = 'template_parset.in'
+    output:
+        'test/night_{night_index}/dumpgrid_parset.in'
+    params:
+        op = 'test/night_{night_index}' #Setup a variable using a wildcard
+    shell:
+        'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
+-pn dumpgrid_parset.in -t {input.template_parset} -tn dstack -a dataset={input.MS}'
+
+rule first_pass_imaging:
+    input:
+       'test/night_{night_index}/dumpgrid_parset.in'
+    output:
+        directory('test/night_{night_index}/night_{night_index}.grid')
+    log:
+        'test/night_{night_index}/logfile_dumpgrid_night_{night_index}.log'
+    shell:
+        'echo mpirun -np {0:d}'.format(CHANNELS) + ' imager -c {input} > {log}; mkdir {output}' #This is how to mix wildcards and variables in the shell execution string
+
+rule grid_stacking:
+    input:
+        ['test/night_{0:s}/night_{0:s}.grid'.format(night) for night in NIGHTS]
+    output:
+        directory('test/stacked_grids/grid.deep'),
+        directory('test/stacked_grids/psfgrid.deep'),
+        directory('test/stacked_grids/pcf.deep')
+    params:
+        cp = 'test/stacked_grid',
+        cn = 'deep.grid'
+    shell:
+        'echo dstacking -cl {input} -cp {params.cp} -cn {params.cn} -c; mkdir {output}'
+
+rule create_deep_parset:
+    input:
+        grid = 'test/stacked_grids/grid.deep',
+        psfgrid = 'test/stacked_grids/psfgrid.deep',
+        pcf = 'test/stacked_grids/pcf.deep',
+        template_parset = 'template_parset.in'
+    output:
+        'test/stacked_grids/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
+    params:
+        image_names = '{image_names}' #If I don't want to hardcode it in case I want to scale upt to beams
+    shell:
+        'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/stacked_grids \
+-pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn dstack -a grid={input.grid} \
+psfgrid={input.psfgrid} pcf={input.pcf}'
+
+rule deep_imaging:
+    input:
+        'test/stacked_grids/grid.deep',
+        'test/stacked_grids/cdeconvolver_{image_names}.in'
+    output:
+        directory('test/stacked_grids/{image_names}.restored')
+    log:
+        'test/stacked_grids/logfile_cdeconvolver_{image_names}.log' #Logfile have to contain the same wildcards as all output
+    shell:
+        'echo run deep imaging; mkdir {output}'

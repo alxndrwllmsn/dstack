@@ -123,10 +123,12 @@ def dparset():
         The Imager used in the parset. Has to be supported by dstack.
     
     str -n or ..image_names:
-        The Images.Names parameters used to create the parset file.
+        The Images.Names parameters used to create the parset file. Defines the parameter for the output file, 
+        thus if a template is used and the input is different specify that by the argument ``--template_image_names``.
 
     str -g or --gridder_name:
-        The gridder parameter used to create the parset file.
+        The gridder parameter used to create the parset file. Defines the parameter for the output file, 
+        thus if a template is used and the input is different specify that by the argument ``--teamplate_gridder_name``.
 
     str -op or --output_path:
         Full path to the folder in which the parset will be saved.
@@ -141,7 +143,7 @@ def dparset():
         String. Full path to a template parset file, which can be used to initialize the parset parameters.
 
     optional -tn or --template_image_names:
-        String. The Images.Names parameters used in the parset template. If not given, the ``--imager_names`` argument value used instead.
+        String. The Images.Names parameters used in the parset template. If not given, the ``--image_names`` argument value used instead.
 
     optional -tg or --teamplate_gridder_name:
         The gridder parameter used in the parset template. If not given, the ``--gridder_name`` argument value used instead.
@@ -170,11 +172,13 @@ def dparset():
                         required=True, action="store", type=str)
 
     parser.add_argument('-n', '--image_names', 
-                        help='The Images.Names parameters used to create the parset file.',
+                        help='The Images.Names parameters used to create the parset file. Defines the parameter for the output file,\
+                             thus if a template is used and the input is different specify that by the argument --template_image_names.',
                         required=True, action="store", type=str)
 
     parser.add_argument('-g', '--gridder_name', 
-                        help='The gridder parameter used to create the parset file.',
+                        help='The gridder parameter used to create the parset file.Defines the parameter for the output file,\
+                             thus if a template is used and the input is different specify that by the argument --teamplate_gridder_name.',
                         required=True, action="store", type=str)
 
     parser.add_argument('-op', '--output_path', 
