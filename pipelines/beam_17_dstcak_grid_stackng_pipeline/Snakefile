@@ -43,12 +43,13 @@ rule first_pass_imaging:
         directory('test/night_{night_index}/psfgrid.wr.1.dumpgrid'),
         directory('test/night_{night_index}/pcf.wr.1.dumpgrid')
     log:
-        'test/night_{night_index}/logfile_dumpgrid_night_{night_index}.log' #We can set variables inside log e.g: log: log1: 'a.log', log2: 'b.log' then in shell call {log.log1}
+        #'test/night_{night_index}/logfile_dumpgrid_night_{night_index}.log' #We can set variables inside log e.g: log: log1: 'a.log', log2: 'b.log' then in shell call {log.log1}
+        'logfile_dumpgrid_night_{night_index}.log' #We can set variables inside log e.g: log: log1: 'a.log', log2: 'b.log' then in shell call {log.log1}
     params:
         night_subdir = 'test/night_{night_index}/' #Need to run imaging inside the directory
     shell:
         #'echo cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(CHANNELS+1) + ' imager -c dumpgrid_parset.in > logfile_dumpgrid_night_{night_index}.log; mkdir {output}' #This is how to mix wildcards and variables in the shell execution string
-        'cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(CHANNELS+1) + ' imager -c dumpgrid_parset.in > {log}' #This is how to mix wildcards and variables in the shell execution string
+        'cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(CHANNELS+1) + ' imager -c dumpgrid_parset.in > ./{log}' #This is how to mix wildcards and variables in the shell execution string
 
 rule grid_stacking:
     input:
@@ -61,12 +62,14 @@ rule grid_stacking:
         pcf = directory('test/stacked_grids/pcf.deep')
     params:
         working_dir = WORKING_DIR,
-        cp = 'test/stacked_grid',
-        cn = 'deep.grid'
+        cp = 'test/stacked_grids',
+        cn_grid = 'grid.deep',
+        cn_psfgrid = 'psfgrid.deep',
+        cn_pcf = 'pcf.deep'
     shell:
-        'echo dstacking -cl {params.working_dir}/{input.grid} -cp {params.cp} -cn {params.cn} -c; mkdir {output.grid};\
-        echo dstacking -cl {params.working_dir}/{input.psfgrid} -cp {params.cp} -cn {params.cn} -c; mkdir {output.psfgrid}; \
-        echo dstacking -cl {params.working_dir}/{input.pcf} -cp {params.cp} -cn {params.cn} -c; mkdir {output.pcf}'
+        'dstacking -cl {params.working_dir}/{input.grid} -cp {params.cp} -cn {params.cn_grid} -c;\
+        dstacking -cl {params.working_dir}/{input.psfgrid} -cp {params.cp} -cn {params.cn_psfgrid} -c; \
+        dstacking -cl {params.working_dir}/{input.pcf} -cp {params.cp} -cn {params.cn_pcf} -c'
 
 rule create_deep_parset:
     input:
@@ -91,7 +94,8 @@ rule deep_imaging:
     output:
         directory('test/stacked_grids/{image_names}.restored')
     log:
-        'test/stacked_grids/logfile_cdeconvolver_{image_names}.log' #Logfile have to contain the same wildcards as all output
+        #'test/stacked_grids/logfile_cdeconvolver_{image_names}.log' #Logfile have to contain the same wildcards as all output
+        'logfile_cdeconvolver_{image_names}.log'
     shell:
         #'echo mpirun -np {0:d}'.format(CHANNELS) + ' cdeconvolver-mpi -c {input.parset} > {log}; mkdir {output}'
-        'cd test/stacked_grids/ && mpirun -np {0:d}'.format(CHANNELS) + ' cdeconvolver-mpi -c {input.parset} > {log}'
+        'cd test/stacked_grids/ && mpirun -np {0:d}'.format(CHANNELS) + ' cdeconvolver-mpi -c {input.parset} > ./{log}'
