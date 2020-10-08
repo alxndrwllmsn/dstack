@@ -2,45 +2,54 @@
 run some grid stacking without slurm support so far
 """
 
-CHANNELS = 12
-NIGHTS = ['1', '2', '3', '4', '5', '6', '7']
-#NIGHTS = ['1','2']
+#=== Define variables for the pipeline ===
+CHANNELS = 11
 
+#This maps the irregularry names input MS to a regular naming scheme
+#MS_MAPPING = {'night_1':'SB100', 
+#            'night_2':'SB120'}
 
+MS_MAPPING = {'night_1':'SB100', 
+            'night_2':'SB120',
+            'night_3':'SB130',
+            'night_4':'SB140',
+            'night_5':'SB150',
+            'night_6':'SB160'}
+
+#=== Define rules ===
 #ruleorder: create_deep_parset > deep_imaging #only needed for rules writing the same files e.g. not in this pipeline
 
-#Master rule
+#Master rule:
 rule all:
     input:
-        #['test/stacked_grids/deep.grid']
         'test/stacked_grids/image.deep.restored'
 
-#Simple pipeline
+#Other pipeline rules:
 rule create_parset:
     input:
-        MS = 'measurement_sets/night_{night_index}.ms',
+        MS =  lambda wildcards: 'measurement_sets/{0:s}.ms'.format(MS_MAPPING[wildcards.night_index]),
         template_parset = 'template_parset.in'
     output:
-        'test/night_{night_index}/dumpgrid_parset.in'
+        'test/{night_index}/dumpgrid_parset.in'
     params:
-        op = 'test/night_{night_index}' #Setup a variable using a wildcard
+        op = 'test/{night_index}' #Setup a variable using a wildcard
     shell:
         'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
 -pn dumpgrid_parset.in -t {input.template_parset} -tn dstack -a dataset={input.MS}'
 
 rule first_pass_imaging:
     input:
-       'test/night_{night_index}/dumpgrid_parset.in'
+       'test/{night_index}/dumpgrid_parset.in'
     output:
-        directory('test/night_{night_index}/night_{night_index}.grid')
+        directory('test/{night_index}/{night_index}.grid')
     log:
-        'test/night_{night_index}/logfile_dumpgrid_night_{night_index}.log'
+        'test/{night_index}/logfile_dumpgrid_{night_index}.log' #We can set variables inside log e.g: log: log1: 'a.log', log2: 'b.log' then in shell call {log.log1}
     shell:
-        'echo mpirun -np {0:d}'.format(CHANNELS) + ' imager -c {input} > {log}; mkdir {output}' #This is how to mix wildcards and variables in the shell execution string
+        'echo mpirun -np {0:d}'.format(CHANNELS+1) + ' imager -c {input} > {log}; mkdir {output}' #This is how to mix wildcards and variables in the shell execution string
 
 rule grid_stacking:
     input:
-        ['test/night_{0:s}/night_{0:s}.grid'.format(night) for night in NIGHTS]
+        ['test/{0:s}/{0:s}.grid'.format(night) for night in MS_MAPPING.keys()] #We define the relgular naming scheme used in our mapping for the input MS!
     output:
         directory('test/stacked_grids/grid.deep'),
         directory('test/stacked_grids/psfgrid.deep'),
@@ -68,11 +77,11 @@ psfgrid={input.psfgrid} pcf={input.pcf}'
 
 rule deep_imaging:
     input:
-        'test/stacked_grids/grid.deep',
-        'test/stacked_grids/cdeconvolver_{image_names}.in'
+        grid = 'test/stacked_grids/grid.deep',
+        parset = 'test/stacked_grids/cdeconvolver_{image_names}.in'
     output:
         directory('test/stacked_grids/{image_names}.restored')
     log:
         'test/stacked_grids/logfile_cdeconvolver_{image_names}.log' #Logfile have to contain the same wildcards as all output
     shell:
-        'echo run deep imaging; mkdir {output}'
+        'echo mpirun -np {0:d}'.format(CHANNELS) + ' cdeconvolver-mpi -c {input.parset} > {log}; mkdir {output}'
