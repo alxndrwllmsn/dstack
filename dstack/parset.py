@@ -768,7 +768,7 @@ class Parset(object):
 
         #Also update the INames and gridder values in ._parset
         self._parset['INames'] = str([self._image_names])
-        self._parset['gridder'] = str([self._gridder_name])
+        self._parset['gridder'] = str(self._gridder_name)
 
     def update_image_names(self, image_names=_DEFAULT_IMAGE_NAMES):
         """Update the INames parameter and also the mapping. Basically calls
@@ -788,7 +788,7 @@ class Parset(object):
         """
         self.update_parset_mapping(image_names=image_names,gridder_name=self._gridder_name)
 
-    def update_gridder_name(self, gridder_name=_DEFAULT_GRIDDER_NAME):
+    def update_gridder(self, gridder_name=_DEFAULT_GRIDDER_NAME):
         """Update the gridder parameter and also the mapping. Basically calls
         ``update_parset_mapping()`` but only update the gridder.
 

@@ -241,7 +241,7 @@ def dparset():
                 parset = ds.parset.Parset(imager=args.imager, image_names=args.image_names,
                                         gridder_name=args.teamplate_gridder_name, template_path=args.template_path)
 
-                parset.update_gridder_name(gridder_name=args.gridder_name)
+                parset.update_gridder(gridder_name=args.gridder_name)
         else:
             if args.teamplate_gridder_name == None:
                 log.debug('Parset template provided but no specific teamplate_gridder_name is specified.')

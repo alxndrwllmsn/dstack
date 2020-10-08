@@ -3,18 +3,14 @@ run some grid stacking without slurm support so far
 """
 
 #=== Define variables for the pipeline ===
+#Absolute path to working directory
+WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths
+
 CHANNELS = 11
 
 #This maps the irregularry names input MS to a regular naming scheme
-#MS_MAPPING = {'night_1':'SB100', 
-#            'night_2':'SB120'}
-
-MS_MAPPING = {'night_1':'SB100', 
-            'night_2':'SB120',
-            'night_3':'SB130',
-            'night_4':'SB140',
-            'night_5':'SB150',
-            'night_6':'SB160'}
+MS_MAPPING = {'night_1':'scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110',
+            'night_2':'scienceData_SB11000_G23_T0_B_03.beam17_SL_C_100_110'}
 
 #=== Define rules ===
 #ruleorder: create_deep_parset > deep_imaging #only needed for rules writing the same files e.g. not in this pipeline
@@ -32,10 +28,11 @@ rule create_parset:
     output:
         'test/{night_index}/dumpgrid_parset.in'
     params:
-        op = 'test/{night_index}' #Setup a variable using a wildcard
+        op = 'test/{night_index}', #Setup a variable using a wildcard
+        working_dir = WORKING_DIR
     shell:
         'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
--pn dumpgrid_parset.in -t {input.template_parset} -tn dstack -a dataset={input.MS}'
+-pn dumpgrid_parset.in -t {input.template_parset} -tn dstack -a dataset={params.working_dir}/{input.MS}'
 
 rule first_pass_imaging:
     input:
