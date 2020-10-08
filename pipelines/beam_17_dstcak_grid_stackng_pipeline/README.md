@@ -5,4 +5,5 @@ This pipeline gets `N` nights from beam 17 as an input and creates the shallow i
 
 _Note_: the input MS should be only a handful of channels, otherwise additional parallelisation by spectral windows have to be included!
 
-An example graph of the pipeline: ![grid_stacking_pipeline](pipeline_graph.png "Pipeline execution graph")
+An example graph of the pipeline: 
+![grid_stacking_pipeline](pipeline_graph.png "Pipeline execution graph")

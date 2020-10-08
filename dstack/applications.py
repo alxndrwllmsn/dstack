@@ -100,7 +100,7 @@ def dstacking():
     #=== Application MAIN ===
     args = parser.parse_args()
     #Flatten out the cimpat_list argument, which currently a list of lists 
-    args.cimpath_list = arg_list(args.cimpath_list)
+    args.cimpath_list = argflatten(args.cimpath_list)
 
     ds.cim.CIM_stacking_base(cimpath_list= args.cimpath_list,
                             cim_output_path = args.cim_output_path,
