@@ -650,7 +650,8 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
         log.debug('Closing image: {0:s}'.format(base_cim.name()))
         del base_cim
 
-        for cim in range(1,len(cimpath_list)):
+        for cim_index in range(1,len(cimpath_list)):
+            cim = cimpath_list[i]
             log.debug('Closing image: {0:s}'.format(cim.name()))
             del cim
 
