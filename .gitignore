@@ -1,5 +1,5 @@
 # Snakemake metadata
-*.snakemake/metadata/* 
+**/.snakemake
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
