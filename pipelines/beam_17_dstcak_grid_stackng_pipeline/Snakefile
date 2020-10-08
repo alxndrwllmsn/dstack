@@ -62,15 +62,16 @@ rule create_deep_parset:
         grid = 'test/stacked_grids/grid.deep',
         psfgrid = 'test/stacked_grids/psfgrid.deep',
         pcf = 'test/stacked_grids/pcf.deep',
-        template_parset = 'template_parset.in'
+        template_parset = 'template_parset.in',
+        working_dir = WORKING_DIR
     output:
         'test/stacked_grids/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
     params:
         image_names = '{image_names}' #If I don't want to hardcode it in case I want to scale upt to beams
     shell:
         'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/stacked_grids \
--pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn dstack -a grid={input.grid} \
-psfgrid={input.psfgrid} pcf={input.pcf}'
+-pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn dstack -a grid={input.working_dir}/{input.grid} \
+psfgrid={input.working_dir}/{input.psfgrid} pcf={input.working_dir}/{input.pcf}'
 
 rule deep_imaging:
     input:
