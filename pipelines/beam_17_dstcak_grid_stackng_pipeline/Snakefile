@@ -96,6 +96,8 @@ rule deep_imaging:
     log:
         #'test/stacked_grids/logfile_cdeconvolver_{image_names}.log' #Logfile have to contain the same wildcards as all output
         'logfile_cdeconvolver_{image_names}.log'
+    params:
+        parset_name = 'cdeconvolver_{image_names}.in'#To keep input/output/shell fields working and consistent
     shell:
         #'echo mpirun -np {0:d}'.format(CHANNELS) + ' cdeconvolver-mpi -c {input.parset} > {log}; mkdir {output}'
-        'cd test/stacked_grids/ && mpirun -np {0:d}'.format(CHANNELS) + ' cdeconvolver-mpi -c {input.parset} > ./{log}'
+        'cd test/stacked_grids/ && mpirun -np {0:d}'.format(CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{log}'
