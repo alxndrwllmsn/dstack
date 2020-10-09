@@ -221,6 +221,7 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'Cscales' : 'solver.Clean.scales',
         'Cniter' : 'solver.Clean.niter',
         'Cgain' : 'solver.Clean.gain',
+        'Cbeam' : 'solver.Clean.beam',
         'Cspeedup' : 'solver.Clean.speedup',
         'Cpadding' : 'solver.Clean.padding',
         'Csolutiontype' : 'solver.Clean.solutiontype',
