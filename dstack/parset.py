@@ -156,10 +156,11 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         #Images settings
         'Ireuse' : 'Images.reuse',
         'Ishape' : 'Images.shape',
+        'Idirection' : 'Images.direction',
         'Icellsize' : 'Images.cellsize',
         'IwriteAtMajorCycle' : 'Images.writeAtMajorCycle',
-        'INames' : 'Images.Names',
         'IrestFrequency' : 'Images.restFrequency',
+        'INames' : 'Images.Names',
         'INnchan' : 'Images.{0:s}.nchan'.format(image_names),
         'INfrequency' : 'Images.{0:s}.frequency'.format(image_names),
         'INdirection' : 'Images.{0:s}.direction'.format(image_names),
@@ -259,6 +260,11 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
 #        written out to prompt or to file.
 log.debug('Create _MAPPING_ORDER global variable')
 _MAPPING_ORDER = {k: i for i, k in zip(enumerate(create_parset_mapping()[0]),create_parset_mapping()[0])}
+
+#Define ambigous imaging parameters
+_AMBIGOUS_IMAGING_PARAMETERS = {'Ishape' : 'INshape',
+                                'Idirection' : 'INdirection',
+                                'Icellsize' : 'INcellsize'}
 
 def check_preconditioner_suppoort(preconditioners=_DEFAULT_PRECONDITIONER):
     """Check if the list of preconditioners given is supported
@@ -673,6 +679,70 @@ class Parset(object):
         lines += '}'
         return lines
 
+    def set_image_names_param_consistency(self,param,use_image_names=False):
+        """When saving a parset, ambigous Images parameters should not be allowed.
+
+        However, some parameters of Images can be defined two ways:
+            a) ``Images.parameter``
+            b) ``Images.image_name.parameter``
+
+        The ``Parset`` calls allows the user to define both parameters,
+        for flexibility. Nevertheless, in saving the parset the parameters
+        should be consistent.
+
+        This function checks for consistency in the ambigous parameters
+        of the Images.parameters and if the parameter is ambigous it
+        returns the name defined by either a) or b) options.
+
+        I.e. The function takes a key and if it is ambigous it returns
+        the key of the user-defined key which corresponding value should be used
+        for both parameters when writing out the parameters
+
+        This function uses the ``_AMBIGOUS_IMAGING_PARAMETERS`` dictionary
+        to check if the parameter given is really ambigous.
+
+        Parameters
+        ==========
+        param: str
+            The parameter name in the mapping that ambiguity should be checked.
+            If not in ``_AMBIGOUS_IMAGING_PARAMETERS``, the function returns this parameter
+        use_image_names: bool
+            If True, the default parameters used when saving a dataset, is defined by the
+            ``Images.parameter``. If Flase, the true values are defined by ``Images.image_name.parameter``.
+
+        Returns
+        =======
+        disambigous_param: str
+            The parameter in the mapping which value should be used if the input is ambigous.
+            This can be identical to the input parameter.
+        """
+        if param in _AMBIGOUS_IMAGING_PARAMETERS.keys():
+            if _AMBIGOUS_IMAGING_PARAMETERS[param] not in self._parset.keys():
+                return param
+            elif self._parset[_AMBIGOUS_IMAGING_PARAMETERS[param]] == self._parset[param]:
+                return param
+            else:
+                if use_image_names:
+                    return _AMBIGOUS_IMAGING_PARAMETERS[param]
+                else:
+                    return param
+        
+        elif param in _AMBIGOUS_IMAGING_PARAMETERS.values():
+            inverse_ambigous_mapping = {v: k for k, v in _AMBIGOUS_IMAGING_PARAMETERS.items()}
+
+            if inverse_ambigous_mapping[param] not in self._parset.keys():
+                return param
+            elif self._parset[inverse_ambigous_mapping[param]] == self._parset[param]:
+                return param
+            else:
+                if use_image_names:
+                    return param
+                else:
+                    return inverse_ambigous_mapping[param]
+        else:
+            return param
+
+
     def check_if_parset_sorted(self):
         """This function checks if the ._parset dictionary is sorted by  the global _MAPPING_ORDER or not.
 
@@ -886,7 +956,7 @@ class Parset(object):
         log.info('Update preconditioner to: {0:s}'.format(str(preconditioners)))
         self._preconditioner = preconditioners
 
-    def save_parset(self, output_path, parset_name, overwrite=True):
+    def save_parset(self, output_path, parset_name, overwrite=True, use_image_names=False):
         """Save the in-memory ``Parset`` to ``output_path/parset_name``.
         The saved parset can be fed into ``YandaSoft``
 
@@ -900,6 +970,10 @@ class Parset(object):
 
         overwrite: bool, optional
             If True, then the parset will be overwritten if existed.
+
+        use_image_name: bool, optional
+            The parameter with the same mname defined in ``set_image_names_param_consistency()``.
+            Basicaly how to handle ambigous naming in the Images. parameters
 
         Returns
         ========
@@ -924,6 +998,10 @@ class Parset(object):
                     #Check preconditioning and use the ._preconditioner attribute instead of the ._param['PNames'] attribute!
                     if key == 'PNames':
                         print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._preconditioner)),file=f)
+                    elif key in list(_AMBIGOUS_IMAGING_PARAMETERS.keys()) +  list(_AMBIGOUS_IMAGING_PARAMETERS.values()):
+                        print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],
+                            str(self._parset[self.set_image_names_param_consistency(key,use_image_names=use_image_names)])),#Use the default imager names parameter for disambiguity
+                            file=f)
                     elif check_parameter_and_Preconditioner_compatibility(key, preconditioners=self._preconditioner):
                         #We know that preconditioner and gridder settings are independent!
                         if check_parameter_and_Gridder_compatibility(key, gridder_name=self._gridder_name):

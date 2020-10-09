@@ -166,7 +166,7 @@ class TestParset(unittest.TestCase):
                                     ds.applications.argflatten([ds.parset._COPLANAR_FORBIDDEN_PARAMS + ds.parset._NON_ANTIALIASING_FORBIDDEN_PARAMS])]
 
         for i, gridder in zip(range(len(gridders_to_test)),gridders_to_test):
-            initial_parset.update_gridder_name(gridder)
+            initial_parset.update_gridder(gridder)
             if gridder != 'WProject':
                 for param in gridder_parameters_to_test[i]:
                     assert ds.parset.check_parameter_and_Gridder_compatibility(param, initial_parset._gridder_name) == False, \
@@ -178,13 +178,56 @@ class TestParset(unittest.TestCase):
                     'WProject should be compatible with all supported gridder parameters including {0:s}!'.format(param)
 
         #Save the parset and test if the gridder name is set correctly
-        initial_parset.update_gridder_name('Box')
+        initial_parset.update_gridder('Box')
         initial_parset.save_parset(output_path=_TEST_DIR, parset_name=output_parset_name)
         saved_parset = ds.parset.Parset(template_path='{0:s}/{1:s}'.format(_TEST_DIR,output_parset_name),
                                         imager='dstack',image_names=self.ImageNames,
                                         gridder_name='Box')
 
         assert saved_parset._gridder_name == 'Box', 'Failed to properly save the updated gridder!'
+
+    def test_image_names_param_consistency(self):
+        output_parset_name = 'test_image_names_param_consistency.in'
+
+        initial_parset = ds.parset.Parset(template_path=self.ParsetPath,
+                                        imager='dstack',image_names=self.ImageNames,
+                                        gridder_name=self.GridderName)
+
+        #Only checking with one example parameter from the dict:
+        Ishape_to_test = '[x,x]'
+        INshape_to_test = '[y,y]'
+
+        #The choosen parameter is Ishape and INshape
+        initial_parset.add_parset_parameter('Ishape',Ishape_to_test)
+        initial_parset.add_parset_parameter('INshape',INshape_to_test)
+
+        #Save the parset
+        initial_parset.save_parset(output_path=_TEST_DIR, parset_name=output_parset_name)
+
+        saved_parset = ds.parset.Parset(template_path='{0:s}/{1:s}'.format(_TEST_DIR,output_parset_name),
+                                        imager='dstack',image_names=self.ImageNames,
+                                        gridder_name=self.GridderName)
+
+        assert saved_parset._parset['Ishape'] == saved_parset._parset['INshape'], 'The saved parset {0:s}/{1:s} have ambigous Ishape and INshape!'.format(
+                _TEST_DIR,output_parset_name)
+
+        assert saved_parset._parset['INshape'] == Ishape_to_test, 'The saved parset {0:s}/{1:s} have ambigous Ishape and INshape!'.format(
+                _TEST_DIR,output_parset_name)
+
+        del saved_parset
+
+        #Now the other way around
+        initial_parset.save_parset(output_path=_TEST_DIR, parset_name=output_parset_name, use_image_names=True)
+
+        saved_parset = ds.parset.Parset(template_path='{0:s}/{1:s}'.format(_TEST_DIR,output_parset_name),
+                                        imager='dstack',image_names=self.ImageNames,
+                                        gridder_name=self.GridderName)
+
+        assert saved_parset._parset['Ishape'] == saved_parset._parset['INshape'], 'The saved parset {0:s}/{1:s} have ambigous Ishape and INshape!'.format(
+                _TEST_DIR,output_parset_name)
+
+        assert saved_parset._parset['Ishape'] == INshape_to_test, 'The saved parset {0:s}/{1:s} have ambigous Ishape and INshape!'.format(
+                _TEST_DIR,output_parset_name)
 
 if __name__ == "__main__":
     unittest.main()

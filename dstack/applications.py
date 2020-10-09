@@ -137,7 +137,7 @@ def dparset():
         Name of the parset file created.
 
     optional -l or --log:
-        Boolean. If True the logger level set to INFO.
+        Boolean. If True the logger level set to INFO. Set to False by default
 
     optional -t or --template_path:
         String. Full path to a template parset file, which can be used to initialize the parset parameters.
@@ -158,6 +158,10 @@ def dparset():
 
     optional -d or --delete_preconditioner_settings:
         List of dstack parameter keys to remove from the parset.
+
+    optional: -u or --use_image_names:
+        Boolean. If True the Images.image_names.param parametes set to be the default parameters for the ambigous imaging parameters.
+        Set to False by default, i.e. the default parameters are the Images.parameters for the ambigous parameters.
 
     Returns
     =======
@@ -191,7 +195,7 @@ def dparset():
 
     #=== Optional arguments ===
     parser.add_argument('-l', '--log', 
-                        help='', 
+                        help='If True the logger level set to INFO. Set to False by default', 
                         required=False, action="store_true")
 
     parser.add_argument('-t', '--template_path', 
@@ -218,6 +222,11 @@ def dparset():
     parser.add_argument('-d', '--delete_preconditioner_settings',
                         help='List of dstack parameter keys to remove from the parset.',
                         required=False, action="append", nargs='+', type=str)
+
+    parser.add_argument('-u', '--use_image_names', 
+                        help='If True the Images.image_names.param parametes set to be the default parameters for the ambigous imaging parameters.\
+                            Set to False by default, i.e. the default parameters are the Images.parameters for the ambigous parameters.', 
+                        required=False, action="store_true")
 
     #=== Application MAIN ===
     args = parser.parse_args()
@@ -284,7 +293,7 @@ def dparset():
         for prec_param_to_remove in args.delete_preconditioner_settings:
             parset.remove_parset_parameter(prec_param_to_remove)
 
-    parset.save_parset(output_path=args.output_path, parset_name=args.parset_name)
+    parset.save_parset(output_path=args.output_path, parset_name=args.parset_name,use_image_names=args.use_image_names)
 
 if __name__ == "__main__":
     pass
