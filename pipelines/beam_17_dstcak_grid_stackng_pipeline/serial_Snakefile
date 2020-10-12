@@ -158,3 +158,4 @@ rule deep_imaging:
     shell:
         'echo cd test/stacked_grids/ && echo mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{log}; mkdir test/stacked_grids/image.deep.restored' #for testing
         #'cd test/stacked_grids/ && mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile} >>{log} 2>&1'
+
