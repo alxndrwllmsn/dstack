@@ -1,4 +1,3 @@
 jobs: 10
-#cluster: sbatch
-cluster: "sbatch -p high -t {resources.time_min} --mem={resources.mem_mb} -c {resources.cpus} --output=./slurm_dsack_pipeline_test.out; source /home/krozgonyi/.bashrc; dstack_env_setup"
+cluster: "sbatch -t {resources.time_min} --mem={resources.mem_mb} -c {resources.cpus} --ntasks-per-node=1 --output=rule_logs/{rule}_{wildcards}_slurm.out"
 

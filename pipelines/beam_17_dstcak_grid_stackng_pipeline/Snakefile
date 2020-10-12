@@ -4,8 +4,8 @@ run some grid stacking without slurm support so far
 
 #=== Define variables for the pipeline ===
 #Absolute path to working directory
-#MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_dstcak_grid_stackng_pipeline/measurement_sets'
-MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
+MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_dstcak_grid_stackng_pipeline/measurement_sets'
+#MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
 WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths
 
 MIN_CHANNEL = 10
@@ -20,32 +20,34 @@ N_CHANNELS = MAX_CHANNEL - MIN_CHANNEL + 1 #Both the min and the max are include
 #N_CHANNELS = N_CORES
 
 #This maps the irregularry names input MS to a regular naming scheme
-ORIGINAL_MS_MAPPING = {'1':'scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110',
-                        '2':'scienceData_SB11000_G23_T0_B_03.beam17_SL_C_100_110'}
+ORIGINAL_MS_MAPPING = {'1':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
+                        '2':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL'}
 
-#ORIGINAL_MS_MAPPING = {'1':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
-#                        '2':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL'}
+#Slurm logfiles firetory
+LOGDIR = '{0:s}/rule_logs'.format(WORKING_DIR) #Have to be the same as the output defined in the config.yaml file!!!
+
+#Envinroment setup
+ENV_SETUP = 'source /home/krozgonyi/.bashrc; dstack_env_setup; '
 
 #=== Define rules ===
-#ruleorder: create_deep_parset > deep_imaging #only needed for rules writing the same files e.g. not in this pipeline
+#ruleorder: create_log_dir > create_mssplit_configfile
 
 #Master rule:
 rule all:
     input:
-        'test/stacked_grids/image.deep.restored'
-        #'mssplit_config/mssplit_config_night_1.in','mssplit_config/mssplit_config_night_2.in'#only create mssplit_configfile
-        #'measurement_sets/night_1.ms', 'measurement_sets/night_2.ms' #split ms
+        '{0:s}'.format(LOGDIR), #Make sure that the log dir exist before running => can not create this with a rule as snakemake wants to log the rule to the same folder through slurm!
+        '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/image.deep.restored'
+        #'{0:s}'.format(WORKING_DIR) + '/mssplit_config/mssplit_config_night_1.in', '{0:s}'.format(WORKING_DIR) +  '/mssplit_config/mssplit_config_night_2.in'#only create mssplit_configfile
+        #'{0:s}'.format(WORKING_DIR) + 'measurement_sets/night_1.ms','{0:s}'.format(WORKING_DIR) + 'measurement_sets/night_2.ms' #split ms
 
-#Other pipeline rules:
 rule create_mssplit_configfile:
     input:
+        logdir = '{0:s}'.format(LOGDIR),
         MS =  lambda wildcards: '{0:s}/{1:s}.ms'.format(MS_DIR,ORIGINAL_MS_MAPPING[wildcards.night_index])
     output:
-        'mssplit_config/mssplit_config_night_{night_index}.in'
+        '{0:s}'.format(WORKING_DIR) + '/mssplit_config/mssplit_config_night_{night_index}.in'
     params:
         output_MS = 'measurement_sets/night_{night_index}.ms'
-    log:
-        'rule_logs/create_mssplit_configfile_night_{night_index}.log'
     resources:
         time_min=300,
         mem_mb=1000,
@@ -53,136 +55,118 @@ rule create_mssplit_configfile:
     shell:
         'echo vis={input.MS} >> ' + '{0:s}'.format(WORKING_DIR) + '/{output};' + \
         'echo outputvis={0:s}'.format(WORKING_DIR) + '/{params.output_MS} >> ' + '{0:s}'.format(WORKING_DIR) + '/{output};' + \
-        'echo channel={0:d}-{1:d} >> '.format(MIN_CHANNEL,MAX_CHANNEL) + '{0:s}'.format(WORKING_DIR) + '/{output};' + \
-        '>> {log} 2>&1'#Redirect STDERR and STDOUT to the logfile
+        'echo channel={0:d}-{1:d} >> '.format(MIN_CHANNEL,MAX_CHANNEL) + '{0:s}'.format(WORKING_DIR) + '/{output};'
 
 rule split_ms:
     input:
         MS =  lambda wildcards: '{0:s}/{1:s}.ms'.format(MS_DIR,ORIGINAL_MS_MAPPING[wildcards.night_index]),
-        mssplit_config = 'mssplit_config/mssplit_config_night_{night_index}.in'
+        mssplit_config = '{0:s}'.format(WORKING_DIR) + '/mssplit_config/mssplit_config_night_{night_index}.in'
     output:
-        directory('measurement_sets/night_{night_index}.ms')
-    log:
-        'rule_logs/split_ms_night_{night_index}.log'
+        directory('{0:s}'.format(WORKING_DIR) + '/measurement_sets/night_{night_index}.ms')
     resources:
         time_min=300,
         mem_mb=1000,
         cpus=1
     shell:
-        'echo mssplit -c ./{input.mssplit_config}; mkdir {output}' #For testing
-        #'mssplit -c ./{input.mssplit_config} >> {log} 2>&1'
+        ENV_SETUP + \
+        #'echo mssplit -c ./{input.mssplit_config}; mkdir {output}' #For testing
+        'mssplit -c {0:s}'.format(WORKING_DIR) + '{input.mssplit_config}'#Redirect STDERR and STDOUT to the logfile
 
 rule create_parset:
     input:
-        MS = 'measurement_sets/night_{night_index}.ms',
-        template_parset = 'template_parset.in'
+        MS = '{0:s}'.format(WORKING_DIR) + '/measurement_sets/night_{night_index}.ms',
+        template_parset = '{0:s}'.format(WORKING_DIR) + '/template_parset.in'
     output:
-        'test/night_{night_index}/dumpgrid_parset.in'
+        '{0:s}'.format(WORKING_DIR) + '/test/night_{night_index}/dumpgrid_parset.in'
     params:
         op = 'test/night_{night_index}', #Setup a variable using a wildcard
-        working_dir = WORKING_DIR
-    log:
-        'rule_logs/create_parset_night_{night_index}.log'
     resources:
         time_min=300,
         mem_mb=1000,
         cpus=1
     shell:
         'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
--pn dumpgrid_parset.in -t {input.template_parset} -tn image.sim_PC -a dataset={params.working_dir}/{input.MS} ' +\
-'>> {log} 2>&1'
+-pn dumpgrid_parset.in -t {input.template_parset} -tn image.sim_PC -a dataset={input.MS}'
 
 rule first_pass_imaging:
     input:
-       'test/night_{night_index}/dumpgrid_parset.in'
+       '{0:s}'.format(WORKING_DIR) + '/test/night_{night_index}/dumpgrid_parset.in'
     output:
         #directory('test/night_{night_index}/night_{night_index}.grid')
-        directory('test/night_{night_index}/grid.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/psfgrid.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/pcf.wr.1.dumpgrid')
+        directory('{0:s}'.format(WORKING_DIR) + '/test/night_{night_index}/grid.wr.1.dumpgrid'),
+        directory('{0:s}'.format(WORKING_DIR) + '/test/night_{night_index}/psfgrid.wr.1.dumpgrid'),
+        directory('{0:s}'.format(WORKING_DIR) + '/test/night_{night_index}/pcf.wr.1.dumpgrid')
     params:
         yanda_logfile = 'logfile_dumpgrid_night_{night_index}.log',
-        night_subdir = 'test/night_{night_index}/' #Need to run imaging inside the directory
-    log:
-        '{0:s}/'.format(WORKING_DIR) + 'rule_logs/first_pass_imaging_night_{night_index}.log'
+        night_subdir = '{0:s}'.format(WORKING_DIR) + '/test/night_{night_index}/' #Need to run imaging inside the directory
     resources:
         time_min=300,
         mem_mb=1000,
         cpus=1
     shell:
-        #'echo cd {params.night_subdir}  && echo ' + 'mpirun -np {0:d}'.format(N_CHANNELS+1) + ' imager -c dumpgrid_parset.in > ./{log}; mkdir {output} >>{log} 2>&1' #For testing
-        'cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(N_CHANNELS+1) + ' imager -c dumpgrid_parset.in > ./{params.yanda_logfile} >>{log} 2>&1'#This is how to mix wildcards and variables in the shell execution string
+        'echo cd {params.night_subdir}  && echo ' + 'mpirun -np {0:d}'.format(N_CHANNELS+1) + ' imager -c dumpgrid_parset.in > ./{params.yanda_logfile}; mkdir {output}' #For testing
+        #'cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(N_CHANNELS+1) + ' imager -c dumpgrid_parset.in > ./{params.yanda_logfile}'#This is how to mix wildcards and variables in the shell execution string
 
 rule grid_stacking:
     input:
-        grid = ['test/night_{0:s}/grid.wr.1.dumpgrid'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()],
-        psfgrid = ['test/night_{0:s}/psfgrid.wr.1.dumpgrid'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()],
-        pcf = ['test/night_{0:s}/pcf.wr.1.dumpgrid'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()] #We define the relgular naming scheme used in our mapping for the input MS!
+        grid = ['{0:s}'.format(WORKING_DIR) + '/test/night_{0:s}/grid.wr.1.dumpgrid'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()],
+        psfgrid = ['{0:s}'.format(WORKING_DIR) + '/test/night_{0:s}/psfgrid.wr.1.dumpgrid'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()],
+        pcf = ['{0:s}'.format(WORKING_DIR) + '/test/night_{0:s}/pcf.wr.1.dumpgrid'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()] #We define the relgular naming scheme used in our mapping for the input MS!
     output:
-        grid = directory('test/stacked_grids/grid.deep'),
-        psfgrid = directory('test/stacked_grids/psfgrid.deep'),
-        pcf = directory('test/stacked_grids/pcf.deep')
+        grid = directory('{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/grid.deep'),
+        psfgrid = directory('{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/psfgrid.deep'),
+        pcf = directory('{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/pcf.deep')
     params:
-        working_dir = WORKING_DIR,
-        cp = 'test/stacked_grids',
+        cp = '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids',
         cn_grid = 'grid.deep',
         cn_psfgrid = 'psfgrid.deep',
         cn_pcf = 'pcf.deep'
-    log:
-        grid = 'rule_logs/grid_stacking_grid.log',
-        psfgrid = 'rule_logs/grid_stacking_psfgrid.log',
-        pcf = 'rule_logs/grid_stacking_pcf.log'
     resources:
         time_min=300,
         mem_mb=1000,
         cpus=1
     shell:
         #For testing
-        #'echo dstacking -cl {params.working_dir}/{input.grid} -cp {params.cp} -cn {params.cn_grid} -c; mkdir {output.grid}  >>{log.grid} 2>&1;\
-        #echo dstacking -cl {params.working_dir}/{input.psfgrid} -cp {params.cp} -cn {params.cn_psfgrid} -c; mkdir {output.psfgrid} >>{log.psfgrid} 2>&1; \
-        #echo dstacking -cl {params.working_dir}/{input.pcf} -cp {params.cp} -cn {params.cn_pcf} -c; mkdir {output.pcf}  >>{log.pcf} 2>&1;'
+        'echo dstacking -cl {input.grid} -cp {params.cp} -cn {params.cn_grid} -c; mkdir {output.grid};\
+        echo dstacking -cl {input.psfgrid} -cp {params.cp} -cn {params.cn_psfgrid} -c; mkdir {output.psfgrid}; \
+        echo dstacking -cl {input.pcf} -cp {params.cp} -cn {params.cn_pcf} -c; mkdir {output.pcf};'
         #For actual running the pipeline
-        'dstacking -cl {params.working_dir}/{input.grid} -cp {params.cp} -cn {params.cn_grid} -c >>{log.grid} 2>&1;\
-        dstacking -cl {params.working_dir}/{input.psfgrid} -cp {params.cp} -cn {params.cn_psfgrid} -c >>{log.psfgrid} 2>&1; \
-        dstacking -cl {params.working_dir}/{input.pcf} -cp {params.cp} -cn {params.cn_pcf} -c >>{log.pcf} 2>&1;'
+        #'dstacking -cl {input.grid} -cp {params.cp} -cn {params.cn_grid} -c;\
+        #dstacking -cl {input.psfgrid} -cp {params.cp} -cn {params.cn_psfgrid} -c; \
+        #dstacking -cl {input.pcf} -cp {params.cp} -cn {params.cn_pcf} -c;'
 
 rule create_deep_parset:
     input:
-        grid = 'test/stacked_grids/grid.deep',
-        psfgrid = 'test/stacked_grids/psfgrid.deep',
-        pcf = 'test/stacked_grids/pcf.deep',
-        template_parset = 'template_parset.in',
-        working_dir = WORKING_DIR
+        grid = '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/grid.deep',
+        psfgrid = '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/psfgrid.deep',
+        pcf = '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/pcf.deep',
+        template_parset = '{0:s}'.format(WORKING_DIR) + '/template_parset.in'
     output:
-        'test/stacked_grids/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
+        '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
     params:
         image_names = '{image_names}' #If I don't want to hardcode it in case I want to scale upt to beams
-    log:
-        'rule_logs/create_deep_parset_{image_names}.log'
     resources:
         time_min=300,
         mem_mb=1000,
         cpus=1
     shell:
         'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/stacked_grids \
--pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.sim_PC -a grid={input.working_dir}/{input.grid} \
-psfgrid={input.working_dir}/{input.psfgrid} pcf={input.working_dir}/{input.pcf} >>{log} 2>&1'
+-pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.sim_PC -a grid={input.grid} \
+psfgrid={input.psfgrid} pcf={input.pcf}'
 
 rule deep_imaging:
     input:
-        grid = 'test/stacked_grids/grid.deep',
-        parset = 'test/stacked_grids/cdeconvolver_{image_names}.in'
+        grid = '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/grid.deep',
+        parset = '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/cdeconvolver_{image_names}.in'
     output:
-        directory('test/stacked_grids/{image_names}.restored')
+        directory('{0:s}'.format(WORKING_DIR) + '/test/stacked_grids/{image_names}.restored')
     params:
         yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
-        parset_name = 'cdeconvolver_{image_names}.in'#To keep input/output/shell fields working and consistent
-    log:
-        '{0:s}/'.format(WORKING_DIR) + 'rule_logs/deep_imaging_{image_names}.log'
+        parset_name = 'cdeconvolver_{image_names}.in'
     resources:
         time_min=300,
         mem_mb=1000,
         cpus=1
     shell:
-        #'echo cd test/stacked_grids/ && echo mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{log}; mkdir test/stacked_grids/image.deep.restored' #for testing
-        'cd test/stacked_grids/ && mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile} >>{log} 2>&1'
+        'echo cd {0:s}'.format(WORKING_DIR) + '/test/stacked_grids/ && echo mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}; mkdir test/stacked_grids/image.deep.restored' #for testing
+        #'cd {0:s}'.format(WORKING_DIR) + '/test/stacked_grids/ && mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
