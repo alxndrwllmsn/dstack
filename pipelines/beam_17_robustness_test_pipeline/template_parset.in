@@ -1,0 +1,50 @@
+#Basic settings
+Cdeconvolver.imagetype = casa
+Cdeconvolver.nchanpercore = 1
+Cdeconvolver.nwriters = 1
+Cdeconvolver.singleoutputfile = true
+Cdeconvolver.solverpercore = true
+Cdeconvolver.restore = true
+Cdeconvolver.MaxUV = 2000
+Cdeconvolver.MinUV = 12
+Cdeconvolver.usetmpfs = false
+Cdeconvolver.tmpfs = /dev/shm
+Cdeconvolver.ncycles = 1
+
+#Images settings
+Cdeconvolver.Images.shape = [1024, 1024]
+Cdeconvolver.Images.cellsize = [6arcsec, 6arcsec]
+Cdeconvolver.Images.writeAtMajorCycle = false
+Cdeconvolver.Images.Names = ['image.sim_PC']
+Cdeconvolver.Images.image.sim_PC.polarisation = ["I"]
+
+#Gridding settings
+Cdeconvolver.gridder = 'WProject'
+Cdeconvolver.gridder.snapshotimaging = false
+Cdeconvolver.gridder.WProject.wmax = 35000
+Cdeconvolver.gridder.WProject.nwplanes = 1
+Cdeconvolver.gridder.WProject.oversample = 4
+Cdeconvolver.gridder.WProject.maxsupport = 1024
+Cdeconvolver.gridder.WProject.variablesupport = true
+Cdeconvolver.gridder.WProject.offsetsupport = true
+Cdeconvolver.gridder.WProject.sharecf = true
+
+#Cleaning settings
+Cdeconvolver.solver = Clean
+Cdeconvolver.solver.Clean.verbose = False
+
+Cdeconvolver.solver.Clean.algorithm = Hogbom
+Cdeconvolver.solver.Clean.niter = 1
+Cdeconvolver.solver.Clean.gain = 0.0
+Cdeconvolver.solver.Clean.psfwidth = 512
+
+#Preconditioner settings
+Cdeconvolver.preconditioner.preservecf = true
+Cdeconvolver.preconditioner.Names = ['Wiener']
+Cdeconvolver.preconditioner.Wiener.robustness        = 2.0
+
+#Restore settingse
+Cdeconvolver.restore.beam = [0.4arcmin, 0.4arcmin, 0deg]
+#Cdeconvolver.restore.beam = fit
+#Cdeconvolver.restore.beam.cutoff = 0.5
+#Cdeconvolver.restore.beamReference = mid
