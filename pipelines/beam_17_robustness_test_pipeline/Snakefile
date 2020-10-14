@@ -6,11 +6,11 @@ import os
 
 #=== Define variables for the pipeline ===
 #Absolute path to working directory
-#MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_robustness_test_pipeline/measurement_sets'
-MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
-#WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
+MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_robustness_test_pipeline/measurement_sets'
+WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
 
-WORKING_DIR = '/scratch/krozgonyi/dstack_robustness_test' #Hardcoding solves the symlink problem...
+#MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
+#WORKING_DIR = '/scratch/krozgonyi/dstack_robustness_test' #Hardcoding solves the symlink problem...
 
 MIN_CHANNEL = 6420
 MAX_CHANNEL = 6422
@@ -43,13 +43,14 @@ ENV_SETUP = 'source /home/krozgonyi/.bashrc dstack_env_setup ; '
 rule all:
     input:
         '{0:s}'.format(LOGDIR), #Make sure that the log dir exist before running => can not create this with a rule as snakemake wants to log the rule to the same folder through slurm!
-        'test/stacked_grids/image.deep.restored', 'test/stacked_images/image.restored.deep', 'test/stacked_images/psf.image.deep', 'test/stacked_images/psf.deep', 'test/stacked_images/residual.deep', 'test/stacked_images/weights.deep'
+        'test/stacked_grids/image.deep.restored', 'test/stacked_images/image.restored.deep', 'test/stacked_images/psf.image.deep', 'test/stacked_images/psf.deep', 'test/stacked_images/residual.deep', 'test/stacked_images/weights.deep',
         #'mssplit_config/mssplit_config_night_1.in', 'mssplit_config/mssplit_config_night_2.in'#only create mssplit_configfile
         #'measurement_sets/night_1.ms', 'measurement_sets/night_2.ms' #split ms
         #'test/night_1/dumpgrid_parset.in', 'test/night_2/dumpgrid_parset.in' #Create dumpgrid parset
         #'test/night_1/grid.wr.1.dumpgrid', 'test/night_1/psfgrid.wr.1.dumpgrid', 'test/night_1/pcf.wr.1.dumpgrid', 'test/night_2/grid.wr.1.dumpgrid', 'test/night_2/psfgrid.wr.1.dumpgrid', 'test/night_2/pcf.wr.1.dumpgrid' #First pass imaging 
         #'test/stacked_grids/grid.deep', 'test/stacked_grids/psfgrid.deep', 'test/stacked_grids/pcf.deep', 'template_parset.in' #Grid stacking
         #'test/stacked_grids/cdeconvolver_1.in', 'test/stacked_grids/cdeconvolver_2.in'  #create_deep_parset
+        'test/co_added_visibilites/image.deep.restored'
 
 rule create_mssplit_configfile:
     input:
@@ -81,7 +82,52 @@ rule split_ms:
         #'echo mssplit -c {0:s}/'.format(WORKING_DIR) +'{input.mssplit_config}; mkdir -p {0:s}/'.format(WORKING_DIR) + '{output}' #For testing
         'mssplit -c {input.mssplit_config}'
 
-rule create_parset:
+rule concentrate_ms:
+    input:
+        ['measurement_sets/night_{0:s}.ms'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()]
+    output:
+        'test/co_added_visibilites/all_nights.ms'
+    resources:
+        time_min=900,
+        mem_mb=4000,
+        cpus_per_task=3
+    shell:
+        'echo msconcat -o {0:s}/'.format(WORKING_DIR) + '{output} {input}'
+
+rule create_co_added_visibility_parset:
+    input:
+        MS = 'test/co_added_visibilites/all_nights.ms',
+        template_parset = 'template_parset.in'
+    output:
+        'test/co_added_visibilites/cdeconvolver_{image_names}.in'
+    params:
+        op = 'test/co_added_visibilites/',
+        pn = 'deep_parset.in'
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
+-pn {params.pn} -t {input.template_parset} -tn image.sim_PC -a dataset=' + '{0:s}/'.format(WORKING_DIR) + '{input.MS} ' + \
+'INnchan={0:d}'.format(N_CHANNELS) #The -p sets the preconditioner to none => not yet
+
+rule deep_co_added_visibility_imaging:
+    input:
+        MS = 'test/co_added_visibilites/all_nights.ms',
+        parset = 'test/co_added_visibilites/cdeconvolver_{image_names}.in'
+    output:
+        directory('test/co_added_visibilites/{image_names}.restored')
+    params:
+        yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
+        parset_name = 'cdeconvolver_{image_names}.in'
+    resources:
+        time_min=900,
+        mem_mb=4000,
+        cpus_per_task=1,
+        ntasks=N_CHANNELS
+    shell:
+        ENV_SETUP + \
+        'cd test/co_added_visibilites/ && mpirun -np {0:d}'.format(N_CHANNELS) + ' imager -c {params.parset_name} > ./{params.yanda_logfile}'
+
+rule create_daily_parset:
     input:
         MS = 'measurement_sets/night_{night_index}.ms',
         template_parset = 'template_parset.in'
@@ -199,9 +245,9 @@ rule create_deep_parset:
 -pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.sim_PC -a ' + \
 'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
 'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
-'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} -p' #-p sets the preconditioner to none
+'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf}' #-p sets the preconditioner to none
 
-rule deep_imaging:
+rule deep_grid_stack_imaging:
     input:
         grid = 'test/stacked_grids/grid.deep',
         parset = 'test/stacked_grids/cdeconvolver_{image_names}.in'
