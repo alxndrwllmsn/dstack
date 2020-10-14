@@ -236,7 +236,7 @@ def create_parset_mapping(image_names=_DEFAULT_IMAGE_NAMES, gridder_name=_DEFAUL
         'Tmasking' : 'threshold.masking',
         #Preconditioning
         'PNames' : 'preconditioner.Names',
-        'Ppreservecf' : 'preconditioner.preservecf',
+        'Preservecf' : 'preconditioner.preservecf',
         'PWnoisepower' : 'preconditioner.Wiener.noisepower',
         'PWnormalise' : 'preconditioner.Wiener.normalise',
         'PWrobustness' : 'preconditioner.Wiener.robustness',
@@ -957,6 +957,47 @@ class Parset(object):
         log.info('Update preconditioner to: {0:s}'.format(str(preconditioners)))
         self._preconditioner = preconditioners
 
+    def special_setup_for_saving_parsets(self,parset_path):
+        """There are some caveats  when using the ``Preconditioner`` class as it is so versatile.
+        ``YandaSoft`` on the other hand have some tricky restrictions. To accommodate special cases, this
+        function is used as the last step when a parset is saved to a file.
+
+        Currently there are two special cases:
+            - When no preconditioner used jointly with Cdeconvolver, he Robustness parameter has to be set so
+            ``YandaSoft`` can create a Wiener-filter, which it will not apply as the filtering is set to none.
+            - When WProject gridder used jointly with Wiener filtering the parameter Preservecf has to be set to
+            True, in order to compute the PCF. This is extremely important when the dumpgrid parameter is set to true,
+            as only in this case the correct PCF is dumped.
+
+        So this function is basically secure that these special cases are met when a parset is written.
+
+        Parameters
+        ==========
+        parset_path: str
+            Absolute path to the parset written. I.e. `parset_path = os.path.join(output_path, parset_name)`
+
+        Returns
+        =======
+        Parset file: Parset file readable by ``YandaSoft``
+            Append the parset file if needed to make sure that the extra constrains are met
+        """
+        if self._preconditioner == [] and self._imager == 'Cdeconvolver':
+            if 'PWrobustness' not in self._parset.keys():
+                self.add_parset_parameter('PWrobustness',2.0)
+
+            with open(parset_path, 'a') as f:
+                print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping['PWrobustness'],str(self._parset['PWrobustness'])),file=f)
+
+        elif self._gridder_name == 'WProject' and 'Wiener' in self._preconditioner:
+            if 'Preservecf' not in self._parset.keys() or self._parset['Preservecf'] == 'False':
+                self.add_parset_parameter('Preservecf','True')
+            
+            with open(parset_path, 'a') as f:
+                print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping['Preservecf'],str(self._parset['Preservecf'])),file=f)
+
+        return True
+
+
     def save_parset(self, output_path, parset_name, overwrite=True, use_image_names=False):
         """Save the in-memory ``Parset`` to ``output_path/parset_name``.
         The saved parset can be fed into ``YandaSoft``
@@ -1009,6 +1050,9 @@ class Parset(object):
                             print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._parset[key])),file=f)
                 else:
                     continue
+
+        #Check some special considerations
+        self.special_setup_for_saving_parsets(parset_path=parset_path)
 
 if __name__ == "__main__":
     #import sys

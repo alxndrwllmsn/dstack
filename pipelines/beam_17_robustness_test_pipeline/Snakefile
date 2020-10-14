@@ -6,11 +6,11 @@ import os
 
 #=== Define variables for the pipeline ===
 #Absolute path to working directory
-MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_robustness_test_pipeline/measurement_sets'
-#MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
-WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
+#MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_robustness_test_pipeline/measurement_sets'
+MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
+#WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
 
-#WORKING_DIR = '/scratch/krozgonyi/dstack_robustness_test' #Hardcoding solves the symlink problem...
+WORKING_DIR = '/scratch/krozgonyi/dstack_robustness_test' #Hardcoding solves the symlink problem...
 
 MIN_CHANNEL = 6420
 MAX_CHANNEL = 6422
@@ -92,7 +92,8 @@ rule create_parset:
     shell:
         ENV_SETUP + \
         'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
--pn dumpgrid_parset.in -t {input.template_parset} -tn image.sim_PC -a dataset=' + '{0:s}/'.format(WORKING_DIR) + '{input.MS} -p' #The -p sets the preconditioner to none
+-pn dumpgrid_parset.in -t {input.template_parset} -tn image.sim_PC -a dataset=' + '{0:s}/'.format(WORKING_DIR) + '{input.MS} ' + \
+'INnchan={0:d}'.format(N_CHANNELS) #The -p sets the preconditioner to none => not yet
 
 rule first_pass_imaging:
     input:
