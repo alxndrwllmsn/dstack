@@ -6,11 +6,11 @@ import os
 
 #=== Define variables for the pipeline ===
 #Absolute path to working directory
-#MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_robustness_test_pipeline/measurement_sets'
-#WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
+MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_robustness_test_pipeline/measurement_sets'
+WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
 
-MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
-WORKING_DIR = '/scratch/krozgonyi/dstack_robustness_test' #Hardcoding solves the symlink problem...
+#MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
+#WORKING_DIR = '/scratch/krozgonyi/dstack_robustness_test' #Hardcoding solves the symlink problem...
 
 MIN_CHANNEL = 6420
 MAX_CHANNEL = 6422
@@ -343,16 +343,21 @@ rule image_stacking:
         cn_psf = 'psf.deep',
         cn_residual = 'residual.deep',
         cn_weights = 'weights.deep',
+        stack_indices_logfile_restored = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/{weighting}_weighting/psf_weighting_restored.log',
+        stack_indices_logfile_residual = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/{weighting}_weighting/psf_weighting_residual.log'
     resources:
         walltime=15,
         mem_mb=4000,
     shell:
+        #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
+        #The normalised psf needs to be averaged as well as the weights
+        #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
         ENV_SETUP + \
-        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -n -c ; ' + \
-        'dstacking -cl {input.psf_image} -cp {params.cp} -cn {params.cn_psf_image} -n -c ; ' + \
-        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -n -c ; ' + \
-        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -n -c ; ' + \
-        'dstacking -cl {input.weights} -cp {params.cp} -cn {params.cn_weights} -n -c ; '#I use the -n option to normalise!
+        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.psf} -l {params.stack_indices_logfile_restored} -o -c ; ' + \
+        'dstacking -cl {input.psf_image} -cp {params.cp} -cn {params.cn_psf_image} -o -n -c ; ' + \
+        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -o -c ; ' + \
+        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.psf} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
+        'dstacking -cl {input.weights} -cp {params.cp} -cn {params.cn_weights} -o -n -c ; '
 
 rule no_prec_image_stacking:
     input:
@@ -362,6 +367,7 @@ rule no_prec_image_stacking:
         residual = ['test/night_{0:s}'.format(night_index) + '/no_prec/residual.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()],
         weights = ['test/night_{0:s}'.format(night_index) + '/no_prec/weights.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()]
     output:
+        #See the image stacking rule
         directory('test/stacked_images/no_prec/image.restored.deep'),
         #directory('test/stacked_images/no_prec/psf.image.deep'),
         directory('test/stacked_images/no_prec/psf.deep'),
@@ -375,16 +381,18 @@ rule no_prec_image_stacking:
         cn_psf = 'psf.deep',
         cn_residual = 'residual.deep',
         cn_weights = 'weights.deep',
+        stack_indices_logfile_restored = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/no_prec/psf_weighting_restored.log',
+        stack_indices_logfile_residual = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/no_prec/psf_weighting_residual.log'
     resources:
         walltime=15,
         mem_mb=4000,
     shell:
         ENV_SETUP + \
-        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -n -c ; ' + \
+        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.psf} -l {params.stack_indices_logfile_restored} -o -c ; ' + \
         #'dstacking -cl {input.psf_image} -cp {params.cp} -cn {params.cn_psf_image} -n -c ; ' + \
-        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -n -c ; ' + \
-        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -n -c ; ' + \
-        'dstacking -cl {input.weights} -cp {params.cp} -cn {params.cn_weights} -n -c ; '#I use the -n option to normalise!
+        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -o -c ; ' + \
+        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.psf} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
+        'dstacking -cl {input.weights} -cp {params.cp} -cn {params.cn_weights} -o -n -c ; '#I use the -n option to normalise!
 
 rule create_deep_parset:
     input:

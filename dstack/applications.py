@@ -42,18 +42,27 @@ def dstacking():
     Keyword Arguments
     =================
     list -cl or --cimpath_list:
-        Full path of images to be stacked. Note, that a list of lists is created
+        List of the full path of images to be stacked. Note, that a list of lists is created
         when the -cl argument is called (can happen multiple times), but the code handles it.
 
     str -cp or --cim_output_path:
-        Full path to the folder in which the stacked image will be saved.
+        String, full path to the folder in which the stacked image will be saved.
 
     str -cn or --cim_outputh_name:
-        Name of the stacked image.
+        String, name of the stacked image.
     
     optional -n or --normalise:
         Boolean argument, if not given set to False otherwise True.
         If True, the images will be averaged instead of just summing them.
+
+    optional -psf or --weight_with_psf:
+        Boolean argument, if True, the images will be weighted wit a list of PSF provided.
+
+    optional -pl or --psfpath_list:
+        List of the full paths of the psf used for weighting.
+
+    optional -l or --psf_peaks_log_path:
+        string, full path and name of a lofgile which the PSF peask will be saved.
 
     optional -o or --overwrite:
         Boolean argument, if not given set to False otherwise True.
@@ -89,6 +98,18 @@ def dstacking():
                         help='If True, the images will be averaged instead of just summing them.', 
                         required=False, action="store_true")
 
+    parser.add_argument('-psf', '--weight_with_psf', 
+                        help='If True, the images will be weighted wit a list of PSF provided.', 
+                        required=False, action="store_true")
+
+    parser.add_argument('-pl', '--psfpath_list', 
+                        help='A list of the full paths of the psf used for weighting.', 
+                        required=False, action="append", nargs='+', type=str)
+
+    parser.add_argument('-l', '--psf_peaks_log_path', 
+                        help='Full path and name of a lofgile which the PSF peask will be saved.', 
+                        required=False, action="store", type=str)
+
     parser.add_argument('-o', '--overwrite', 
                         help='If True, the stacked image will be created regardless if another image exist by the same name.', 
                         required=False, action="store_true")
@@ -102,12 +123,26 @@ def dstacking():
     #Flatten out the cimpat_list argument, which currently a list of lists 
     args.cimpath_list = argflatten(args.cimpath_list)
 
-    ds.cim.CIM_stacking_base(cimpath_list= args.cimpath_list,
-                            cim_output_path = args.cim_output_path,
-                            cim_outputh_name = args.cim_outputh_name,
-                            normalise = args.normalise,
-                            overwrite = args.overwrite,
-                            close = args.close)
+    if args.weight_with_psf == True:
+        args.psfpath_list = argflatten(args.psfpath_list)
+
+        ds.cim.CIM_stacking_base(cimpath_list= args.cimpath_list,
+                                cim_output_path = args.cim_output_path,
+                                cim_outputh_name = args.cim_outputh_name,
+                                weight_with_psf = args.weight_with_psf,
+                                psfpath_list = args.psfpath_list,
+                                psf_peaks_log_path = args.psf_peaks_log_path,
+                                normalise = args.normalise,
+                                overwrite = args.overwrite,
+                                close = args.close)
+
+    else:
+        ds.cim.CIM_stacking_base(cimpath_list= args.cimpath_list,
+                                cim_output_path = args.cim_output_path,
+                                cim_outputh_name = args.cim_outputh_name,
+                                normalise = args.normalise,
+                                overwrite = args.overwrite,
+                                close = args.close)
 
 def dparset():
     """Creates a ``YandaSoft`` parset file from template and other parameters.
