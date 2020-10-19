@@ -8,6 +8,7 @@ Sparseness = 0.943396125
 CIMPath_A = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
 CIMPath_B = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
 PSFPath_A = /home/krozgonyi/Desktop/first_pass/psf.wr.1.sim_PC
+PSF_peak_value = 143373.953125
 NumericalPrecision = 1e-7
 NChannels = 11
 NPolarisations = 1

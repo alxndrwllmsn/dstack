@@ -48,6 +48,9 @@ def setup_CIM_unittest(parset_path):
     PSFPathA: str
         A ``casacore.images.image.image`` object given by the full path of a test grid in CASAImage format in the parset for the PSF corresponding to Alice
 
+    PSFpeak: float
+        The maximum (peak) value of the ``PSFPathA`` of the first channel
+    
     NumPrec: float
         The numerical precision limit for testing CASAImage equity. Also used to test the PSF-weighted stacking which have some numerical precision errors.
         Thus this should be set to be around 1e-7, that is the relative numerical error when working with floats.
@@ -69,16 +72,17 @@ def setup_CIM_unittest(parset_path):
     CIMPathA =  ds.cim.create_CIM_object(config.get('CImage','CIMPath_A'))
     CIMPathB =  ds.cim.create_CIM_object(config.get('CImage','CIMPath_B'))
     PSFPathA =  ds.cim.create_CIM_object(config.get('CImage','PSFPath_A'))
+    PSFpeak = float(config.get('CImage','PSF_peak_value'))
     NumPrec =  float(config.get('CImage','NumericalPrecision'))
     assert NumPrec >= 0., 'The NumericalPrecision given is below zero!'
     NChan = int(config.get('CImage','NChannels'))
     NPol = int(config.get('CImage','NPolarisations'))
     RMS = float(config.get('CImage','RMS'))
 
-    return CIMPathA, CIMPathB, PSFPathA, NumPrec, NChan, NPol, RMS
+    return CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS
 
 class TestCIM(unittest.TestCase):
-    CIMPathA, CIMPathB, PSFPathA, NumPrec, NChan, NPol, RMS = setup_CIM_unittest(_PARSET)
+    CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS = setup_CIM_unittest(_PARSET)
 
     def test_check_CIM_axes(self):
         ds.cim.check_CIM_axes(self.CIMPathA)
@@ -120,6 +124,10 @@ class TestCIM(unittest.TestCase):
         assert np.array_equiv(np.multiply(casaimage.image(self.CIMPathA).getdata(),2), casaimage.image('{0:s}/test_CIM_stacking_base'.format(_TEST_DIR)).getdata()), \
         'Stacking the same image not equivalent with multiplying with two!'
 
+    def test_measure_CIM_max(self):
+        psf_max = ds.cim.measure_CIM_max(self.PSFPathA)
+        assert psf_max == self.PSFpeak, 'The provided PSF peak ({0:f}) and the measured peak ({1:s}) are different!'.format(self.PSFpeak,psf_max)
+    
     def test_CIM_stacking_psf_weighted(self):
         ds.cim.CIM_stacking_base([self.CIMPathA,self.CIMPathA],_TEST_DIR,'test_CIM_stacking_psf_weighted', overwrite=True,
                                 weight_with_psf=True, psf_peaks_log_path='{0:s}/test_CIM_stacking_psf_weighted.log'.format(_TEST_DIR),
