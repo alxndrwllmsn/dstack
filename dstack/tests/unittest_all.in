@@ -5,9 +5,10 @@ Sparseness = 0.943396125
 
 [CImage]
 
-CIMpath_A = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
-CIMpath_B = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
-NumericalPrecision = 0
+CIMPath_A = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
+CIMPath_B = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
+PSFPath_A = /home/krozgonyi/Desktop/first_pass/psf.wr.1.sim_PC
+NumericalPrecision = 1e-7
 NChannels = 11
 NPolarisations = 1
 RMS = 0.04308076

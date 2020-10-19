@@ -7,12 +7,14 @@ The image I/O management is kinda manually at this point, but hopefully will be 
 
 __all__ = ['create_CIM_object', 'check_CIM_axes', 'CIM_dim_equity_check', 'CIM_unit_equity_check',
             'get_N_chan_from_CIM', 'get_N_pol_from_CIM', 'check_CIM_coordinate_equity', 'check_CIM_equity',
-            'measure_CIM_RMS', 'create_CIM_diff_array', 'CIM_stacking_base']
+            'measure_CIM_RMS', 'create_CIM_diff_array','measure_CIM_max' ,'CIM_stacking_base']
 
 import os
 import shutil
 import numpy as np
 import logging
+
+import copy
 
 from casacore import images as casaimage
 from casacore import tables as casatables
@@ -254,8 +256,7 @@ def check_CIM_equity(cimpath_a, cimpath_b, numprec=1e-8, close=False):
 
     return equviv
 
-# one space should follow each comma (,)
-def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
+def check_CIM_coordinate_equity(cimpath_a, cimpath_b, iclude_pixel_unit=True, close=False):
     """Basic check if the associated coordinate information of two images are somewhat equal.
     This is **not** an equity check for all coordinate values, as the reference pixels can be different,
     even for images (grids) with the same coordinate system. Hence, the rigorous part of the check is
@@ -276,6 +277,10 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
     cimpath_b: str
         The input CASAImage path of Bob or a ``casacore.images.image.image`` object
 
+    iclude_pixel_unit: bool, optional
+        When comparing the coordinate axis of an image and it's corresponding PSF, the pixel units can be different.
+        Thus, this potion allows the user to skip the check of the pixel unit equity of the two input CIM
+
     close: bool, optional
         If True the in-memory CASAIMages are deleted, and the optional write-lock releases
         Set to true if this is the last operation on the image, but False if other functions
@@ -290,7 +295,8 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
     cimB = ds.cim.create_CIM_object(cimpath_b)
     
     CIM_dim_equity_check(cimA, cimB)
-    CIM_unit_equity_check(cimA, cimB)
+    if iclude_pixel_unit:
+        CIM_unit_equity_check(cimA, cimB)
 
     coordsA = cimA.coordinates()
     coordsB = cimA.coordinates()
@@ -348,7 +354,7 @@ def check_CIM_coordinate_equity(cimpath_a, cimpath_b, close=False):
         if coordsA[coords_axis].get_projection() != coordsB[coords_axis].get_projection():
             raise ValueError('The given images {0:s} and {1:s} have different projections!'.format(cimA.name(),cimB.name()))
         
-        log.debug("Image axis are: 'diretion'")
+        log.debug("Image axis are: 'direction'")
     
     except:
         #Change to linear coord as the given CASAimage is a grid!
@@ -517,13 +523,14 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, pol=0, close=False):
     if all_dim:
         rms_matrix = np.zeros((cim.shape()[0],cim.shape()[1]))
 
-        # I will think about how this operation could be vectorised
-        # so ther will be no need for Python loops.
+        # I will think about how this operation could be vectorized
+        # so there will be no need for Python loops.
         for chan_i in range(0,cim.shape()[0]):
             for pol_j in range(0,cim.shape()[1]):
-                rms_matrix[i,j] = np.sqrt(np.mean(np.square(cim.getdata()[chan_i,pol_j,...])))
+                rms_matrix[chan_i,pol_j] = np.sqrt(np.mean(np.square(cim.getdata()[chan_i,pol_j,...])))
 
         if close:
+            log.debug('Closing image: {0:s}'.format(cim.name()))
             del cim
         return rms_matrix
 
@@ -534,7 +541,111 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, pol=0, close=False):
             del cim
         return rms
 
-def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise=False,overwrite=False, close=False):
+def measure_CIM_max(cimpath, save_to_file=False, outputfile_path=None, ID=0, all_dim=False, chan=0, pol=0, close=False):
+    """Function to measure the peak of a CASAIMage, usually an image of the synthesized beam (PSF).
+
+    For averaging of images, it is needed to get the RMS or the PSF peak to weight the images. The latter
+    does not take potential RFI into account, i.e. it only results in sensitivity (integration time) weighted averaging.
+
+    This function is primarily designed to support such an averaging.
+
+
+    Parameters
+    ==========
+    cimgpath: str
+        The input CASAImage path
+
+    save_to_file: bool
+        If True, the results will be saved to a file specified by ``outputfile_path``
+
+    outputfile_path: str, optional
+        Abspath, (path+name) of the output file where the max values are saved. It only works for a single polarization at the moment!
+        The file is appended if already exist. So multiple day's PSF max can be written into one master file for stacking. Each row is
+        a day and each column is a channel. This code creates a row.
+
+    ID: int, optional
+        An ID which can be used to identify each CIM added to the ``outputfile_path`` file.
+
+    all_dim: bool, optional
+        If True, the peak value will be measured for all channels and polarizations in the image cube
+
+    chan: int, optional
+        Index of the channel in the image cube
+
+    pol: int, optional
+        Index of the polarization in the image cube
+
+    close: bool, optional
+        If True the in-memory CASAIMage is deleted, and the optional write-lock releases
+        Set to true if this is the last operation on the image, but False if other functions
+        called that operation on the same image. This avoids multiple read-in of the image.
+
+    Returns
+    =======
+    peak: float or list of floats
+        The peak value for the given channel or a numpy ndarray
+        containing the peak for the corresponding channel and polarization
+    
+    peak_in_a-file: file
+        Append a file with a row of max values
+    """
+    cim = ds.cim.create_CIM_object(cimpath)
+
+    if save_to_file == True and outputfile_path == None:
+        raise ValueError('No output file path is defined, can not save peak(s) of {0:s}'.format(cim.name()))
+
+
+    if all_dim:
+        peak_matrix = np.zeros((cim.shape()[0],cim.shape()[1]))
+
+        for chan_i in range(0,cim.shape()[0]):
+            for pol_j in range(0,cim.shape()[1]):
+                peak_matrix[chan_i,pol_j] = np.amax(cim.getdata()[chan_i,pol_j,...])
+
+        if close:
+            log.debug('Closing image: {0:s}'.format(cim.name()))
+            del cim
+        
+        if save_to_file == True:
+            if cim.shape()[1] > 1:
+                raise ValueError('Image polarization is > 1, i.e. polarized instead of intensity only image {0:s}'.format(cim.name()))
+
+            else:
+                #Append a file with a line of the following format: ID, peak1, peak2, .. peakN \n
+                peak_matrix_string = '{0:f}, '.format(ID) + ', '.join([str(peak_matrix[p,0]) for p in range(0,np.shape(peak_matrix)[0])])
+                peak_output = open(outputfile_path, 'a')
+                peak_output.write(peak_matrix_string + '\n')
+                peak_output.close()
+
+                return True
+
+        else:
+            return peak_matrix
+
+    else:
+        peak = np.amax(cim.getdata()[chan,pol,...])
+        
+        if close:
+            log.debug('Closing image: {0:s}'.format(cim.name()))
+            del cim
+        
+        if save_to_file == True:
+            if cim.shape()[1] > 1:
+                raise ValueError('Image polarization is > 1, i.e. polarized instead of intensity only image {0:s}'.format(cim.name()))
+
+            else:
+                #Append a file with a line of the following format: ID, peak1 \n
+                peak_string = '{0:f}, {1:f}'.format(ID, peak)
+                peak_output = open(outputfile_path, 'a')
+                peak_output.write(peak_string + '\n')
+                peak_output.close()
+
+                return True
+
+        else:
+            return peak
+
+def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise=False, weight_with_psf=False, psfpath_list=None, psf_peaks_log_path=None, overwrite=False, close=False):
     """This function is one of the core functions of the image stacking stacking deep spectral line pipelines.
 
     This function takes a list of CASAImages and creates the stacked CASAIMage.
@@ -548,8 +659,17 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     NOTE, that there are better tools in YadaSoft and casacore to create stacked images,
     but no option to stack and modify grids.
 
-    TO DO: write the stacked numpy data array paralelly where each node reads in an MS
+    This function currently supports the following stacking options:
+        - simple sum (for grid stacking)
+        - simple average
+        - weighted sum using a set of PSF peaks (the max of the given PSF images for each channel)
+    
+    TO DO:
+        - add an RMS-weighted stacking option
+        - write the stacked numpy data array parallel where each node reads in an MS \
     and append the stacked data.
+        - same as above, but for the weighting subroutine
+        - modularize the stack functions
 
     Parameters
     ==========
@@ -563,8 +683,26 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
         Name of the stacked image
 
     normalise: bool, optional
-        If True, the images will be averaged instead of just summing them
+        If True, the images will be averaged instead of just summing them, if ``weight_with_psf`` is set to True,
+        that overwrites this option!
     
+    weight_with_psf: bool, optional
+        If True, a list of PSF are used for weighting. The PSF should be un-normalised i.e. the peak should be the 
+        weighted visibility sum. Otherwise, the results are equivalent to use the ``normalise`` parameter, as the
+        normalised PSF' are used. If the non-normalised PSF' are used, it corresponds to normalise with sensitivity
+        of each data set. NOTE, that this way of normalisation does not include the effect of RFI for example!
+    
+    psfpath_list: list, optional
+        A list of the full pats of the PSF' used for weighting. The order of the PSF' in the list has to be consistent
+        with the images in ``cimpath_list``. I.e. the Nth image will be weighted by the Nth PSF. Each image have to have
+        a corresponding PSF.
+
+    psf_peaks_log_path: str, optional
+        Full path (ncluding filename), of a potential logfile. If given, two logfile is created whan weighting the stacked
+        images by the corresponding PSF. The logfile at ``psf_peaks_log_path`` contains an ID and the PSF peaks for each channel
+        that are used for weighting. The ``psf_peaks_log_path.indices`` is the second file created, and it
+        contains an ID and the full path of the image and psf used in conjunction during weighted stacking.
+
     overwrite: bool, optional
         If True, the stacked image will be created regardless if another image exist
         in the same name. Note, that in this case the existing grid will be deleted!
@@ -582,6 +720,26 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     """
     if len(cimpath_list) < 2:
         raise ValueError('Less than two image given for stacking!')
+
+    log.info('Stacking {0:d} images together.'.format(len(cimpath_list)))
+
+    if weight_with_psf == True and psfpath_list == None or weight_with_psf and len(cimpath_list) != len(psfpath_list):
+        raise ValueError('The psfpath_list is not given or not the right amount of psf are provided!')
+
+    if weight_with_psf == True and normalise == True:
+        normalise = False
+        log.info('Use the provided PSF list for weighting (i.e. weighting by sensitivity), set weight_with_psf to False. \
+                 If you want to normalize only by the number of nights combined!')
+    elif weight_with_psf == False and normalise == True:
+        log.info('Use averaging in stacking.')
+
+    elif weight_with_psf == False and normalise == False:
+        log.info('Sum the images in stacking.')
+
+    if weight_with_psf == True and psf_peaks_log_path != None:
+        log.info('Weighting images by sensitivity (peak of the PSF). The logfiles are created with base name at {0:s}'.format(psf_peaks_log_path))
+    else:
+        log.info('Weighting images by sensitivity (peak of the PSF). No logfiles are created!')
 
     output_cim = '{0:s}/{1:s}'.format(cim_output_path,cim_outputh_name)
 
@@ -605,9 +763,85 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
                     coordsys=coordsys,
                     values=base_cim.getdata(),
                     overwrite=overwrite)
+
+    #=== Weighting with PSF ===
+    #Define a closure function to weight with the PSF
+    def use_psf_weight(input_cim,input_psf,data_ID):
+        """A closure function which computes the weighted image data array and the PSF peak list.
+
+        This code checks if the given image and PSF have the same coordinates. Furthermore,
+        if given, a logfile is created at ``psf_peaks_log_path`` were each row starts with a dataset ID
+        followed by the PSF peak values for each frequency channel.
+
+        A mapping file also created at ``psf_peaks_log_path.indices`` that contains for each row the
+        dataset ID and the image and psf paths, which are corresponding to that ID at ``psf_peaks_log_path``
+
+        Parameters
+        ==========
+        input_cim: str
+            The input CASAImage path that needs to be weighted for stacking
+        
+        input_psf: str
+            The input PSF path that is used for the weighting
+
+        data_ID: float
+            A unique ID used fin logging if ``psf_peaks_log_path`` is defined
+        
+        Returns
+        ========
+        weighted_input_cim_data: :numpy.ndarray:
+            The image matrix, which channels are multiplied by the peak of the corresponding channels of the PSF
     
-    #Keep the data in memory
-    stacked_cim_data = base_cim.getdata()
+        psf_peak_matrix: :numpy.ndarray:
+            A matrix with the shape of [N_chan,1]. Each entry contains the peak (max) value of the PSF
+        
+        psf_peaks_log_path: file
+            A file containing the data_ID and the PSF peaks for each channel in every row. This function only appends the logfile
+            with the corresponding row. Only created if the ``psf_peaks_log_path`` variable is defined in the parent function.
+
+        psf_peaks_log_path.indices: file
+            A file containing the data_ID and the full path of the image and PSF used in stacking.  
+            This function only appends the logfile with the corresponding row. 
+            Only created if the ``psf_peaks_log_path`` variable is defined in the parent function.
+        """
+        if ds.cim.check_CIM_coordinate_equity(input_cim,input_psf,iclude_pixel_unit=False) == False:
+            raise ValueError('The input image image and the corresponding psf ({0:s} and {1:s}) have different coordinate systems!'.format(input_cim.name(),input_psf.name()))
+
+        #Get the peak matrix
+        psf_peak_matrix = measure_CIM_max(cimpath=input_psf, all_dim=True)
+
+        weighted_input_cim_data = input_cim.getdata()
+
+        #Should make this bit parallel as well
+        #Also, easy to add a polarization axis in the future if needed
+        #Also, should define outside as a separate function
+        for i in range(0,np.shape(weighted_input_cim_data)[0]):
+            weighted_input_cim_data[i,0,...] = np.multiply(weighted_input_cim_data[i,0,...],psf_peak_matrix[i,0])
+
+        #Create two logfiles 
+        #This variable is defined in the parent function and accessed here directly and not passed as an argument!
+        if psf_peaks_log_path != None:
+            measure_CIM_max(cimpath=input_psf, all_dim=True, save_to_file=True, ID=data_ID, outputfile_path=psf_peaks_log_path, close=False)
+
+            #Format: ID, image_path, psf_path
+            peak_output = open(psf_peaks_log_path + '.indices', 'a')
+            peak_output.write('{0:f}, {1:s}, {2:s}'.format(data_ID,input_cim.name(),input_psf.name()) + '\n')
+            peak_output.close()
+
+        del input_psf
+
+        return weighted_input_cim_data, psf_peak_matrix
+
+    #Keep the data in memory before deleting the first cim and psf
+    if weight_with_psf:
+        base_psf = ds.cim.create_CIM_object(psfpath_list[0])
+        
+        weighted_cim_data, psf_peak_matrix = use_psf_weight(base_cim,base_psf, data_ID=0.)
+
+        stacked_cim_data = copy.deepcopy(weighted_cim_data)
+        stacked_psf_peak_matrix = copy.deepcopy(psf_peak_matrix)
+    else:
+        stacked_cim_data = base_cim.getdata()
 
     #Close the image so the unit can be set
     del stacked_cim
@@ -618,23 +852,39 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     #Read back the stacked image
     stacked_cim = ds.cim.create_CIM_object(output_cim)
 
+    #=== Stacking ===
     for i in range(1,len(cimpath_list)):
         cim = ds.cim.create_CIM_object(cimpath_list[i])
 
         if base_cim.datatype() != cim.datatype():
             raise TypeError('The data type of the two input images ({0:s} and {1:s}) are not equal!'.format(base_cim.name(),cim.name()))
-        if base_cim.ndim() != cim.ndim():
-            raise ValueError('The dimension of the two input images ({0:s} and {1:s}) are not equal!'.format(base_cim.name(),cim.name()))
         if ds.cim.check_CIM_coordinate_equity(cim,stacked_cim) == False:
             raise ValueError('The created stacked image and the image {0:s} have different coordinate systems!'.format(cim.name()))
         
         check_attrgroup_empty(cim)
         check_history_empty(cim)
 
-        stacked_cim_data = np.add(stacked_cim_data, cim.getdata())
+        if weight_with_psf:
+            psf = ds.cim.create_CIM_object(psfpath_list[i])
+            weighted_cim_data, psf_peak_matrix = use_psf_weight(cim, psf, data_ID=float(i))
 
+            stacked_cim_data = np.add(stacked_cim_data, weighted_cim_data)
+            stacked_psf_peak_matrix = np.add(stacked_psf_peak_matrix, psf_peak_matrix)
+
+        else:
+            stacked_cim_data = np.add(stacked_cim_data, cim.getdata())
+
+        if close:
+            log.debug('Closing image: {0:s}'.format(cim.name()))
+            del cim
+
+    #=== Normalize ===
     if normalise:
         stacked_cim_data = np.divide(stacked_cim_data,len(cimpath_list))
+
+    if weight_with_psf:
+        for i in range(0,np.shape(stacked_cim_data)[0]):
+            stacked_cim_data[i,0,...] = np.divide(stacked_cim_data[i,0,...],stacked_psf_peak_matrix[i,0])
 
     log.debug('Write the stacked data to {0:s}'.format(output_cim))
     stacked_cim.putdata(stacked_cim_data)
@@ -650,10 +900,10 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
         log.debug('Closing image: {0:s}'.format(base_cim.name()))
         del base_cim
 
-        #for cim_index in range(1,len(cimpath_list)):
-        #    cim = cimpath_list[i]
-        #    log.debug('Closing image: {0:s}'.format(cim.name()))
-        #    del cim
-
 if __name__ == "__main__":
+    CIM_stacking_base(['/home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC','/home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC'],
+                        cim_output_path='/home/krozgonyi/Desktop', cim_outputh_name='test.deep', overwrite=True,
+                        weight_with_psf=True, psf_peaks_log_path='/home/krozgonyi/Desktop/peaks.test', close =True,
+                        psfpath_list=['/home/krozgonyi/Desktop/first_pass/psf.wr.1.sim_PC', '/home/krozgonyi/Desktop/first_pass/psf.wr.1.sim_PC'])
+
     pass

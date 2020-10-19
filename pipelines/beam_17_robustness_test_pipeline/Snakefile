@@ -102,7 +102,7 @@ rule concentrate_ms:
     input:
         ['measurement_sets/night_{0:s}.ms'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()]
     output:
-        'measurement_sets/co_added_visibilites/all_nights.ms'
+        directory('measurement_sets/co_added_visibilites/all_nights.ms')
     params:
         input_ms = ' '.join(['{0:s}/measurement_sets/night_{1:s}.ms'.format(WORKING_DIR,night_index) for night_index in ORIGINAL_MS_MAPPING.keys()]) #String containing all input MS with abspath
     resources:

@@ -963,10 +963,10 @@ class Parset(object):
         function is used as the last step when a parset is saved to a file.
 
         Currently there are two special cases:
-            - When no preconditioner used jointly with Cdeconvolver, he Robustness parameter has to be set so
-            ``YandaSoft`` can create a Wiener-filter, which it will not apply as the filtering is set to none.
-            - When WProject gridder used jointly with Wiener filtering the parameter Preservecf has to be set to
-            True, in order to compute the PCF. This is extremely important when the dumpgrid parameter is set to true,
+            - When no preconditioner used jointly with Cdeconvolver, he Robustness parameter has to be set so ``YandaSoft`` \
+            can create a Wiener-filter, which it will not apply as the filtering is set to none.
+            - When WProject gridder used jointly with Wiener filtering the parameter Preservecf has to be set to \
+            True, in order to compute the PCF. This is extremely important when the dumpgrid parameter is set to true, \
             as only in this case the correct PCF is dumped.
 
         So this function is basically secure that these special cases are met when a parset is written.
