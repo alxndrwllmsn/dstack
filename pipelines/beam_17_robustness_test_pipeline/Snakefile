@@ -45,29 +45,19 @@ rule all:
         '{0:s}'.format(LOGDIR), #Make sure that the log dir exist before running => can not create this with a rule as snakemake wants to log the rule to the same folder through slurm!
         #No prec
         'test/stacked_grids/no_prec/image.deep.restored',#Grid stack
-        'test/co_added_visibilites/no_prec/image.deep.output',#Co-added visibility imaging
-        'test/stacked_images/no_prec/image.restored.deep', 'test/stacked_images/no_prec/psf.deep',#Image stack
-        'test/stacked_images/no_prec/residual.deep', 'test/stacked_images/no_prec/weights.deep',#Image stack
+        'test/co_added_visibilites/no_prec/image.deep.restored',#Co-added visibility imaging
+        'test/stacked_images/no_prec/image.restored.deep', 'test/stacked_images/no_prec/psf.deep', 'test/stacked_images/no_prec/psf.image.deep',#Image stack
+        'test/stacked_images/no_prec/residual.deep', 'test/stacked_images/no_prec/model.deep',#Image stack
         #Natural
         'test/stacked_grids/natural_weighting/image.deep.restored', 
-        'test/co_added_visibilites/natural_weighting/image.deep.output',
+        'test/co_added_visibilites/natural_weighting/image.deep.restored',
         'test/stacked_images/natural_weighting/image.restored.deep', 'test/stacked_images/natural_weighting/psf.image.deep', 
-        'test/stacked_images/natural_weighting/psf.deep', 'test/stacked_images/natural_weighting/residual.deep', 'test/stacked_images/natural_weighting/weights.deep',
+        'test/stacked_images/natural_weighting/psf.deep', 'test/stacked_images/natural_weighting/residual.deep', 'test/stacked_images/natural_weighting/model.deep',
         #Uniform
         'test/stacked_grids/uniform_weighting/image.deep.restored', 
-        'test/co_added_visibilites/uniform_weighting/image.deep.output',
+        'test/co_added_visibilites/uniform_weighting/image.deep.restored',
         'test/stacked_images/uniform_weighting/image.restored.deep', 'test/stacked_images/uniform_weighting/psf.image.deep', 
-        'test/stacked_images/uniform_weighting/psf.deep', 'test/stacked_images/uniform_weighting/residual.deep', 'test/stacked_images/uniform_weighting/weights.deep',
-        
-        #Subsequent steps for testing
-        #'test/stacked_grids/image.deep.restored', 'test/stacked_images/image.restored.deep', 'test/stacked_images/psf.image.deep', 'test/stacked_images/psf.deep', 'test/stacked_images/residual.deep', 'test/stacked_images/weights.deep',
-        #'mssplit_config/mssplit_config_night_1.in', 'mssplit_config/mssplit_config_night_2.in'#only create mssplit_configfile
-        #'measurement_sets/night_1.ms', 'measurement_sets/night_2.ms' #split ms
-        #'test/night_1/dumpgrid_parset.in', 'test/night_2/dumpgrid_parset.in' #Create dumpgrid parset
-        #'test/night_1/grid.wr.1.dumpgrid', 'test/night_1/psfgrid.wr.1.dumpgrid', 'test/night_1/pcf.wr.1.dumpgrid', 'test/night_2/grid.wr.1.dumpgrid', 'test/night_2/psfgrid.wr.1.dumpgrid', 'test/night_2/pcf.wr.1.dumpgrid' #First pass imaging 
-        #'test/stacked_grids/grid.deep', 'test/stacked_grids/psfgrid.deep', 'test/stacked_grids/pcf.deep', 'template_parset.in' #Grid stacking
-        #'test/stacked_grids/cdeconvolver_1.in', 'test/stacked_grids/cdeconvolver_2.in'  #create_deep_parset
-        #'test/co_added_visibilites/image.deep.restored'
+        'test/stacked_images/uniform_weighting/psf.deep', 'test/stacked_images/uniform_weighting/residual.deep', 'test/stacked_images/uniform_weighting/model.deep',
 
 rule create_mssplit_configfile:
     input:
@@ -118,10 +108,10 @@ rule create_co_added_visibility_parset:
         MS = 'measurement_sets/co_added_visibilites/all_nights.ms',
         template_parset = 'template_parset.in'
     output:
-        'test/co_added_visibilites/{weighting}_weighting/cdeconvolver_{image_names}.in'
+        'test/co_added_visibilites/{weighting}_weighting/dumpgrid_deep.in'
     params:
         op = 'test/co_added_visibilites/{weighting}_weighting/',
-        pn = 'cdeconvolver_{image_names}.in',
+        pn = 'dumpgrid_deep.in',
         robustness = lambda wildcards: '2.0' if '{0:s}'.format(wildcards.weighting) == 'natural' else '-2.0' if '{0:s}'.format(wildcards.weighting) == 'uniform' else '2.0'
     shell:
         ENV_SETUP + \
@@ -135,10 +125,10 @@ rule create_no_prec_co_added_visibility_parset:
         MS = 'measurement_sets/co_added_visibilites/all_nights.ms',
         template_parset = 'template_parset.in'
     output:
-        'test/co_added_visibilites/no_prec/cdeconvolver_{image_names}.in'
+        'test/co_added_visibilites/no_prec/dumpgrid_deep.in'
     params:
         op = 'test/co_added_visibilites/no_prec/',
-        pn = 'cdeconvolver_{image_names}.in',
+        pn = 'dumpgrid_deep.in',
     shell:
         ENV_SETUP + \
         'dparset -i Cimager -n image.deep -g WProject -op {params.op} ' +\
@@ -150,14 +140,14 @@ rule deep_co_added_visibility_imaging:
     #Create an empty output file as the output have to contain the right wildcard for consistency. Thus the all rule has to call this output file!
     input:
         MS = 'measurement_sets/co_added_visibilites/all_nights.ms',
-        parset = 'test/co_added_visibilites/{weighting}_weighting/cdeconvolver_{image_names}.in'
+        parset = 'test/co_added_visibilites/{weighting}_weighting/dumpgrid_deep.in'
     output:
-        #directory('test/co_added_visibilites/{weighting}_weighting/{image_names}.restored')
-        #directory('test/co_added_visibilites/{weighting}_weighting/image.restored.wr.1.deep'),
-        'test/co_added_visibilites/{weighting}_weighting/{image_names}.output'
+        directory('test/co_added_visibilites/{weighting}_weighting/grid.wr.1.deep'),
+        directory('test/co_added_visibilites/{weighting}_weighting/psfgrid.wr.1.deep'),
+        directory('test/co_added_visibilites/{weighting}_weighting/pcf.wr.1.deep')
     params:
-        yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
-        parset_name = 'cdeconvolver_{image_names}.in'
+        yanda_logfile = 'logfile_dumpgrid_deep.log',
+        parset_name = 'dumpgrid_deep.in'
     resources:
         walltime=15,
         mem_mb=4000,
@@ -165,21 +155,20 @@ rule deep_co_added_visibility_imaging:
         ntasks=N_CHANNELS+1
     shell:
         ENV_SETUP + \
-        'cd test/co_added_visibilites/{wildcards.weighting}_weighting/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS+1) + ' imager -c {params.parset_name} > ./{params.yanda_logfile}' +\
-        '&& touch {wildcards.image_names}.output'
+        'cd test/co_added_visibilites/{wildcards.weighting}_weighting/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS+1) + ' imager -c {params.parset_name} > ./{params.yanda_logfile}'
 
 rule deep_no_prec_co_added_visibility_imaging:
     #Create an empty output file as the output have to contain the right wildcard for consistency. Thus the all rule has to call this output file!
     input:
         MS = 'measurement_sets/co_added_visibilites/all_nights.ms',
-        parset = 'test/co_added_visibilites/no_prec/cdeconvolver_{image_names}.in'
+        parset = 'test/co_added_visibilites/no_prec/dumpgrid_deep.in'
     output:
-        #directory('test/co_added_visibilites/no_prec/{image_names}.restored')
-        #directory('test/co_added_visibilites/no_prec/image.restored.wr.1.deep'),
-        'test/co_added_visibilites/no_prec/{image_names}.output'
+        directory('test/co_added_visibilites/no_prec/grid.wr.1.deep'),
+        directory('test/co_added_visibilites/no_prec/psfgrid.wr.1.deep'),
+        directory('test/co_added_visibilites/no_prec/pcf.wr.1.deep')
     params:
-        yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
-        parset_name = 'cdeconvolver_{image_names}.in'
+        yanda_logfile = 'logfile_dumpgrid_deep.log',
+        parset_name = 'dumpgrid_deep.in'
     resources:
         walltime=15,
         mem_mb=4000,
@@ -187,8 +176,84 @@ rule deep_no_prec_co_added_visibility_imaging:
         ntasks=N_CHANNELS+1
     shell:
         ENV_SETUP + \
-        'cd test/co_added_visibilites/no_prec/ && mpirun -np {0:d}'.format(N_CHANNELS+1) + ' imager -c {params.parset_name} > ./{params.yanda_logfile} ' +\
-        '&& touch {wildcards.image_names}.output'
+        'cd test/co_added_visibilites/no_prec/ && mpirun -np {0:d}'.format(N_CHANNELS+1) + ' imager -c {params.parset_name} > ./{params.yanda_logfile}'
+
+rule create_cdeconvolver_co_added_visibility_parset:
+    input:
+        grid = 'test/co_added_visibilites/{weighting}_weighting/grid.wr.1.deep',
+        psfgrid = 'test/co_added_visibilites/{weighting}_weighting/psfgrid.wr.1.deep',
+        pcf = 'test/co_added_visibilites/{weighting}_weighting/pcf.wr.1.deep',
+        template_parset = 'template_parset.in'
+    output:
+        'test/co_added_visibilites/{weighting}_weighting/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
+    params:
+        image_names = '{image_names}', #If I don't want to hardcode it in case I want to scale upt to beams
+        robustness = lambda wildcards: '2.0' if '{0:s}'.format(wildcards.weighting) == 'natural' else '-2.0' if '{0:s}'.format(wildcards.weighting) == 'uniform' else '2.0' #Tricky if/elif statement to get robustness
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/co_added_visibilites/no_prec ' +\
+        '-pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.sim_PC -a ' + \
+        'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
+        'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
+        'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} ' +\
+        'INnchan={0:d} '.format(N_CHANNELS) +\
+        'PWrobustness={params.robustness} -p Wiener '
+
+rule create_cdeconvolver_no_prec_co_added_visibility_parset:
+    input:
+        grid = 'test/co_added_visibilites/no_prec/grid.wr.1.deep',
+        psfgrid = 'test/co_added_visibilites/no_prec/psfgrid.wr.1.deep',
+        pcf = 'test/co_added_visibilites/no_prec/pcf.wr.1.deep',
+        template_parset = 'template_parset.in'
+    output:
+        'test/co_added_visibilites/no_prec/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
+    params:
+        image_names = '{image_names}', #If I don't want to hardcode it in case I want to scale upt to beams
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/co_added_visibilites/no_prec ' +\
+        '-pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.sim_PC -a ' + \
+        'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
+        'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
+        'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} ' +\
+        'INnchan={0:d} '.format(N_CHANNELS) +\
+        'PWrobustness=2.0 -p '
+
+rule cdeconvolver_co_added_visibility_imaging:
+    input:
+        grid = 'test/co_added_visibilites/{weighting}_weighting/grid.wr.1.deep',
+        parset = 'test/co_added_visibilites/{weighting}_weighting/cdeconvolver_{image_names}.in'
+    output:
+        directory('test/co_added_visibilites/{weighting}_weighting/{image_names}.restored')
+    params:
+        yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
+        parset_name = 'cdeconvolver_{image_names}.in'
+    resources:
+        walltime=15,
+        mem_mb=4000,
+        cpus_per_task=1,
+        ntasks=N_CHANNELS
+    shell:
+        ENV_SETUP + \
+        'cd test/co_added_visibilites/{weighting}_weighting/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
+
+rule no_prec_cdeconvolver_co_added_visibility_imaging:
+    input:
+        grid = 'test/co_added_visibilites/no_prec/grid.wr.1.deep',
+        parset = 'test/co_added_visibilites/no_prec/cdeconvolver_{image_names}.in'
+    output:
+        directory('test/co_added_visibilites/no_prec/{image_names}.restored')
+    params:
+        yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
+        parset_name = 'cdeconvolver_{image_names}.in'
+    resources:
+        walltime=15,
+        mem_mb=4000,
+        cpus_per_task=1,
+        ntasks=N_CHANNELS
+    shell:
+        ENV_SETUP + \
+        'cd test/co_added_visibilites/no_prec/ && mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
 
 rule create_daily_parset:
     input:
@@ -225,15 +290,10 @@ rule first_pass_imaging:
     input:
        'test/night_{night_index}/{weighting}_weighting/dumpgrid_parset.in'
     output:
-        #directory('test/night_{night_index}/night_{night_index}.grid')
         directory('test/night_{night_index}/{weighting}_weighting/grid.wr.1.dumpgrid'),
         directory('test/night_{night_index}/{weighting}_weighting/psfgrid.wr.1.dumpgrid'),
         directory('test/night_{night_index}/{weighting}_weighting/pcf.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/{weighting}_weighting/image.restored.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/{weighting}_weighting/psf.image.wr.1.dumpgrid'),
         directory('test/night_{night_index}/{weighting}_weighting/psf.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/{weighting}_weighting/residual.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/{weighting}_weighting/weights.wr.1.dumpgrid')
     params:
         yanda_logfile = 'logfile_dumpgrid_night_{night_index}.log',
         night_subdir = 'test/night_{night_index}/{weighting}_weighting/' #Need to run imaging inside the directory
@@ -250,15 +310,10 @@ rule no_prec_first_pass_imaging:
     input:
        'test/night_{night_index}/no_prec/dumpgrid_parset.in'
     output:
-        #directory('test/night_{night_index}/night_{night_index}.grid')
         directory('test/night_{night_index}/no_prec/grid.wr.1.dumpgrid'),
         directory('test/night_{night_index}/no_prec/psfgrid.wr.1.dumpgrid'),
         directory('test/night_{night_index}/no_prec/pcf.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/no_prec/image.restored.wr.1.dumpgrid'),
-        #directory('test/night_{night_index}/no_prec/psf.image.wr.1.dumpgrid'),#This image is not created in no_prec setup
         directory('test/night_{night_index}/no_prec/psf.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/no_prec/residual.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/no_prec/weights.wr.1.dumpgrid')
     params:
         yanda_logfile = 'logfile_dumpgrid_night_{night_index}.log',
         night_subdir = 'test/night_{night_index}/no_prec/' #Need to run imaging inside the directory
@@ -270,6 +325,97 @@ rule no_prec_first_pass_imaging:
     shell:
         ENV_SETUP + \
         'cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(N_CHANNELS+1) + ' imager -c dumpgrid_parset.in > ./{params.yanda_logfile}'#This is how to mix wildcards and variables in the shell execution string
+
+rule create_daily_cdeconvolver_parset:
+    input:
+        grid = 'test/night_{night_index}/{weighting}_weighting/grid.wr.1.dumpgrid',
+        psfgrid = 'test/night_{night_index}/{weighting}_weighting/psfgrid.wr.1.dumpgrid',
+        pcf = 'test/night_{night_index}/{weighting}_weighting/pcf.wr.1.dumpgrid',
+        template_parset = 'template_parset.in'
+    output:
+        'test/night_{night_index}/{weighting}_weighting/cdeconvolver_daily_parset.in'
+    params:
+        image_names = 'daily', #Bacause how the output will look like
+        op = 'test/night_{night_index}/{weighting}_weighting/', #Setup a variable using a wildcard
+        robustness = lambda wildcards: '2.0' if '{0:s}'.format(wildcards.weighting) == 'natural' else '-2.0' if '{0:s}'.format(wildcards.weighting) == 'uniform' else '2.0' #Tricky if/elif statement to get robustness
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cdeconvolver -n image.{params.image_names} -g WProject -op {params.op} ' +\
+        '-pn cdeconvolver_daily_parset.in -t {input.template_parset} -tn image.sim_PC -a ' + \
+        'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
+        'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
+        'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} ' +\
+        'INnchan={0:d} '.format(N_CHANNELS) +\
+        'PWrobustness={params.robustness} -p Wiener'
+
+rule create_no_prec_daily_cdeconvolver_parset:
+    input:
+        grid = 'test/night_{night_index}/no_prec/grid.wr.1.dumpgrid',
+        psfgrid = 'test/night_{night_index}/no_prec/psfgrid.wr.1.dumpgrid',
+        pcf = 'test/night_{night_index}/no_prec/pcf.wr.1.dumpgrid',
+        template_parset = 'template_parset.in'
+    output:
+        'test/night_{night_index}/no_prec/cdeconvolver_daily_parset.in'
+    params:
+        image_names = 'daily', #Bacause how the output will look like
+        op = 'test/night_{night_index}/no_prec/'
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cdeconvolver -n image.{params.image_names} -g WProject -op {params.op} ' +\
+        '-pn cdeconvolver_daily_parset.in -t {input.template_parset} -tn image.sim_PC -a ' + \
+        'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
+        'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
+        'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} ' +\
+        'INnchan={0:d} '.format(N_CHANNELS) +\
+        'PWrobustness=2.0-p '#No preconditioning
+
+rule cdeconvolver_first_pass_imaging:
+    input:
+        grid = 'test/night_{night_index}/{weighting}_weighting/grid.wr.1.dumpgrid',
+        psfgrid = 'test/night_{night_index}/{weighting}_weighting/psfgrid.wr.1.dumpgrid',
+        pcf = 'test/night_{night_index}/{weighting}_weighting/pcf.wr.1.dumpgrid',
+        psf = 'test/night_{night_index}/{weighting}_weighting/psf.wr.1.dumpgrid',
+        parset = 'test/night_{night_index}/{weighting}_weighting/cdeconvolver_daily_parset.in'
+    output:
+        directory('test/night_{night_index}/{weighting}_weighting/image.{image_names}.restored'),
+        directory('test/night_{night_index}/{weighting}_weighting/model.{image_names}'),
+        directory('test/night_{night_index}/{weighting}_weighting/psf.{image_names}'),
+        directory('test/night_{night_index}/{weighting}_weighting/residual.{image_names}')
+    params:
+        yanda_logfile = 'logfile_cdeconvolver_daily.log',
+        parset_name = 'test/night_{night_index}/{weighting}_weighting/cdeconvolver_daily_parset.in'
+    resources:
+        walltime=15,
+        mem_mb=4000,
+        cpus_per_task=1,
+        ntasks=N_CHANNELS
+    shell:
+        ENV_SETUP + \
+        'cd test/night_{night_index}/{wildcards.weighting}_weighting/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
+
+rule cdeconvolver_no_prec_first_pass_imaging:
+    input:
+        grid = 'test/night_{night_index}/no_prec/grid.wr.1.dumpgrid',
+        psfgrid = 'test/night_{night_index}/no_prec/psfgrid.wr.1.dumpgrid',
+        pcf = 'test/night_{night_index}/no_prec/pcf.wr.1.dumpgrid',
+        psf = 'test/night_{night_index}/no_prec/psf.wr.1.dumpgrid',
+        parset = 'test/night_{night_index}/no_prec/cdeconvolver_daily_parset.in'
+    output:
+        directory('test/night_{night_index}/no_prec/image.{image_names}.restored'),
+        directory('test/night_{night_index}/no_prec/model.{image_names}'),
+        directory('test/night_{night_index}/no_prec/psf.{image_names}'),
+        directory('test/night_{night_index}/no_prec/residual.{image_names}')
+    params:
+        yanda_logfile = 'logfile_cdeconvolver_daily.log',
+        parset_name = 'test/night_{night_index}/no_prec/cdeconvolver_daily_parset.in'
+    resources:
+        walltime=15,
+        mem_mb=4000,
+        cpus_per_task=1,
+        ntasks=N_CHANNELS
+    shell:
+        ENV_SETUP + \
+        'cd test/night_{night_index}/no_prec/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
 
 rule grid_stacking:
     #This rulke unfortunately can not include the non_preconditioning case, due how wildcards work...
@@ -324,25 +470,25 @@ rule no_prec_grid_stacking:
 rule image_stacking:
     #For similar reasons the no_prec case is not included
     input:
-        restored_image = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/image.restored.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()],
-        psf_image = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/psf.image.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()],
-        psf = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/psf.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()],
-        residual = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/residual.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()],
-        weights = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/weights.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()]
+        restored_image = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/image.daily.restored' for night_index in ORIGINAL_MS_MAPPING.keys()],
+        psf_for_weighting = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/psf.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()], #For weighting
+        psf = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/psf.daily' for night_index in ORIGINAL_MS_MAPPING.keys()],
+        residual = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/residual.daily' for night_index in ORIGINAL_MS_MAPPING.keys()],
+        model = ['test/night_{0:s}'.format(night_index) + '/{weighting}_weighting/model.daily' for night_index in ORIGINAL_MS_MAPPING.keys()]
     output:
         directory('test/stacked_images/{weighting}_weighting/image.restored.deep'),
         directory('test/stacked_images/{weighting}_weighting/psf.image.deep'),
         directory('test/stacked_images/{weighting}_weighting/psf.deep'),
         directory('test/stacked_images/{weighting}_weighting/residual.deep'),
-        directory('test/stacked_images/{weighting}_weighting/weights.deep'),
+        directory('test/stacked_images/{weighting}_weighting/model.deep'),
     params:
         #Need to use abspath here I think
         cp = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/{weighting}_weighting/',
         cn_restored_image = 'image.restored.deep',
-        cn_psf_image = 'psf.image.deep',
-        cn_psf = 'psf.deep',
+        cn_psf = 'psf.image.deep',
+        cn_psf_for_weighting = 'psf.deep',
         cn_residual = 'residual.deep',
-        cn_weights = 'weights.deep',
+        cn_model = 'model.deep',
         stack_indices_logfile_restored = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/{weighting}_weighting/psf_weighting_restored.log',
         stack_indices_logfile_residual = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/{weighting}_weighting/psf_weighting_residual.log'
     resources:
@@ -353,46 +499,49 @@ rule image_stacking:
         #The normalised psf needs to be averaged as well as the weights
         #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
         ENV_SETUP + \
-        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.psf} -l {params.stack_indices_logfile_restored} -o -c ; ' + \
-        'dstacking -cl {input.psf_image} -cp {params.cp} -cn {params.cn_psf_image} -o -n -c ; ' + \
+        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.psf_for_weighting} -l {params.stack_indices_logfile_restored} -o -c ; ' + \
         'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -o -c ; ' + \
-        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.psf} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
-        'dstacking -cl {input.weights} -cp {params.cp} -cn {params.cn_weights} -o -n -c ; '
+        'dstacking -cl {input.psf_for_weighting} -cp {params.cp} -cn {params.cn_psf_for_weighting} -o -c ; ' + \
+        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.psf_for_weighting} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
+        'dstacking -cl {input.model} -cp {params.cp} -cn {params.cn_model} -o -n -c ; '
 
 rule no_prec_image_stacking:
+    #For similar reasons the no_prec case is not included
     input:
-        restored_image = ['test/night_{0:s}'.format(night_index) + '/no_prec/image.restored.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()],
-        #psf_image = ['test/night_{0:s}'.format(night_index) + '/no_prec/psf.image.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()], #Not created in no_prec
-        psf = ['test/night_{0:s}'.format(night_index) + '/no_prec/psf.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()],
-        residual = ['test/night_{0:s}'.format(night_index) + '/no_prec/residual.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()],
-        weights = ['test/night_{0:s}'.format(night_index) + '/no_prec/weights.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()]
+        restored_image = ['test/night_{0:s}'.format(night_index) + '/no_prec/image.daily.restored' for night_index in ORIGINAL_MS_MAPPING.keys()],
+        psf_for_weighting = ['test/night_{0:s}'.format(night_index) + '/no_prec/psf.wr.1.dumpgrid' for night_index in ORIGINAL_MS_MAPPING.keys()], #For weighting
+        psf = ['test/night_{0:s}'.format(night_index) + '/no_prec/psf.daily' for night_index in ORIGINAL_MS_MAPPING.keys()],
+        residual = ['test/night_{0:s}'.format(night_index) + '/no_prec/residual.daily' for night_index in ORIGINAL_MS_MAPPING.keys()],
+        model = ['test/night_{0:s}'.format(night_index) + '/no_prec/model.daily' for night_index in ORIGINAL_MS_MAPPING.keys()]
     output:
-        #See the image stacking rule
         directory('test/stacked_images/no_prec/image.restored.deep'),
-        #directory('test/stacked_images/no_prec/psf.image.deep'),
+        directory('test/stacked_images/no_prec/psf.image.deep'),
         directory('test/stacked_images/no_prec/psf.deep'),
         directory('test/stacked_images/no_prec/residual.deep'),
-        directory('test/stacked_images/no_prec/weights.deep'),
+        directory('test/stacked_images/no_prec/model.deep'),
     params:
         #Need to use abspath here I think
         cp = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/no_prec/',
         cn_restored_image = 'image.restored.deep',
-        cn_psf_image = 'psf.image.deep',
-        cn_psf = 'psf.deep',
+        cn_psf = 'psf.image.deep',
+        cn_psf_for_weighting = 'psf.deep',
         cn_residual = 'residual.deep',
-        cn_weights = 'weights.deep',
+        cn_model = 'model.deep',
         stack_indices_logfile_restored = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/no_prec/psf_weighting_restored.log',
         stack_indices_logfile_residual = '{0:s}'.format(WORKING_DIR) + '/test/stacked_images/no_prec/psf_weighting_residual.log'
     resources:
         walltime=15,
         mem_mb=4000,
     shell:
+        #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
+        #The normalised psf needs to be averaged as well as the weights
+        #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
         ENV_SETUP + \
-        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.psf} -l {params.stack_indices_logfile_restored} -o -c ; ' + \
-        #'dstacking -cl {input.psf_image} -cp {params.cp} -cn {params.cn_psf_image} -n -c ; ' + \
+        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.psf_for_weighting} -l {params.stack_indices_logfile_restored} -o -c ; ' + \
         'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -o -c ; ' + \
-        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.psf} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
-        'dstacking -cl {input.weights} -cp {params.cp} -cn {params.cn_weights} -o -n -c ; '#I use the -n option to normalise!
+        'dstacking -cl {input.psf_for_weighting} -cp {params.cp} -cn {params.cn_psf_for_weighting} -o -c ; ' + \
+        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.psf_for_weighting} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
+        'dstacking -cl {input.model} -cp {params.cp} -cn {params.cn_model} -o -n -c ; '
 
 rule create_deep_parset:
     input:
@@ -412,6 +561,7 @@ rule create_deep_parset:
         'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
         'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
         'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} ' +\
+        'INnchan={0:d} '.format(N_CHANNELS) +\
         'PWrobustness={params.robustness} -p Wiener'
 
 rule create_no_prec_deep_parset:
@@ -431,6 +581,7 @@ rule create_no_prec_deep_parset:
         'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
         'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
         'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} ' +\
+        'INnchan={0:d} '.format(N_CHANNELS) +\
         'PWrobustness=2.0 -p '
 
 rule deep_grid_stack_imaging:

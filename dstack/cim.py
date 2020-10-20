@@ -421,6 +421,58 @@ def set_CIM_unit(cimpath, unit, overwrite=False):
     log.debug('Close CASATable image: {0:s}'.format(CIMTable.name()))
     CIMTable.close()
 
+def normalise_CIM(cimpath, output_name=None ,all_dim=True, chan=0, pol=0, overwrite=False):
+    """
+
+    All dim is set to true!
+
+    add it to __all__
+    
+    """
+    cim = ds.cim.create_CIM_object(cimpath)
+
+    #Get the peak
+    cim_data_array = cim.getdata()
+
+    if all_dim == True:
+        for chan_i in range(0,np.shape(cim_data_array)[0]):
+            for pol_j in range(0,np.shape(cim_data_array)[1]):
+                peak_val = np.amax(cim_data_array[chan_i,pol_j,...])
+                if peak_val <= 0:
+                    raise ValueError('Peak value is equals or less than zero!')
+
+                else:
+                    cim_data_array[chan_i,pol_j,...] = np.divide(cim_data_array[chan_i,pol_j,...],peak_val)
+
+    else:
+        peak_val = np.amax(cim_data_array[chan,pol_j,...])
+        if peak_val <= 0:
+            raise ValueError('Peak value is equals or less than zero!')
+
+        else:
+            cim_data_array[chan_i,pol_j,...] = np.divide(cim_data_array[chan_i,pol_j,...],peak_val)
+
+    #Write back to file
+    if output_name != None:
+        if overwrite == True and os.path.isdir(output_name):
+            log.info('Delete old normalised image and create a new one at {0:s}'.format(output_name))
+            shutil.rmtree(output_name)
+        elif overwrite == False and os.path.isdir(output_name):
+            raise ValueError('Overwrite is set to false, but the outpud directory exist at {0:s}'.format(output_name))
+
+        shutil.copytree(cim.name(),output_name)
+
+        #Have to delete to close the image and hence actually write into
+        del cim
+
+        cim = ds.cim.create_CIM_object(output_name)
+
+    cim.putdata(cim_data_array)
+
+    #Have to delete to close the image and hence actually write into
+    del cim
+
+
 def create_CIM_diff_array(cimpath_a, cimpath_b, rel_diff=False, all_dim=False, chan=0, pol=0, close=False):
     """Compute the difference of two CASAImage, and return it as a numpy array.
     Either the entire difference cube, or only the difference of a selected channel 
