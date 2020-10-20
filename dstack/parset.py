@@ -38,9 +38,11 @@ _DEFAULT_GRIDDER_NAME = 'WProject'
 _DEFAULT_PRECONDITIONER = []
 
 #Globals defining the compatibility of different Preconditioners
+global _FORBIDDEN_WITH_NO_PRECONDITIONING
 global _WIENER_FORBIDDEN_PARAMS
 global _GAUSSIANTAPER_FORBIDDEN_PARAMS
 
+_FORBIDDEN_WITH_NO_PRECONDITIONING = ['Preservecf', 'PGaussianTaper']
 _WIENER_FORBIDDEN_PARAMS = ['PWnoisepower', 'PWnormalise', 'PWrobustness', 'PWtaper']
 _GAUSSIANTAPER_FORBIDDEN_PARAMS = ['PGTisPsfSize', 'PGTtolerance']
 
@@ -356,7 +358,10 @@ def check_parameter_and_Preconditioner_compatibility(parset_param, preconditione
     """
     if preconditioners == []:
         #The Ppreservecf parameter is allowed due to the misterious ways YandaSoft works...
-        if parset_param in _WIENER_FORBIDDEN_PARAMS + _GAUSSIANTAPER_FORBIDDEN_PARAMS:
+        #However, I decided not to allow any preconditioning-related parameters in this case,
+        #as this solution allows to make Cdeconvolver running with no-preconditioning option by default
+        #if the preconditioner is set to []
+        if parset_param in _FORBIDDEN_WITH_NO_PRECONDITIONING + _WIENER_FORBIDDEN_PARAMS + _GAUSSIANTAPER_FORBIDDEN_PARAMS:
             return False
         else:
             return True
@@ -957,14 +962,12 @@ class Parset(object):
         log.info('Update preconditioner to: {0:s}'.format(str(preconditioners)))
         self._preconditioner = preconditioners
 
-    def special_setup_for_saving_parsets(self,parset_path):
+    def special_setup_for_saving_parsets(self):
         """There are some caveats  when using the ``Preconditioner`` class as it is so versatile.
         ``YandaSoft`` on the other hand have some tricky restrictions. To accommodate special cases, this
         function is used as the last step when a parset is saved to a file.
 
-        Currently there are two special cases:
-            - When no preconditioner used jointly with Cdeconvolver, he Robustness parameter has to be set so ``YandaSoft`` \
-            can create a Wiener-filter, which it will not apply as the filtering is set to none.
+        Currently there are one special cases:
             - When WProject gridder used jointly with Wiener filtering the parameter Preservecf has to be set to \
             True, in order to compute the PCF. This is extremely important when the dumpgrid parameter is set to true, \
             as only in this case the correct PCF is dumped.
@@ -973,27 +976,15 @@ class Parset(object):
 
         Parameters
         ==========
-        parset_path: str
-            Absolute path to the parset written. I.e. `parset_path = os.path.join(output_path, parset_name)`
-
+ 
         Returns
         =======
-        Parset file: Parset file readable by ``YandaSoft``
-            Append the parset file if needed to make sure that the extra constrains are met
+        :obj:`Parset`
+            With updated attributes to make sure ``YandaSoft`` returns the expected results
         """
-        if self._preconditioner == [] and self._imager == 'Cdeconvolver':
-            if 'PWrobustness' not in self._parset.keys():
-                self.add_parset_parameter('PWrobustness',2.0)
-
-            with open(parset_path, 'a') as f:
-                print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping['PWrobustness'],str(self._parset['PWrobustness'])),file=f)
-
-        elif self._gridder_name == 'WProject' and 'Wiener' in self._preconditioner:
+        if self._gridder_name == 'WProject' and 'Wiener' in self._preconditioner:
             if 'Preservecf' not in self._parset.keys() or self._parset['Preservecf'] == 'False':
                 self.add_parset_parameter('Preservecf','True')
-            
-            with open(parset_path, 'a') as f:
-                print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping['Preservecf'],str(self._parset['Preservecf'])),file=f)
 
         return True
 
@@ -1034,25 +1025,37 @@ class Parset(object):
 
         log.info('Save parset as: {0:s}'.format(parset_path))
 
+        #Check some special considerations
+        self.special_setup_for_saving_parsets()
+
         with open(parset_path, 'w') as f:
             for key in self._parset.keys():
                 if check_parameter_and_Imager_compatibility(key, imager=self._imager):
                     #Check preconditioning and use the ._preconditioner attribute instead of the ._param['PNames'] attribute!
                     if key == 'PNames':
-                        print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._preconditioner)),file=f)
+                        if self._preconditioner == []:
+                            print('#{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._preconditioner)),file=f)
+                        else:
+                            print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._preconditioner)),file=f)
+
                     elif key in list(_AMBIGOUS_IMAGING_PARAMETERS.keys()) +  list(_AMBIGOUS_IMAGING_PARAMETERS.values()):
                         print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],
                             str(self._parset[self.set_image_names_param_consistency(key,use_image_names=use_image_names)])),#Use the default imager names parameter for disambiguity
                             file=f)
+
                     elif check_parameter_and_Preconditioner_compatibility(key, preconditioners=self._preconditioner):
                         #We know that preconditioner and gridder settings are independent!
                         if check_parameter_and_Gridder_compatibility(key, gridder_name=self._gridder_name):
                             print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping[key],str(self._parset[key])),file=f)
+
                 else:
                     continue
 
-        #Check some special considerations
-        self.special_setup_for_saving_parsets(parset_path=parset_path)
+        if self._preconditioner == [] and self._imager == 'Cimager' and 'dumpgrids' in self._parset.keys():
+            with open(parset_path, 'a') as f:
+                print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping['PNames'],str(self._preconditioner)),file=f)
+                print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping['Preservecf'],'true'),file=f)
+
 
 if __name__ == "__main__":
     #import sys

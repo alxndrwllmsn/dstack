@@ -6,11 +6,11 @@ import os
 
 #=== Define variables for the pipeline ===
 #Absolute path to working directory
-MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_robustness_test_pipeline/measurement_sets'
-WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
+#MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_robustness_test_pipeline/measurement_sets'
+#WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
 
-#MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
-#WORKING_DIR = '/scratch/krozgonyi/dstack_robustness_test' #Hardcoding solves the symlink problem...
+MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
+WORKING_DIR = '/scratch/krozgonyi/dstack_robustness_test' #Hardcoding solves the symlink problem...
 
 MIN_CHANNEL = 6420
 MAX_CHANNEL = 6422
@@ -87,7 +87,7 @@ rule split_ms:
         ENV_SETUP + \
         'mssplit -c {input.mssplit_config}'
 
-#"""
+"""
 rule concentrate_ms:
     input:
         ['measurement_sets/night_{0:s}.ms'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()]
@@ -191,7 +191,7 @@ rule create_cdeconvolver_co_added_visibility_parset:
         robustness = lambda wildcards: '2.0' if '{0:s}'.format(wildcards.weighting) == 'natural' else '-2.0' if '{0:s}'.format(wildcards.weighting) == 'uniform' else '2.0' #Tricky if/elif statement to get robustness
     shell:
         ENV_SETUP + \
-        'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/co_added_visibilites/no_prec ' +\
+        'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/co_added_visibilites/{wildcards.weighting}_weighting ' +\
         '-pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.sim_PC -a ' + \
         'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
         'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
@@ -235,7 +235,7 @@ rule cdeconvolver_co_added_visibility_imaging:
         ntasks=N_CHANNELS
     shell:
         ENV_SETUP + \
-        'cd test/co_added_visibilites/{weighting}_weighting/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
+        'cd test/co_added_visibilites/{wildcards.weighting}_weighting/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
 
 rule no_prec_cdeconvolver_co_added_visibility_imaging:
     input:
@@ -366,8 +366,7 @@ rule create_no_prec_daily_cdeconvolver_parset:
         'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
         'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
         'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} ' +\
-        'INnchan={0:d} '.format(N_CHANNELS) +\
-        'PWrobustness=2.0-p '#No preconditioning
+        'INnchan={0:d} '.format(N_CHANNELS) + '-p '#No preconditioning
 
 rule cdeconvolver_first_pass_imaging:
     input:
@@ -383,7 +382,7 @@ rule cdeconvolver_first_pass_imaging:
         directory('test/night_{night_index}/{weighting}_weighting/residual.{image_names}')
     params:
         yanda_logfile = 'logfile_cdeconvolver_daily.log',
-        parset_name = 'test/night_{night_index}/{weighting}_weighting/cdeconvolver_daily_parset.in'
+        parset_name = 'cdeconvolver_daily_parset.in'
     resources:
         walltime=15,
         mem_mb=4000,
@@ -391,7 +390,7 @@ rule cdeconvolver_first_pass_imaging:
         ntasks=N_CHANNELS
     shell:
         ENV_SETUP + \
-        'cd test/night_{night_index}/{wildcards.weighting}_weighting/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
+        'cd test/night_{wildcards.night_index}/{wildcards.weighting}_weighting/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
 
 rule cdeconvolver_no_prec_first_pass_imaging:
     input:
@@ -407,7 +406,7 @@ rule cdeconvolver_no_prec_first_pass_imaging:
         directory('test/night_{night_index}/no_prec/residual.{image_names}')
     params:
         yanda_logfile = 'logfile_cdeconvolver_daily.log',
-        parset_name = 'test/night_{night_index}/no_prec/cdeconvolver_daily_parset.in'
+        parset_name = 'cdeconvolver_daily_parset.in'
     resources:
         walltime=15,
         mem_mb=4000,
@@ -415,7 +414,7 @@ rule cdeconvolver_no_prec_first_pass_imaging:
         ntasks=N_CHANNELS
     shell:
         ENV_SETUP + \
-        'cd test/night_{night_index}/no_prec/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
+        'cd test/night_{wildcards.night_index}/no_prec/ ' + '&& mpirun -np {0:d}'.format(N_CHANNELS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
 
 rule grid_stacking:
     #This rulke unfortunately can not include the non_preconditioning case, due how wildcards work...
@@ -500,7 +499,7 @@ rule image_stacking:
         #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
         ENV_SETUP + \
         'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.psf_for_weighting} -l {params.stack_indices_logfile_restored} -o -c ; ' + \
-        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -o -c ; ' + \
+        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -o -n -c ; ' + \
         'dstacking -cl {input.psf_for_weighting} -cp {params.cp} -cn {params.cn_psf_for_weighting} -o -c ; ' + \
         'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.psf_for_weighting} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
         'dstacking -cl {input.model} -cp {params.cp} -cn {params.cn_model} -o -n -c ; '
@@ -538,7 +537,7 @@ rule no_prec_image_stacking:
         #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
         ENV_SETUP + \
         'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.psf_for_weighting} -l {params.stack_indices_logfile_restored} -o -c ; ' + \
-        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -o -c ; ' + \
+        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -o -n -c ; ' + \
         'dstacking -cl {input.psf_for_weighting} -cp {params.cp} -cn {params.cn_psf_for_weighting} -o -c ; ' + \
         'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.psf_for_weighting} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
         'dstacking -cl {input.model} -cp {params.cp} -cn {params.cn_model} -o -n -c ; '
