@@ -241,24 +241,6 @@ class TestParset(unittest.TestCase):
                                         gridder_name=self.GridderName)
 
         #=== First special case ===
-        initial_parset.update_imager('Cdeconvolver')
-        initial_parset.update_preconditioner([])
-        initial_parset.remove_parset_parameter('PWrobustness')
-
-        #Save the parset
-        initial_parset.save_parset(output_path=_TEST_DIR, parset_name=output_parset_name)
-
-        saved_parset = ds.parset.Parset(template_path='{0:s}/{1:s}'.format(_TEST_DIR,output_parset_name),
-                                        imager='dstack',image_names=self.ImageNames,
-                                        gridder_name=self.GridderName)
-
-        saved_parset.update_imager('Cdeconvolver')
-
-        assert saved_parset._preconditioner == [], 'Preconditioner is not an empty list!'
-        assert saved_parset._imager == 'Cdeconvolver', 'Imager is not set to  Cdeconvolver!'
-        assert saved_parset._parset['PWrobustness'] == '2.0', 'The Robustness value is not 2.0 but set to {0:s}!'.format(saved_parset._parset['PWrobustness'])
-
-        #=== Second special case ===
         initial_parset.update_gridder('WProject')
         initial_parset.update_preconditioner(['Wiener'])
         initial_parset.add_parset_parameter('PWrobustness',2.0)
@@ -275,6 +257,22 @@ class TestParset(unittest.TestCase):
         assert saved_parset._preconditioner == ['Wiener'], 'The preconditioner used is not just Wiener but set to {}'.format(saved_parset._preconditioner)
         assert saved_parset._gridder_name == 'WProject', 'The gridder used is not Wproject but set to {0:s}'.format(save_parset._gridder_name)
         assert saved_parset._parset['Preservecf'] == 'True', 'The Preservecf parameter is not set to True!'
+
+        #=== Second special case ===
+        #This is part of the save_parset() function
+        initial_parset.update_imager('Cimager')
+        initial_parset.update_preconditioner([])
+        initial_parset.add_parset_parameter('dumpgrids','true')
+
+        #Save the parset
+        initial_parset.save_parset(output_path=_TEST_DIR, parset_name=output_parset_name)
+
+        saved_parset = ds.parset.Parset(template_path='{0:s}/{1:s}'.format(_TEST_DIR,output_parset_name),
+                                        imager='dstack',image_names=self.ImageNames,
+                                        gridder_name=self.GridderName)
+
+        assert saved_parset._preconditioner == [], 'Preconditioner is not an empty list!'
+        assert saved_parset._parset['Preservecf'] == 'true', 'The Preservecf is not set to true, which results in not creating the pcf!'
 
 if __name__ == "__main__":
     unittest.main()

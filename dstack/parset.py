@@ -988,7 +988,6 @@ class Parset(object):
 
         return True
 
-
     def save_parset(self, output_path, parset_name, overwrite=True, use_image_names=False):
         """Save the in-memory ``Parset`` to ``output_path/parset_name``.
         The saved parset can be fed into ``YandaSoft``
@@ -1051,15 +1050,15 @@ class Parset(object):
                 else:
                     continue
 
+        #A special case, I added in order to secure the pcf output if the dumpgrid option is used
+        #This is tested in the testing module!
         if self._preconditioner == [] and self._imager == 'Cimager' and 'dumpgrids' in self._parset.keys():
+            log.info('The dumpgrids option is set to {0:s}, but no preconditioning is selected!'.format(str(self._parset['dumpgrids'])))
+            log.info('This special case is handeled by adding preconditioner=[] and preservecf=True, which results in a pcf output!')
             with open(parset_path, 'a') as f:
                 print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping['PNames'],str(self._preconditioner)),file=f)
                 print('{0:s}.{1:s} = {2:s}'.format(self._imager,self._mapping['Preservecf'],'true'),file=f)
 
-
 if __name__ == "__main__":
-    #import sys
-    #logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-    #list_supported_parset_settings()
     pass
 

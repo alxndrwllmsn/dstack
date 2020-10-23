@@ -7,7 +7,7 @@ The image I/O management is kinda manually at this point, but hopefully will be 
 
 __all__ = ['create_CIM_object', 'check_CIM_axes', 'CIM_dim_equity_check', 'CIM_unit_equity_check',
             'get_N_chan_from_CIM', 'get_N_pol_from_CIM', 'check_CIM_coordinate_equity', 'check_CIM_equity',
-            'measure_CIM_RMS', 'create_CIM_diff_array','measure_CIM_max' ,'CIM_stacking_base']
+            'normalise_CIM', 'measure_CIM_RMS', 'create_CIM_diff_array','measure_CIM_max' ,'CIM_stacking_base']
 
 import os
 import shutil
@@ -422,12 +422,35 @@ def set_CIM_unit(cimpath, unit, overwrite=False):
     CIMTable.close()
 
 def normalise_CIM(cimpath, output_name=None ,all_dim=True, chan=0, pol=0, overwrite=False):
-    """
+    """This code can be used to normalize stacked non-normalized PSF CASAImages.
 
-    All dim is set to true!
+    Parameters
+    ==========
+    cimpath_a: str
+        The input CASAImage path
 
-    add it to __all__
-    
+    output_name: str, optional
+        The full path and name of the output CASAImage created. If not given, the input image
+        is being overwritten!
+
+    all_dim: bool, optional
+        If True, all channels and polarizations will be normalized. It is True by default!
+
+    chan: int, optional
+        Index of the channel in the image cube
+
+    pol: int, optional
+        Index of the polarization in the image cube
+
+    overwrite: bool, optional
+        If True, the normalized image will be created regardless if another image exist
+        in the same name. Note, that in this case the existing image will be deleted!
+
+
+    Returns
+    ========
+    Normalized image: CASAImage
+        Create the stacked image at ``output_name``
     """
     cim = ds.cim.create_CIM_object(cimpath)
 
@@ -471,6 +494,9 @@ def normalise_CIM(cimpath, output_name=None ,all_dim=True, chan=0, pol=0, overwr
 
     #Have to delete to close the image and hence actually write into
     del cim
+    del cim_data_array
+
+    return True
 
 
 def create_CIM_diff_array(cimpath_a, cimpath_b, rel_diff=False, all_dim=False, chan=0, pol=0, close=False):
@@ -750,25 +776,25 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
         a corresponding PSF.
 
     psf_peaks_log_path: str, optional
-        Full path (ncluding filename), of a potential logfile. If given, two logfile is created whan weighting the stacked
+        Full path (including filename), of a potential logfile. If given, two logfile is created when weighting the stacked
         images by the corresponding PSF. The logfile at ``psf_peaks_log_path`` contains an ID and the PSF peaks for each channel
         that are used for weighting. The ``psf_peaks_log_path.indices`` is the second file created, and it
         contains an ID and the full path of the image and psf used in conjunction during weighted stacking.
 
     overwrite: bool, optional
         If True, the stacked image will be created regardless if another image exist
-        in the same name. Note, that in this case the existing grid will be deleted!
+        in the same name. Note, that in this case the existing image will be deleted!
     
     close: bool, optional
         If True the in-memory CASAIMages given by ``cimpath_list`` are deleted,
         and the optional write-lock releases.
         Set to true if this is the last operation on the images, but False if other functions
         called that operation on the same images. This avoids multiple read-in of the image.
+    
     Returns
     ========
     Stacked image: CASAImage
         Create the stacked image at ``cim_output_path/cim_outputh_name``
-
     """
     if len(cimpath_list) < 2:
         raise ValueError('Less than two image given for stacking!')
@@ -953,9 +979,4 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
         del base_cim
 
 if __name__ == "__main__":
-    CIM_stacking_base(['/home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC','/home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC'],
-                        cim_output_path='/home/krozgonyi/Desktop', cim_outputh_name='test.deep', overwrite=True,
-                        weight_with_psf=True, psf_peaks_log_path='/home/krozgonyi/Desktop/peaks.test', close =True,
-                        psfpath_list=['/home/krozgonyi/Desktop/first_pass/psf.wr.1.sim_PC', '/home/krozgonyi/Desktop/first_pass/psf.wr.1.sim_PC'])
-
     pass

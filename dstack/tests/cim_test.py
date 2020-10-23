@@ -136,6 +136,16 @@ class TestCIM(unittest.TestCase):
         assert ds.cim.check_CIM_equity(self.CIMPathA, casaimage.image('{0:s}/test_CIM_stacking_psf_weighted'.format(_TEST_DIR)), numprec=self.NumPrec) == True, \
         'Image stacking normalised with the PSF does not yield the expected result!'
 
+    def test_normalise_CIM(self):
+        test_cim_name = '{0:s}/test_normalise_CIM'.format(_TEST_DIR)
+
+        #Use both the psf
+        ds.cim.normalise_CIM(self.PSFPathA, output_name=test_cim_name, all_dim=True, overwrite=True)
+
+        normalised_peaks = np.array(ds.cim.measure_CIM_max(test_cim_name, all_dim=True, close=True))
+
+        assert np.all(normalised_peaks) == 1., 'The input CIM is not normalised properly in all dimensions!'
+
     def test_set_CIM_unit(self):
         test_cim_name = '{0:s}/test_set_CIM_unit'.format(_TEST_DIR)
         template_cim = ds.cim.create_CIM_object(self.CIMPathA)
