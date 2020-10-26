@@ -1,13 +1,13 @@
 [CGrid]
 
-GridPath = /home/krozgonyi/Desktop/ASKAP_high_res_grid_example/grid.wr.1.sim_PC
-Sparseness = 0.943396125
+GridPath = /home/krozgonyi/Desktop/dstack_test_files/grid.wr.1.sim_PC
+Sparseness = 0.1616363525390625
 
 [CImage]
 
-CIMPath_A = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
-CIMPath_B = /home/krozgonyi/Desktop/first_pass/image.restored.wr.1.sim_PC
-PSFPath_A = /home/krozgonyi/Desktop/first_pass/psf.wr.1.sim_PC
+CIMPath_A = /home/krozgonyi/Desktop/dstack_test_files/image.restored.wr.1.sim_PC
+CIMPath_B = /home/krozgonyi/Desktop/dstack_test_files/image.restored.wr.1.sim_PC
+PSFPath_A = /home/krozgonyi/Desktop/dstack_test_files/psf.wr.1.sim_PC
 PSF_peak_value = 143373.953125
 NumericalPrecision = 1e-7
 NChannels = 11
@@ -16,7 +16,7 @@ RMS = 0.04308076
 
 [MSUtil]
 
-MSpath = /home/krozgonyi/Desktop/sandbox/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms
+MSpath = /home/krozgonyi/Desktop/dstack_test_files/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms
 PhaseCentre = [5.961288415470099,-0.5630396775534987]
 IDs = [0,0]
 NChannels = 11

@@ -1,0 +1,22 @@
+taskname           = "cvel"
+vis                =  "/home/krozgonyi/Desktop/dstack_test_files/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms"
+outputvis          =  "./test_foledr/b.ms"
+passall            =  False
+field              =  ""
+spw                =  ""
+selectdata         =  True
+antenna            =  ""
+timerange          =  ""
+scan               =  ""
+array              =  ""
+mode               =  "channel"
+nchan              =  -1
+start              =  0
+width              =  1
+interpolation      =  "linear"
+phasecenter        =  ""
+restfreq           =  "1420405751.786Hz"
+outframe           =  "BARY"
+veltype            =  "radio"
+hanning            =  False
+#cvel(vis="/home/krozgonyi/Desktop/dstack_test_files/scienceData_SB10991_G23_T0_B_06.beam17_SL_C_100_110.ms",outputvis="./test_foledr/b.ms",passall=False,field="",spw="",selectdata=True,antenna="",timerange="",scan="",array="",mode="channel",nchan=-1,start=0,width=1,interpolation="linear",phasecenter="",restfreq="1420405751.786Hz",outframe="BARY",veltype="radio",hanning=False)

@@ -1,3 +1,4 @@
-jobs: 10
-cluster: "sbatch -t {resources.time_min} --mem={resources.mem_mb} --cpus-per-task {resources.cpus_per_task} --ntasks {resources.ntasks} --output=rule_logs/{rule}_{wildcards}_slurm.out"
-default-resources: [time_min=300, mem_mb=1000, cpus_per_task=1, ntasks=1]
+jobs: 100
+cluster: "sbatch --time={resources.walltime} --mem={resources.mem_mb} --cpus-per-task={resources.cpus_per_task} --ntasks={resources.ntasks} --output=rule_logs/{rule}_{wildcards}_slurm.out --job-name={rule}_{wildcards}"
+default-resources: [walltime=5, mem_mb=1000, cpus_per_task=1, ntasks=1]
+#Walltime is given in minutes!
