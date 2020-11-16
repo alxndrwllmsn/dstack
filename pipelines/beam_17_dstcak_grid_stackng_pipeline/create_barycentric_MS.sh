@@ -32,4 +32,4 @@ done
 set -- "${EXTRA_ARGS[@]}" # restore extra positional parameters
 
 # run CASA crvel() task
-source /home/krozgonyi/.bashrc dstack_env_setup ; echo "cvel(vis='${INPUT_MS}', outputvis='${OUTPUT_MS}', passall=False, mode='channel', nchan=-1, start=0, width=1, interpolation='linear', phasecenter='', spw='', restfreq='1420405751.786Hz', outframe='BARY')" | casa --nologger > ${LOGFILE}
+echo "cvel(vis='${INPUT_MS}', outputvis='${OUTPUT_MS}', passall=False, mode='channel', nchan=-1, start=0, width=1, interpolation='linear', phasecenter='', spw='', restfreq='1420405751.786Hz', outframe='BARY')" | casa > ${LOGFILE}

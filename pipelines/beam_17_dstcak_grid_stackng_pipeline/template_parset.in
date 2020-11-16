@@ -1,65 +1,35 @@
-#Basic settings
+Cimager.dataset = /scratch/krozgonyi/beam17/measurement_sets/night_1.ms
 Cimager.imagetype = casa
-Cimager.nchanpercore = 1
-Cimager.nwriters = 1
 Cimager.singleoutputfile = true
+Cimager.nchanpercore = 5
 Cimager.solverpercore = true
-Cimager.MaxUV = 2000
-Cimager.MinUV = 12
-#Cimager.freqframe = bary
-Cimager.usetmpfs = false
-Cimager.tmpfs = /dev/shm
+Cimager.restore = true
+Cimager.nUVWMachines = 1
+Cimager.uvwMachineDirTolerance = 0.2arcsec
 Cimager.ncycles = 1
 Cimager.dumpgrids = true
-Cimager.restore = true
-
-#Images settings
-Cimager.Images.shape = [1024, 1024]
-Cimager.Images.direction = [22h42m21.852, -30.24.58.46, J2000]
+Cimager.memorybuffers = true
+Cimager.Images.shape = [1024,1024]
+Cimager.Images.direction = [22h46m13.6, -32.25979722deg, J2000]
 Cimager.Images.cellsize = [6arcsec, 6arcsec]
 Cimager.Images.writeAtMajorCycle = false
-Cimager.Images.Names = ['image.sim_PC']
-Cimager.Images.image.sim_PC.polarisation = ["I"]
-Cimager.Images.restFrequency = HI
-
-#Gridding settings
-Cimager.gridder.snapshotimaging = false
-Cimager.gridder = 'WProject'
+Cimager.Images.Names = ['image.template']
+Cimager.Images.image.template.nchan = 10
+Cimager.Images.image.template.direction = [22h46m13.6, -32.25979722deg, J2000]
+Cimager.Images.image.template.polarisation = ["I"]
+Cimager.gridder = WProject
 Cimager.gridder.WProject.wmax = 35000
 Cimager.gridder.WProject.nwplanes = 1
 Cimager.gridder.WProject.oversample = 4
-Cimager.gridder.WProject.maxsupport = 1024
+Cimager.gridder.WProject.maxsupport = 256
 Cimager.gridder.WProject.variablesupport = true
 Cimager.gridder.WProject.offsetsupport = true
-Cimager.gridder.WProject.sharecf = true
-
-#Cleaning settings
 Cimager.solver = Clean
-Cimager.solver.Clean.verbose = False
-
-Cimager.solver.Clean.algorithm = BasisfunctionMFS
-Cimager.solver.Clean.niter = 1000
-Cimager.solver.Clean.gain = 0.2
-Cimager.solver.Clean.scales = [0,6,15]
-Cimager.solver.Clean.solutiontype = MAXBASE
-Cimager.solver.Clean.tolerance = 0.01
-Cimager.solver.Clean.weightcutoff = zero
-Cimager.solver.Clean.weightcutoff.clean = false
-Cimager.solver.Clean.psfwidth = 768
-Cimager.solver.Clean.logevery = 50
-Cimager.threshold.minorcycle = [45%,1.0mJy,0.5mJy]
-
-#Preconditioner settings
-Cimager.preconditioner.Names = [Wiener,GaussianTaper]
-Cimager.preconditioner.GaussianTaper = [30arcsec, 30arcsec, 0deg] 
-Cimager.preconditioner.GaussianTaper.isPsfSize = true
-Cimager.preconditioner.GaussianTaper.tolerance = 0.005
+Cimager.solver.Clean.algorithm = Hogbom
+Cimager.solver.Clean.niter = 1
+Cimager.solver.Clean.gain = 0.0
+Cimager.solver.Clean.beam = [3., 3., 0.]
+Cimager.preconditioner.Names = ['Wiener']
 Cimager.preconditioner.preservecf = true
 Cimager.preconditioner.Wiener.robustness = 0.5
-
-#Restore settingse
-#Cimager.restore.beam = [0.4arcmin, 0.4arcmin, 0deg]
-Cimager.restore = true
-Cimager.restore.beam = fit
-Cimager.restore.beam.cutoff = 0.5
-Cimager.restore.beamReference = mid
+Cimager.restore.beam = [3arcmin, 3arcmin, 0deg]

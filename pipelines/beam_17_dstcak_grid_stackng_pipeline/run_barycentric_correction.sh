@@ -16,15 +16,15 @@ remove_folder_if_exist(){
 #=== MAIN ===
 WORKING_DIR=$(pwd)
 INPUT_DIR='/mnt/hidata2/dingo/pilot/uvgrid'
-OUTPUT_DIR='/mnt/hidata2/dingo/pilot/uvgrid/barycentric_MS'
+OUTPUT_DIR='/scratch/krozgonyi/beam17/barycentric_MS'
 
-declare -a MS_LIST=('SB11006/scienceData_SB11006_G23_T0_B_01.beam17_SL'
-	'SB11003/scienceData_SB11003_G23_T0_B_02.beam17_SL'
-	'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL'
-	'SB11010/scienceData_SB11010_G23_T0_B_04.beam17_SL'
-	'SB10994/scienceData_SB10994_G23_T0_B_05.beam17_SL'
-	'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL'
-	'SB11026/scienceData_SB11026_G23_T0_B_07.beam17_SL')
+declare -a MS_LIST=('SB11006/scienceData_SB11006_G23_T0_B_01.beam17_SL.ms'
+	'SB11003/scienceData_SB11003_G23_T0_B_02.beam17_SL.ms'
+	'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL.ms'
+	'SB11010/scienceData_SB11010_G23_T0_B_04.beam17_SL.ms'
+	'SB10994/scienceData_SB10994_G23_T0_B_05.beam17_SL.ms'
+	'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL.ms'
+	'SB11026/scienceData_SB11026_G23_T0_B_07.beam17_SL.ms')
 
 
 remove_folder_if_exist ${OUTPUT_DIR}
@@ -37,12 +37,12 @@ for MS in "${MS_LIST[@]}"; do
 	echo "#!/bin/bash
 #SBATCH --job-name=barycentric_correction_MS_${MS_INDEX}.job
 #SBATCH --output=${WORKING_DIR}/barycentric_correction/slurm_MS_${MS_INDEX}.out
-#SBATCH --time=6-00:00
-#SBATCH --mem=24000
+#SBATCH --time=8:00:00
+#SBATCH --mem=180000
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=rstofi@gmail.com
 
-source /home/krozgonyi/.bashrc dstack_env_setup ; ${WORKING_DIR}/create_barycentric_MS.sh -i ${INPUT_DIR}/${MS} -o ${OUTPUT_DIR}/${MS} -l ${WORKING_DIR}/barycentric_correction/cvel_logfile_MS_${MS_INDEX}.log" > "${SLURM_FILE}"
+alias casa='/home/rdodson/Software/Casa/casa-pipeline-release-5.6.2-2.el7/ --log2term --nologger' && ${WORKING_DIR}/create_barycentric_MS.sh -i ${INPUT_DIR}/${MS} -o ${OUTPUT_DIR}/${MS} -l ${WORKING_DIR}/barycentric_correction/cvel_logfile_MS_${MS_INDEX}.log" > "${SLURM_FILE}"
 
 	 cd "${WORKING_DIR}/barycentric_correction" ; sbatch ${SLURM_FILE}
 
