@@ -1,11 +1,32 @@
-"""This is an example Snakemake makefile to
-run some grid stacking without slurm support so far
+"""This snakefile is the result of some careful considerations
+prioratising my PhD project over the goal of having a scalable
+one-fit-for-all type of pipeline. Therefore, this pipeline is
+only handeling a small spectral window of beam17 data without
+utilising the full potential of dstack, YandaSoft or Snaemake.
 """
-
+#=== Imports ===
 import numpy as np
 import os
 
-#=== Define variables for the pipeline ===
+#=== Define the spectral window parameters, using a pysical approach rather than working with channel indices
+# => the galaxy NGC7361 is approx 70 channel or ~1.3 MHz wide in spectral space so we need some extra channels at the edges 
+# => ~4MHz overall window
+N_CHAN = 216 #Number of channels 
+C_WIDTH = 18597 #Channel width in [Hz]
+#Approximately the central frequency [Hz] of the galaxy NGC7361 in barycentric ref. frame. is 1414518476
+C_CENTRAL_NGC7361 = 1414518476 #The centre of the cube
+C_ZERO = int(C_CENTRAL_NGC7361 - (np.ceil(N_CHAN / 2) * C_WIDTH))#Starting channels frequency [Hz]
+
+#=== Define resources
+#Resources needs to be aligned with the imaging task and unfortunatelly needs to be set manually
+#It is because YandaSoft fails if the number of channels / node is not an integer number.
+N_TASKS = 24 #Number of MPI tasks, also the number of CPUs used as currently I run every task using a simple CPU
+N_CHANNELS_PER_CPU = 9 #Number of channels processed on a single CPU also in this case MPI task
+
+#Check that everything is good before we can run the pipeline
+assert N_CHANNELS_PER_CPU * N_TASKS == N_CHAN, 'Resources and imaging tasks are defined incorrectly!'
+
+#=== Define the envinroment varables
 #Absolute path to working directory
 #MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_dstcak_grid_stackng_pipeline/measurement_sets'
 #WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
@@ -13,98 +34,53 @@ import os
 MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
 WORKING_DIR = '/scratch/krozgonyi/beam17' #Hardcoding solves the symlink problem...
 
-MIN_CHANNEL = 6420
-MAX_CHANNEL = 6423
-
-#MIN_CHANNEL = 6277
-#MAX_CHANNEL = 6576
-
-N_CHANNELS = MAX_CHANNEL - MIN_CHANNEL + 1 #Both the min and the max are included thats why we have the +1
-
-#=== Define resources
-#Resources needs to be aligned with the imaging task and unfortunatelly needs to be set manually
-N_NODES = 1 #Use only one node for now
-N_CORES = 2 #Note, that a +1 for the imaging This is the cores per node
-N_CHANNELS_PER_CPU = 2 #Number of channels processed on a single cpu
-
-#Check that everything is good before we can run the pipeline
-assert N_CHANNELS_PER_CPU * N_CORES == N_CHANNELS, 'Resources and imaging tasks are defined incorrectly!'
-
-#This maps the irregularry names input MS to a regular naming scheme
-#"""
-ORIGINAL_MS_MAPPING = {'1':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
-                        '2':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL'}
-#"""
-
-"""
-ORIGINAL_MS_MAPPING = {'1' : 'SB11006/scienceData_SB11006_G23_T0_B_01.beam17_SL',
-                        '2' : 'SB11003/scienceData_SB11003_G23_T0_B_02.beam17_SL',
-                        '3':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL',
-                        '4' : 'SB11010/scienceData_SB11010_G23_T0_B_04.beam17_SL',
-                        '5' : 'SB10994/scienceData_SB10994_G23_T0_B_05.beam17_SL',
-                        '6':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
-                        '7' : 'SB11026/scienceData_SB11026_G23_T0_B_07.beam17_SL'}
-#"""
-
 #Slurm logfiles firetory
 LOGDIR = '{0:s}/rule_logs'.format(WORKING_DIR) #Have to be the same as the output defined in the config.yaml file!!!
 
-#Envinroment setup
-ENV_SETUP = 'source /home/krozgonyi/.bashrc dstack_env_setup ; ' #Throws $PS1: unbound variable error in bash strict mode when loading my .bashrc
+#=== Envinroment setup
+#This loads in the neccessary modules and sets up the envinroment for Python, dstack, YandaSoft and MPI on Pleiades
+ENV_SETUP = 'source /home/krozgonyi/.bashrc dstack_env_setup ; ' #Load modules for each slurm task if needed
 
-#=== Define rules ===
-#ruleorder: create_log_dir > create_mssplit_configfile
+#=== Input MS mapping
+#Use python indexing
+#MS_MAPPING = {'0':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
+#            '1':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL'}
 
-#Master rule:
+MS_MAPPING = {'0' : 'SB11006/scienceData_SB11006_G23_T0_B_01.beam17_SL',
+            '1' : 'SB11003/scienceData_SB11003_G23_T0_B_02.beam17_SL',
+            '2':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL',
+            '3' : 'SB11010/scienceData_SB11010_G23_T0_B_04.beam17_SL',
+            '4' : 'SB10994/scienceData_SB10994_G23_T0_B_05.beam17_SL',
+            '5':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
+            '6' : 'SB11026/scienceData_SB11026_G23_T0_B_07.beam17_SL'}
+
+#=== RULES ===
+
 rule all:
     input:
         '{0:s}'.format(LOGDIR), #Make sure that the log dir exist before running => can not create this with a rule as snakemake wants to log the rule to the same folder through slurm!
         'test/stacked_grids/image.deep.restored'
 
-rule create_mssplit_configfile:
-    input:
-        logdir = '{0:s}'.format(LOGDIR),
-        MS =  lambda wildcards: '{0:s}/{1:s}.ms'.format(MS_DIR,ORIGINAL_MS_MAPPING[wildcards.night_index])
-    output:
-        'mssplit_config/mssplit_config_night_{night_index}.in'
-    params:
-        output_MS = 'measurement_sets/night_{night_index}.ms'
-    shell:
-        #Here I have to use absolute path for the mssplit task
-        'echo vis={input.MS} >> ' + '{output} ; ' + \
-        'echo outputvis={0:s}'.format(WORKING_DIR) + '/{params.output_MS} >> ' + '{output} ; ' + \
-        'echo channel={0:d}-{1:d} >> '.format(MIN_CHANNEL,MAX_CHANNEL) + '{output}'
-
-rule split_ms:
-    input:
-        MS =  lambda wildcards: '{0:s}/{1:s}.ms'.format(MS_DIR,ORIGINAL_MS_MAPPING[wildcards.night_index]),
-        mssplit_config = 'mssplit_config/mssplit_config_night_{night_index}.in'
-    output:
-        directory('measurement_sets/night_{night_index}.ms')
-    resources:
-        walltime=900,
-        mem_mb=48000,
-        cpus_per_task=1,
-    shell:
-        #Also have to use absolute paths
-        ENV_SETUP + \
-        'mssplit -c {input.mssplit_config}'
-
 rule create_parset:
     input:
-        MS = 'measurement_sets/night_{night_index}.ms',
-        template_parset = 'template_parset.in'
+        MS = lambda wildcards: '{0:s}/{1:s}.ms'.format(MS_DIR,MS_MAPPING[wildcards.night_index]),
+        template_parset = 'first_pas_template_parset.in'
     output:
         'test/night_{night_index}/dumpgrid_parset.in'
     params:
         op = 'test/night_{night_index}', #Setup a variable using a wildcard
-        nwriters=str(1),
-        nchannelpercore=str(N_CHANNELS_PER_CPU), #need to set to one 
+        nchan = str(N_CHAN),
+        chan0 = str(C_ZERO),
+        chanwidth = str(C_WIDTH),
+        nwriters = str(1),
+        nchannelpercore = str(N_CHANNELS_PER_CPU), #need to set to one 
     shell:
         ENV_SETUP + \
         'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
--pn dumpgrid_parset.in -t {input.template_parset} -tn image.template -a dataset=' + '{0:s}/'.format(WORKING_DIR) + '{input.MS} \
-Cniter=1 Cgain=0.0 nchanpercore={params.nchannelpercore} nwriters={params.nwriters}' #Set the gain to zero ant the minor cycle iteration to 1
+-pn dumpgrid_parset.in -t {input.template_parset} -tn image.template -a dataset={input.MS} \
+Cniter=1 Cgain=0.0 freqframe=bary Frequencies=[{params.nchan},{params.chan0},{params.chanwidth}] \
+IrestFrequency=HI nchanpercore={params.nchannelpercore} nwriters={params.nwriters}'
+#Set the gain to zero ant the minor cycle iteration to 1, also set the freqframe to barycentric + define the spectral window
 
 rule first_pass_imaging:
     input:
@@ -117,19 +93,18 @@ rule first_pass_imaging:
         yanda_logfile = 'logfile_dumpgrid_night_{night_index}.log',
         night_subdir = 'test/night_{night_index}/' #Need to run imaging inside the directory
     resources:
-        walltime=9000,
+        walltime=900,
         mem_mb=32000,
-        cpus_per_task=N_NODES,
-        ntasks=N_CORES+1
+        ntasks=N_TASKS+1
     shell:
         ENV_SETUP + \
-        'cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(N_CORES+1) + ' imager -c dumpgrid_parset.in > ./{params.yanda_logfile}'#This is how to mix wildcards and variables in the shell execution string
+        'cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(N_TASKS+1) + ' imager -c dumpgrid_parset.in > ./{params.yanda_logfile}'#This is how to mix wildcards and variables in the shell execution string
 
 rule grid_stacking:
     input:
-        grid = ['test/night_{0:s}/grid.dumpgrid'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()],
-        psfgrid = ['test/night_{0:s}/psfgrid.wr.1.dumpgrid'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()],
-        pcf = ['test/night_{0:s}/pcf.dumpgrid'.format(night_index) for night_index in ORIGINAL_MS_MAPPING.keys()] #We define the relgular naming scheme used in our mapping for the input MS!
+        grid = ['test/night_{0:s}/grid.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()],
+        psfgrid = ['test/night_{0:s}/psfgrid.wr.1.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()],
+        pcf = ['test/night_{0:s}/pcf.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()] #We define the relgular naming scheme used in our mapping for the input MS!
     output:
         grid = directory('test/stacked_grids/grid.deep'),
         psfgrid = directory('test/stacked_grids/psfgrid.deep'),
@@ -141,7 +116,7 @@ rule grid_stacking:
         cn_psfgrid = 'psfgrid.deep',
         cn_pcf = 'pcf.deep'
     resources:
-        walltime=1500,
+        walltime=300,
         mem_mb=48000,
     shell:
         ENV_SETUP + \
@@ -154,7 +129,7 @@ rule create_deep_parset:
         grid = 'test/stacked_grids/grid.deep',
         psfgrid = 'test/stacked_grids/psfgrid.deep',
         pcf = 'test/stacked_grids/pcf.deep',
-        template_parset = 'template_parset.in'
+        template_parset = 'second_pass_template_parset.in'
     output:
         'test/stacked_grids/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
     params:
@@ -164,7 +139,7 @@ rule create_deep_parset:
     shell:
         ENV_SETUP + \
         'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/stacked_grids \
--pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.template -a ' + \
+-pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.deep -a ' + \
 'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
 'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
 'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} \
@@ -182,8 +157,7 @@ rule deep_imaging:
     resources:
         walltime=9000,
         mem_mb=32000,
-        cpus_per_task=N_NODES,
-        ntasks=N_CORES
+        ntasks=N_TASKS
     shell:
         ENV_SETUP + \
-        'cd test/stacked_grids/ && mpirun -np {0:d}'.format(N_CORES) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
+        'cd test/stacked_grids/ && mpirun -np {0:d}'.format(N_TASKS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
