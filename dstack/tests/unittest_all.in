@@ -12,7 +12,7 @@ PSF_peak_value = 143373.953125
 NumericalPrecision = 1e-7
 NChannels = 11
 NPolarisations = 1
-RMS = 0.04308076
+RMS = 0.04308076,0.0514225,0.053506,0.04861242
 
 [MSUtil]
 

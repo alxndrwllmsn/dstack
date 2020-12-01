@@ -19,6 +19,9 @@ import copy
 from casacore import images as casaimage
 from casacore import tables as casatables
 
+#Parallel solutions using multiprocessing
+import multiprocessing as mp
+
 import dstack as ds
 
 #=== Setup logging ===
@@ -565,9 +568,45 @@ def create_CIM_diff_array(cimpath_a, cimpath_b, rel_diff=False, all_dim=False, c
 
     return diff_array
 
-def measure_CIM_RMS(cimpath, all_dim=False, chan=0, pol=0, close=False):
+def process_CIM_chunk_RMS(image_slice,pol):
+    """Compute the RMS on a numpy ndarray with shape [N_chan,N_pol,N_x,N_y]
+    It could be used to measure the RMS across all channels, but the input is 
+    a numpy ndarray, and so it is used to compute the RMS on the subset of a
+    CASAImage cube. I.e. this function called by each subprocess when computing
+    the RMS parallely.
+
+    This function computes the RMS across all channels of the input cube!
+
+    Parameters
+    ==========
+    image_slice: numpy.ndarray
+        A numpy array with size [N_chan,N_pol,N_x,N_y] where `N_chan` is 
+        the channel number of the subset cube.
+
+    pol: int
+        The index of the polarisation axis
+
+    Return
+    ======
+    slice_RMS: numpy.array
+        An array containing the RMS of each channel
+    """
+
+    slice_RMS = np.zeros((np.shape(image_slice)[0]))
+
+    for i in range(0,len(slice_RMS)):
+        slice_RMS[i] = np.sqrt(np.mean(np.square(image_slice[i,pol,...])))
+
+    return slice_RMS
+
+def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, close=False):
     """Measure the RMS on a CASAImage either for a given channel and polarization,
-    or for ALL channels and polarizations. This could be very slow though.
+    or for ALL channels and polarizations. This could be very slow though. Also, currently
+    works only for a single polarisation, however that can be selected. Menaing that the
+    code works perfectly for SotokesI polarisation, but the user has to choose a polarisation
+    axis if the image is polarised.
+
+    The code runs parallely on all vailable nodes if more channels than nodes are selected.
 
     Parameters
     ==========
@@ -576,10 +615,16 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, pol=0, close=False):
 
     all_dim: bool, optional
         If True, the RMS will be computed for all channels and polarizations in the image cube
-        Note that, this can be **very slow**!
+        Note that, this can be **very slow** even when parallelised!
+        If set to True the `chan_max` param will be ignored!
 
     chan: int, optional
         Index of the channel in the image cube
+
+    chan_max: int, optional
+        Index of the upper channel limit if the RMS is computed only on subset of the imagechannels.
+        Has to be larger than the :chan: variable, and smaéller than the number of channels.
+        Can be negative using python indexing scheme, but it can result in an indexing error if specified poorly!
 
     pol: int, optional
         Index of the polarization in the image cube
@@ -591,33 +636,90 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, pol=0, close=False):
 
     Returns
     =======
-    rms: float or list of floats
+    rms_array: list of floats
         The RMS value for the given channel or a numpy ndarray
         containing the RMS for the corresponding channel and polarization
     
     """
     cim = ds.cim.create_CIM_object(cimpath)
 
-    if all_dim:
-        rms_matrix = np.zeros((cim.shape()[0],cim.shape()[1]))
-
-        # I will think about how this operation could be vectorized
-        # so there will be no need for Python loops.
-        for chan_i in range(0,cim.shape()[0]):
-            for pol_j in range(0,cim.shape()[1]):
-                rms_matrix[chan_i,pol_j] = np.sqrt(np.mean(np.square(cim.getdata()[chan_i,pol_j,...])))
-
-        if close:
-            log.debug('Closing image: {0:s}'.format(cim.name()))
-            del cim
-        return rms_matrix
-
-    else:
-        rms = np.sqrt(np.mean(np.square(cim.getdata()[chan,pol,...])))
+    if chan_max == None and all_dim == False:
+        #Single channel mode but using the same syntax (does not work for last channel I think)
+        rms = process_CIM_chunk_RMS(cim.getdata()[chan:chan+1,...],pol)
         if close:
             log.debug('Closing image: {0:s}'.format(cim.name()))
             del cim
         return rms
+
+    else:
+        #Get the data array as a variable, because I think this is more memory effective.
+        #By this the data is read only once and shared across the procresses (?)
+
+        cim_data = cim.getdata()
+
+        if all_dim == True:
+            chan = 0
+            chan_max = -1
+            window_size = np.shape(cim_data)[0] #Number of channels
+        
+        else:
+            if chan_max <= chan and chan_max > 0:
+                raise ValueError('Invalid lower ({0:d}) and upper ({1:d}) channel indices are given!'.format(chan,chan_max))
+
+            if np.fabs(chan_max) > get_N_chan_from_CIM(cim):
+                raise ValueError('Upper channel index {0:d} is out from the channel range of the image!'.format(chan_max))
+
+            #Get subband size in channels
+            window_size = chan_max - chan
+    
+        #Setup the output array
+        rms_array = np.zeros((window_size))
+
+        #Decide if worth processing parallely:
+        n_proc = mp.cpu_count()
+
+        if n_proc <= window_size:
+            log.info('Running RMS calculations parallel on {0:d} nodes'.format(n_proc))
+
+            chunksize = window_size // n_proc #There will be a remainder        
+            log.debug('Computing RMS using {0:d} processes: {1:d} channel out of {2:d} for each subprocress'.format(n_proc,chunksize,window_size))
+
+            proc_chunks = []
+            for i_proc in range(n_proc):
+                chunkstart = i_proc * chunksize
+                # make sure to include the division remainder for the last process
+                chunkend = (i_proc + 1) * chunksize if i_proc < n_proc - 1 else window_size
+
+                #Here numpy only passes a view instead of the whole object: https://numpy.org/doc/stable/reference/arrays.indexing.html
+                #=> this is why I read in the whole cube to memory in the beginning
+                proc_chunks.append(cim_data[chan + chunkstart : chan + chunkend,...])
+
+            with mp.Pool(processes=n_proc) as pool:
+                # starts the sub-processes without blocking
+                # pass the chunk to each worker process
+                proc_results = [pool.apply_async(process_CIM_chunk_RMS,
+                                                 args=(chunk,pol))
+                                for chunk in proc_chunks]
+
+                # blocks until all results are fetched
+                result_chunks = [r.get() for r in proc_results]
+
+            #Result chunks is a list containing numpy arrays => need to flatten
+            rms_array = copy.deepcopy(np.concatenate(result_chunks).ravel())#ravel returns a view so need to copy
+
+            #clean up
+            del result_chunks
+            del proc_chunks
+            del proc_results
+
+        else:
+            #Process channels serially
+            rms_array = process_CIM_chunk_RMS(cim_data[chan:chan_max,...],pol)
+
+    if close:
+        log.debug('Closing image: {0:s}'.format(cim.name()))
+        del cim
+    return rms_array
 
 def measure_CIM_max(cimpath, save_to_file=False, outputfile_path=None, ID=0, all_dim=False, chan=0, pol=0, close=False):
     """Function to measure the peak of a CASAIMage, usually an image of the synthesized beam (PSF).

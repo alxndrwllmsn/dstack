@@ -61,8 +61,10 @@ def setup_CIM_unittest(parset_path):
     NPol: int
         Number of polarizations in the CASAImage given by CIMPathA
 
-    RMS: float
-        Root Mean Square for the first channel and polarization in the image cube given by CIMPath
+    RMS: list of floats
+        Root Mean Square for the first (!) N channel and the first polarization in the image cube given by CIMPath.
+        N is up to the user bust should be enough to test parallel RMS computation.
+        Format has to be: 'RMS_1,RMS_2,...,RMS_N' as a single string
     """
     assert os.path.exists(parset_path), 'Test parset does not exist!'
 
@@ -77,7 +79,7 @@ def setup_CIM_unittest(parset_path):
     assert NumPrec >= 0., 'The NumericalPrecision given is below zero!'
     NChan = int(config.get('CImage','NChannels'))
     NPol = int(config.get('CImage','NPolarisations'))
-    RMS = float(config.get('CImage','RMS'))
+    RMS = [float(i) for i in config.get('CImage','RMS').split(',')] #convert string to list of floats
 
     return CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS
 
@@ -115,8 +117,13 @@ class TestCIM(unittest.TestCase):
         'Failed to produce a difference image of zeros using CIM A!'
 
     def test_measure_CIM_RMS(self):
-        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA), self.RMS, rtol=1e-7), \
-        'The given RMS and the RMS measured on the image are not matching!'
+        #Single channel
+        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA)[0], self.RMS[0], rtol=1e-7), \
+        'The given RMS and the RMS measured on the first channel of the image are not matching!'
+
+        #Parallel processing of the given first N channel RMS
+        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA,chan_max=len(self.RMS)).all(), np.array(self.RMS).all(), rtol=1e-7), \
+        'The given RMS and the RMS measured on the first N channel of the image are not matching!'
 
     def test_CIM_stacking_base(self):
         ds.cim.CIM_stacking_base([self.CIMPathA,self.CIMPathA],_TEST_DIR,'test_CIM_stacking_base', overwrite=True)
