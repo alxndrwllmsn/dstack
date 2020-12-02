@@ -65,6 +65,9 @@ def setup_CIM_unittest(parset_path):
         Root Mean Square for the first (!) N channel and the first polarization in the image cube given by CIMPath.
         N is up to the user bust should be enough to test parallel RMS computation.
         Format has to be: 'RMS_1,RMS_2,...,RMS_N' as a single string
+
+    SPECTRAL_CHAN: float
+        The frequency value of the first channel of Alice.
     """
     assert os.path.exists(parset_path), 'Test parset does not exist!'
 
@@ -80,11 +83,12 @@ def setup_CIM_unittest(parset_path):
     NChan = int(config.get('CImage','NChannels'))
     NPol = int(config.get('CImage','NPolarisations'))
     RMS = [float(i) for i in config.get('CImage','RMS').split(',')] #convert string to list of floats
+    SPCHAN = float(config.get('CImage','SPECTRAL_CHAN'))
 
-    return CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS
+    return CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS, SPCHAN
 
 class TestCIM(unittest.TestCase):
-    CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS = setup_CIM_unittest(_PARSET)
+    CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS, SPCHAN = setup_CIM_unittest(_PARSET)
 
     def test_check_CIM_axes(self):
         ds.cim.check_CIM_axes(self.CIMPathA)
@@ -168,6 +172,11 @@ class TestCIM(unittest.TestCase):
         ds.cim.set_CIM_unit(test_cim_name,'Jy')
         CIM_with_unit = ds.cim.create_CIM_object('{0:s}/test_set_CIM_unit'.format(_TEST_DIR))
         assert CIM_with_unit.unit() == 'Jy', 'Unable to add unit to newly created CASAImage!'
+
+    def test_get_CIM_spectral_axis_array(self):
+        #rtol is the precision the reference frequency value is given
+        assert np.isclose(ds.cim.get_CIM_spectral_axis_array(self.CIMPathA,chan=0,chan_max=None)[0], self.SPCHAN, rtol=1e-3), \
+        'The given frequency value of the first channel is different from the one read from the image!'
 
 if __name__ == "__main__":
     unittest.main()
