@@ -44,7 +44,7 @@ ENV_SETUP = 'source /home/krozgonyi/.bashrc dstack_env_setup ; ' #Load modules f
 #=== Input MS mapping
 #Use python indexing
 
-"""
+#"""
 MS_MAPPING = {'0' : 'SB11006/scienceData_SB11006_G23_T0_B_01.beam17_SL',
             '1' : 'SB11003/scienceData_SB11003_G23_T0_B_02.beam17_SL',
             '2':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL',
@@ -52,10 +52,10 @@ MS_MAPPING = {'0' : 'SB11006/scienceData_SB11006_G23_T0_B_01.beam17_SL',
             '4' : 'SB10994/scienceData_SB10994_G23_T0_B_05.beam17_SL',
             '5':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
             '6' : 'SB11026/scienceData_SB11026_G23_T0_B_07.beam17_SL'}
-"""#
+#"""
 
-MS_MAPPING = {'0':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
-            '1':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL'}
+#MS_MAPPING = {'0':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
+#            '1':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL'}
 
 #=== RULES ===
 
@@ -102,7 +102,8 @@ rule co_added_visibility_dumpgrid:
         yanda_logfile = 'logfile_dumpgrid_co_added_visibilites.log'
     resources:
         walltime=1500,
-        mem_mb=32000,
+        #This is the memory [MB] on each node (currently using 1 node)!
+        mem_mb=120000,
         ntasks=N_TASKS+1
     shell:
         ENV_SETUP + \
@@ -188,6 +189,7 @@ rule first_pass_imaging:
         'cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(N_TASKS+1) + ' imager -c dumpgrid_parset.in > ./{params.yanda_logfile}'#This is how to mix wildcards and variables in the shell execution string
 
 rule grid_stacking:
+    #This rule can be further parallelised by defragmenting it to three stacking rules if needed
     input:
         grid = ['test/night_{0:s}/grid.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()],
         psfgrid = ['test/night_{0:s}/psfgrid.wr.1.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()],

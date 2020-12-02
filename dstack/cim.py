@@ -6,8 +6,9 @@ The image I/O management is kinda manually at this point, but hopefully will be 
 """
 
 __all__ = ['create_CIM_object', 'check_CIM_axes', 'CIM_dim_equity_check', 'CIM_unit_equity_check',
-            'get_N_chan_from_CIM', 'get_N_pol_from_CIM', 'check_CIM_coordinate_equity', 'check_CIM_equity',
-            'normalise_CIM', 'measure_CIM_RMS', 'create_CIM_diff_array','measure_CIM_max' ,'CIM_stacking_base']
+            'get_N_chan_from_CIM', 'get_CIM_spectral_axis_array', 'get_N_pol_from_CIM',
+            'check_CIM_coordinate_equity', 'check_CIM_equity', 'normalise_CIM', 'measure_CIM_RMS',
+            'create_CIM_diff_array','measure_CIM_max' ,'CIM_stacking_base']
 
 import os
 import shutil
@@ -55,8 +56,8 @@ def create_CIM_object(cimpath):
 
     """
     #create an empty image in-memory to check the object type
-    #if type(cimpath) == type(casaimage.image(imagename='',shape=np.ones(1))):
-    if type(cimpath) == 'casacore.images.image.image':
+    if type(cimpath) == type(casaimage.image(imagename='',shape=np.ones(1))):
+    #if type(cimpath) == 'casacore.images.image.image': #this does not seems to work
         return cimpath
     else:
         # We could simply return, no need to assign the return value of
@@ -173,6 +174,83 @@ def get_N_chan_from_CIM(cimpath, close=False, required_axes=_DEFAULT_REQUIRED_AX
         del cim
 
     return N_chan
+
+def get_CIM_spectral_axis_array(cimpath, chan=None, chan_max=None, close=False):
+    """Get the spectral coordinate values for a given channel range and returns it as an array.
+    By default returns the whole spectral axis as an array and the unit. Nevertheless, the user
+    can define a single channel or a channel range using channel indices, in which case, only
+    those channels frequency values are returned.
+
+    Note, that the spectral values returned are given in the image's reference frame! (i.e topocentric, barycentric...etc.)
+
+    Parameters
+    ==========
+    cimpath: str
+        The input CASAImage path or a ``casacore.images.image.image`` object
+
+    chan: int, optional
+        The first channel of the given spectral window as a channel index. None by default.
+        If not defined, the function returns an array containing all channel frequency values.
+
+    chan_max: int, optional
+        The index of the last + 1 channel of the selected spectral window. None by default.
+        If not given, but the `chan` parameter is defined only a single channel frequency value is returned. 
+
+    close: bool, optional
+        If True the in-memory CASAIMage is deleted, and the optional write-lock releases
+        Set to true if this is the last operation on the image, but False if other functions
+        called that operation on the same image. This avoids multiple read-in of the image.
+
+    Return
+    ======
+    spectral_array: numpy.ndarray
+        The frequency values of the given spectral window.
+
+    spectral_unit: str
+        The unit in which the spectral values are given
+    """
+    cim = ds.cim.create_CIM_object(cimpath)
+
+    coords = cim.coordinates()
+    coords_axis = 'spectral'
+
+    #Get spectral axis parameters
+    spectral_reference_frame = coords[coords_axis].get_frame()
+    spectral_unit = coords[coords_axis].get_unit()
+    spectral_increment = coords[coords_axis].get_increment()
+    spectral_reference_pixel = int(coords[coords_axis].get_referencepixel())
+    spectral_reference_value = coords[coords_axis].get_referencevalue()
+    spectral_restfrequency = coords[coords_axis].get_restfrequency()
+
+    log.debug('Spectral axis defined in {0:s} frame with unit {1:s} with rest frequency {2:.2f}; \
+reference frequency {3:.2f} of channel {4:d} with channel width of {5:.2f}.'.format(
+            spectral_reference_frame,spectral_unit, spectral_restfrequency, spectral_reference_value,
+            spectral_reference_pixel, spectral_increment))
+
+    #Select spectral window
+    if chan == None:
+        chan = 0
+        chan_max = get_N_chan_from_CIM(cim)
+
+    elif chan != None and chan_max != None:
+        if chan_max <= chan and chan_max > 0:
+            raise ValueError('Invalid lower ({0:d}) and upper ({1:d}) channel indices are given!'.format(chan,chan_max))
+
+        if np.fabs(chan_max) > get_N_chan_from_CIM(cim):
+            raise ValueError('Upper channel index {0:d} is out from the channel range of the image!'.format(chan_max))
+    else:
+        chan_max = chan + 1 
+
+    #Get subband size in channels
+    window_size = chan_max - chan
+    spectral_array = np.zeros(window_size)
+
+    #Map axis to selected spectral window array
+    #Should vectorise this...
+    for i in range(0,window_size):
+        spectral_array[i] = spectral_reference_value - ((spectral_reference_pixel - (chan + i)) * spectral_increment)
+
+    return spectral_array, spectral_unit
 
 def get_N_pol_from_CIM(cimpath, close=False, required_axes=_DEFAULT_REQUIRED_AXES):
     """Get the number of polarizations from a CASAImage. Note, that the
@@ -682,7 +760,7 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, close=
             log.info('Running RMS calculations parallel on {0:d} nodes'.format(n_proc))
 
             chunksize = window_size // n_proc #There will be a remainder        
-            log.debug('Computing RMS using {0:d} processes: {1:d} channel out of {2:d} for each subprocress'.format(n_proc,chunksize,window_size))
+            log.debug('Computing RMS using {0:d} processes: {1:d} channels (out of {2:d} channels) for each subprocress'.format(n_proc,chunksize,window_size))
 
             proc_chunks = []
             for i_proc in range(n_proc):
@@ -850,6 +928,11 @@ def CIM_stacking_base(cimpath_list, cim_output_path, cim_outputh_name, normalise
     and append the stacked data.
         - same as above, but for the weighting subroutine
         - modularize the stack functions
+        - use dask for parallelisation and distrubution
+
+    Currently this function is no bottleneck and in the pipelines the corresponding rule can be further modularised
+    (see beam17 pipeline). However, parallelisation and distributed processing would be a huge speedup for a 
+    pipeline where wide-band grid cubes are created.
 
     Parameters
     ==========
