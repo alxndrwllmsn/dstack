@@ -579,7 +579,6 @@ def normalise_CIM(cimpath, output_name=None ,all_dim=True, chan=0, pol=0, overwr
 
     return True
 
-
 def create_CIM_diff_array(cimpath_a, cimpath_b, rel_diff=False, all_dim=False, chan=0, pol=0, close=False):
     """Compute the difference of two CASAImage, and return it as a numpy array.
     Either the entire difference cube, or only the difference of a selected channel 
@@ -719,6 +718,8 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, close=
         containing the RMS for the corresponding channel and polarization
     
     """
+    #parallel solutions explanation here: https://datascience.blog.wzb.eu/2018/02/02/vectorization-and-parallelization-in-python-with-numpy-and-pandas/
+
     cim = ds.cim.create_CIM_object(cimpath)
 
     if chan_max == None and all_dim == False:
