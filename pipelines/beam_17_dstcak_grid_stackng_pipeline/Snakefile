@@ -180,7 +180,9 @@ rule first_pass_imaging:
     output:
         directory('test/night_{night_index}/grid.dumpgrid'),
         directory('test/night_{night_index}/psfgrid.wr.1.dumpgrid'),
-        directory('test/night_{night_index}/pcf.dumpgrid')
+        directory('test/night_{night_index}/pcf.dumpgrid'),
+        directory('test/night_{night_index}/psf.image.dumpgrid'),
+        directory('test/night_{night_index}/weights.dumpgrid')
     params:
         yanda_logfile = 'logfile_dumpgrid_night_{night_index}.log',
         night_subdir = 'test/night_{night_index}/' #Need to run imaging inside the directory
@@ -289,12 +291,10 @@ rule cdeconvolver_daily_imaging:
         pcf = 'test/night_{night_index}/pcf.dumpgrid',
         parset = 'test/night_{night_index}/cdeconvolver_daily_parset.in'
     output:
-        directory('test/night_{night_index}/image.{image_names}.restored'),
-        directory('test/night_{night_index}/model.{image_names}'),
-        directory('test/night_{night_index}/psf.image.{image_names}'),
-        directory('test/night_{night_index}/psf.{image_names}'),
-        directory('test/night_{night_index}/residual.{image_names}'),
-        directory('test/night_{night_index}/weights.{image_names}'),
+        directory('test/night_{night_index}/image.daily.restored'),
+        directory('test/night_{night_index}/model.daily'),
+        directory('test/night_{night_index}/psf.daily'),
+        directory('test/night_{night_index}/residual.daily'),
     params:
         yanda_logfile = 'logfile_cdeconvolver_daily.log',
         parset_name = 'cdeconvolver_daily_parset.in'
@@ -310,8 +310,8 @@ rule image_stacking:
     #Stacking all the output images even the model and the weights file just for testing purposes
     input:
         restored_image = ['test/night_{0:s}/image.daily.restored'.format(night_index) for night_index in MS_MAPPING.keys()],
-        psf_for_weighting = ['test/night_{0:s}/psf.image.daily'.format(night_index) for night_index in MS_MAPPING.keys()], #For weighting
-        weighting = ['test/night_{0:s}/weights.daily'.format(night_index) for night_index in MS_MAPPING.keys()], #For weighting
+        psf_for_weighting = ['test/night_{0:s}/psf.image.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()], #For weighting
+        weighting = ['test/night_{0:s}/weights.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()], #For weighting
         psf = ['test/night_{0:s}/psf.daily'.format(night_index) for night_index in MS_MAPPING.keys()],
         residual = ['test/night_{0:s}/residual.daily'.format(night_index) for night_index in MS_MAPPING.keys()],
         model = ['test/night_{0:s}/model.daily'.format(night_index) for night_index in MS_MAPPING.keys()]
