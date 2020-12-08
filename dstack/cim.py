@@ -676,7 +676,7 @@ def process_CIM_chunk_RMS(image_slice,pol):
 
     return slice_RMS
 
-def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, close=False):
+def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, return_dim=False, close=False):
     """Measure the RMS on a CASAImage either for a given channel and polarization,
     or for ALL channels and polarizations. This could be very slow though. Also, currently
     works only for a single polarisation, however that can be selected. Menaing that the
@@ -706,6 +706,9 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, close=
     pol: int, optional
         Index of the polarization in the image cube
 
+    return_dim: bool, optional
+        If true, a second variable: a string defining the image pixel units, i.e. the RMS units is returned
+
     close: bool, optional
         If True the in-memory CASAIMage is deleted, and the optional write-lock releases
         Set to true if this is the last operation on the image, but False if other functions
@@ -722,13 +725,19 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, close=
 
     cim = ds.cim.create_CIM_object(cimpath)
 
+    rms_dim = cim.unit()
+
     if chan_max == None and all_dim == False:
         #Single channel mode but using the same syntax (does not work for last channel I think)
-        rms = process_CIM_chunk_RMS(cim.getdata()[chan:chan+1,...],pol)
+        rms = np.array([process_CIM_chunk_RMS(cim.getdata()[chan:chan+1,...],pol)])
         if close:
             log.debug('Closing image: {0:s}'.format(cim.name()))
             del cim
-        return rms
+
+        if return_dim:
+            return rms, rms_dim
+        else:
+            return rms
 
     else:
         #Get the data array as a variable, because I think this is more memory effective.
@@ -798,7 +807,11 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, close=
     if close:
         log.debug('Closing image: {0:s}'.format(cim.name()))
         del cim
-    return rms_array
+
+    if return_dim:
+        return rms_array, rms_dim
+    else:
+        return rms_array
 
 def measure_CIM_max(cimpath, save_to_file=False, outputfile_path=None, ID=0, all_dim=False, chan=0, pol=0, close=False):
     """Function to measure the peak of a CASAIMage, usually an image of the synthesized beam (PSF).

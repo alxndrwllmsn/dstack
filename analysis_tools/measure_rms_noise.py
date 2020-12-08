@@ -37,7 +37,7 @@ outlier_color = 'dimgrey'
 
 
 #=== Functions ===
-def get_RMS_and_spectral_array_from_CIM(cim_path,all_dim=False,chan=None,chan_max=None):
+def get_RMS_and_spectral_array_from_CIM(cim_path,spectra_name,all_dim=False,chan=None,chan_max=None):
     """Create and return an array containing the RMS of the
     input Cim. Also, gets the corrsponding spectral axis
 
@@ -55,17 +55,26 @@ def get_RMS_and_spectral_array_from_CIM(cim_path,all_dim=False,chan=None,chan_ma
     """
 
     spectral_arr, spectral_unit = ds.cim.get_CIM_spectral_axis_array(cim_path,chan=chan,chan_max=chan_max)
-    print('{0:.16f}'.format(spectral_arr[0]))
-
-    exit()
     rms_arr = ds.cim.measure_CIM_RMS(cim_path,all_dim=all_dim,chan=chan,chan_max=chan_max)
 
-    plt.step(spectral_arr,rms_arr)
-    plt.show()
-
+    np.savetxt(spectra_name,np.column_stack((spectral_arr,rms_arr)), header='Freq [{0:s}] RMS [Jy/beam]'.format(spectral_unit))
 
 if __name__ == "__main__":
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
     #get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/sandbox/stacked_grids/image.deep.restored',all_dim=True,chan=None,chan_max=None)
-    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/dstack_test_files/image.restored.wr.1.sim_PC',chan=0,chan_max=None)
+    #get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/dstack_test_files/image.restored.wr.1.sim_PC',chan=0,chan_max=None)
+
+    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/noise_cube/co_added_visibilities/image.deep.restored',
+                                        '/home/krozgonyi/Desktop/beam17_results/noise_cube/co_added_visibilities/rms_spectra.txt',
+                                        all_dim=True)
+
+    exit()
+
+    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/noise_cube/stacked_images/image.restored.deep',
+                                        '/home/krozgonyi/Desktop/beam17_results/noise_cube/stacked_images/rms_spectra.txt',
+                                        all_dim=True)
+
+    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/noise_cube/stacked_grids/image.deep.restored',
+                                        '/home/krozgonyi/Desktop/beam17_results/noise_cube/stacked_grids/rms_spectra.txt',
+                                        all_dim=True)

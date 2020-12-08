@@ -15,6 +15,7 @@ N_CHAN = 216 #Number of channels
 C_WIDTH = 18597 #Channel width in [Hz]
 #Approximately the central frequency [Hz] of the galaxy NGC7361 in barycentric ref. frame. is 1414518476
 C_CENTRAL_NGC7361 = 1414518476 #The centre of the cube
+#C_CENTRAL_NGC7361 = 1394518476 #The centre of the cube for a random 4MHz cube with no sources or strong RFI
 C_ZERO = int(C_CENTRAL_NGC7361 - (np.ceil(N_CHAN / 2) * C_WIDTH))#Starting channels frequency [Hz]
 
 #=== Define resources
@@ -33,6 +34,7 @@ assert N_CHANNELS_PER_CPU * N_TASKS == N_CHAN, 'Resources and imaging tasks are 
 
 MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
 WORKING_DIR = '/scratch/krozgonyi/beam17' #Hardcoding solves the symlink problem...
+#WORKING_DIR = '/scratch/krozgonyi/noise_cube' #Hardcoding solves the symlink problem...
 
 #Slurm logfiles firetory
 LOGDIR = '{0:s}/rule_logs'.format(WORKING_DIR) #Have to be the same as the output defined in the config.yaml file!!!

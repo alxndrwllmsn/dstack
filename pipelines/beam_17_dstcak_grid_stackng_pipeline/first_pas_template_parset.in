@@ -9,6 +9,7 @@ Cimager.nUVWMachines = 1
 Cimager.uvwMachineDirTolerance = -1.2arcsec
 Cimager.ncycles = 1
 Cimager.dumpgrids = true
+Cimager.channeltolerance = 10
 Cimager.memorybuffers = true
 Cimager.Images.shape = [1024,1024]
 Cimager.Images.cellsize = [6arcsec, 6arcsec]
@@ -33,4 +34,3 @@ Cimager.preconditioner.Names = ['Wiener']
 Cimager.preconditioner.preservecf = true
 Cimager.preconditioner.Wiener.robustness = 0.5
 Cimager.restore.beam = [0.5arcmin, 0.5arcmin, 0deg]
-
