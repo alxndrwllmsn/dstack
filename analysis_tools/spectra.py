@@ -186,12 +186,6 @@ def plot_spectra_list_diff_triangle_matrix(input_spectra_file_list, beam_size_li
                 if beam_size_list[i] != None:
                     spectra_data[:,1] /=  np.pi * beam_size_list[i] * beam_size_list[i] / (4 * np.log(2))
 
-
-                axes[i, j].step(spectra_data[boundary_list[i][0]:boundary_list[i][1],0],
-                    spectra_data[boundary_list[i][0]:boundary_list[i][1],1] * flux_scaling_list[i],
-                    lw=3, c=color_list[i], label=label_list[i], alpha=1)
-
-
                 axes[i, j].grid()
 
                 if i != j:
@@ -208,6 +202,12 @@ def plot_spectra_list_diff_triangle_matrix(input_spectra_file_list, beam_size_li
                     #axes[i, j].legend(fontsize=16,loc='best')
                     axes[i, j].set_title(label_list[i],fontsize=18)
 
+
+                #Plot first spectra
+                axes[i, j].step(spectra_data[boundary_list[i][0]:boundary_list[i][1],0],
+                    spectra_data[boundary_list[i][0]:boundary_list[i][1],1] * flux_scaling_list[i],
+                    lw=3, c=color_list[i], label=label_list[i], alpha=1)
+
                 if i == len(input_spectra_file_list)-1:
                     axes[i, j].set_xlabel(r'$\mathcal{V}$ [GHz]', fontsize=18)
 
@@ -223,29 +223,6 @@ def plot_spectra_list_diff_triangle_matrix(input_spectra_file_list, beam_size_li
 #=== MAIN ===
 if __name__ == "__main__":
     #Examples
-
-    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/noise_cube/co_added_visibilities/image.deep.restored',
-                                        '/home/krozgonyi/Desktop/beam17_results/noise_cube/rms_spectra.txt',
-                                        all_dim=True)
-
-
-    exit()
-
-    plot_spectra_list(['/home/krozgonyi/Desktop/beam17_results/noise_cube/spectras/rms_co_added_visibility_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/noise_cube/spectras/rms_stacked_image_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/noise_cube/spectras/rms_stacked_grid_spectra.txt'],
-                        [1,1,1],
-                        [1000/np.sqrt(7),1000,1000],
-                        #[1000/np.sqrt(7),1.038*1000,1000],
-                        #[1000,1000,1000],
-                        [(0,-1),(0,-1),(0,-1)],
-                        [c0,c1,c2],
-                        ['Co added visibilities',
-                        'Stacked images',
-                        'Stacked grids'],
-                        '/home/krozgonyi/Desktop/beam17_results/noise_cube/spectras/all_comparision.pdf')
-
-    #exit()
 
     plot_spectra_list_diff_triangle_matrix(['/home/krozgonyi/Desktop/beam17_results/spectras/co_added_visibility_spectra.txt',
                         '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_image_spectra.txt',
@@ -265,6 +242,43 @@ if __name__ == "__main__":
 
     exit()
 
+    plot_spectra_list(['/home/krozgonyi/Desktop/beam17_results/spectras/rms_co_added_visibility_spectra.txt',
+                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_image_spectra.txt',
+                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_grid_spectra.txt'],
+                        [1,1,1],
+                        [1000/np.sqrt(7),1000,1000],
+                        #[1000/np.sqrt(7),1.038*1000,1000],
+                        #[1000,1000,1000],
+                        [(0,-1),(0,-1),(0,-1)],
+                        [c0,c1,c2],
+                        ['Co added visibilities',
+                        'Stacked images',
+                        'Stacked grids'],
+                        '/home/krozgonyi/Desktop/beam17_results/spectras/all_comparision.pdf')
+
+    exit()
+
+
+    #get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/noise_cube/co_added_visibilities/image.deep.restored',
+    #                                    '/home/krozgonyi/Desktop/beam17_results/noise_cube/rms_spectra.txt',
+    #                                    all_dim=True)
+
+    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/co_added_visibilities/image.deep.restored',
+                                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_co_added_visibility_spectra.txt',
+                                        all_dim=False, chan=0, chan_max=70)
+
+    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/stacked_grids/image.deep.restored',
+                                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_grid_spectra.txt',
+                                        all_dim=False, chan=0, chan_max=70)
+
+    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/stacked_images/image.restored.deep',
+                                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_image_spectra.txt',
+                                        all_dim=False, chan=0, chan_max=70)
+
+    #exit()
+
+
+    
     plot_spectra_list(['/home/krozgonyi/Desktop/beam17_results/spectras/co_added_visibility_spectra.txt',
                         '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_image_spectra.txt',
                         '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_grid_spectra.txt',
