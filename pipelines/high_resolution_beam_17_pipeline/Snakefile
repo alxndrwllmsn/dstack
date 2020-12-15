@@ -1,0 +1,386 @@
+"""This snakefile is the result of some careful considerations
+prioratising my PhD project over the goal of having a scalable
+one-fit-for-all type of pipeline. Therefore, this pipeline is
+only handeling a small spectral window of beam17 data without
+utilising the full potential of dstack, YandaSoft or Snaemake.
+"""
+#=== Imports ===
+import numpy as np
+import os
+
+#=== Define the spectral window parameters, using a pysical approach rather than working with channel indices
+# => the galaxy NGC7361 is approx 70 channel or ~1.3 MHz wide in spectral space so we need some extra channels at the edges 
+# => ~4MHz overall window
+N_CHAN = 216 #Number of channels 
+#C_WIDTH = 18597 #Channel width in [Hz]
+C_WIDTH = 18520.0 #Channel width in the input MS of the bary datasets (?)
+#Approximately the central frequency [Hz] of the galaxy NGC7361 in barycentric ref. frame. is 1414518476
+C_CENTRAL_NGC7361 = 1414518476 #The centre of the cube
+#C_CENTRAL_NGC7361 = 1394518476 #The centre of the cube for a random 4MHz cube with no sources or strong RFI
+C_ZERO = int(C_CENTRAL_NGC7361 - (np.ceil(N_CHAN / 2) * C_WIDTH))#Starting channels frequency [Hz]
+
+#=== Define resources
+#Resources needs to be aligned with the imaging task and unfortunatelly needs to be set manually
+#It is because YandaSoft fails if the number of channels / node is not an integer number.
+N_TASKS = 24 #Number of MPI tasks, also the number of CPUs used as currently I run every task using a simple CPU
+N_CHANNELS_PER_CPU = 9 #Number of channels processed on a single CPU also in this case MPI task
+
+#Check that everything is good before we can run the pipeline
+assert N_CHANNELS_PER_CPU * N_TASKS == N_CHAN, 'Resources and imaging tasks are defined incorrectly!'
+
+#=== Define the envinroment varables
+#Absolute path to working directory
+#MS_DIR = '/home/krozgonyi/dstack/pipelines/beam_17_dstcak_grid_stackng_pipeline/measurement_sets'
+#WORKING_DIR = os.getcwd() #YandaSoft needs absolute paths; however /scratch ave a sybbolic link attache in Pleiades...
+
+#MS_DIR = '/mnt/hidata2/dingo/pilot/uvgrid'
+MS_DIR = '/scratch/rdodson/ForKristof/Pilot/Bary'
+WORKING_DIR = '/scratch/krozgonyi/high_resolution_beam17' #Hardcoding solves the symlink problem...
+#WORKING_DIR = '/scratch/krozgonyi/noise_cube' #Hardcoding solves the symlink problem...
+
+#Slurm logfiles firetory
+LOGDIR = '{0:s}/rule_logs'.format(WORKING_DIR) #Have to be the same as the output defined in the config.yaml file!!!
+
+#=== Envinroment setup
+#This loads in the neccessary modules and sets up the envinroment for Python, dstack, YandaSoft and MPI on Pleiades
+ENV_SETUP = 'source /home/krozgonyi/.bashrc dstack_env_setup ; ' #Load modules for each slurm task if needed
+
+#=== Input MS mapping
+#Imager gridding functionality is broken, so a co-added MS needs to be gridded for the co-added visibility imaging when using cdeconvolver
+MS_COVIS = '/scratch/rdodson/ForKristof/Pilot/Bary/scienceData_All_bary_exact.ms'
+
+#Use python indexing
+#"""
+MS_MAPPING = {'0' : 'scienceData_SB11006_G23_T0_B_01.beam17_SL_bary_exact',
+            '1' : 'scienceData_SB11003_G23_T0_B_02.beam17_SL_bary_exact',
+            '2' : 'scienceData_SB11000_G23_T0_B_03.beam17_SL_bary_exact',
+            '3' : 'scienceData_SB11010_G23_T0_B_04.beam17_SL_bary_exact',
+            '4' : 'scienceData_SB10994_G23_T0_B_05.beam17_SL_bary_exact',
+            '5' : 'scienceData_SB10991_G23_T0_B_06.beam17_SL_bary_exact',
+            '6' : 'scienceData_SB11026_G23_T0_B_07.beam17_SL_bary_exact'}
+#"""
+
+"""
+MS_MAPPING = {'0' : 'SB11006/scienceData_SB11006_G23_T0_B_01.beam17_SL',
+            '1' : 'SB11003/scienceData_SB11003_G23_T0_B_02.beam17_SL',
+            '2':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL',
+            '3' : 'SB11010/scienceData_SB11010_G23_T0_B_04.beam17_SL',
+            '4' : 'SB10994/scienceData_SB10994_G23_T0_B_05.beam17_SL',
+            '5':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
+            '6' : 'SB11026/scienceData_SB11026_G23_T0_B_07.beam17_SL'}
+#"""
+
+#MS_MAPPING = {'0':'SB10991/scienceData_SB10991_G23_T0_B_06.beam17_SL',
+#            '1':'SB11000/scienceData_SB11000_G23_T0_B_03.beam17_SL'}
+
+#=== Ruleorder
+#ruleorder: first_pass_imaging > create_daily_cdeconvolver_parset > cdeconvolver_daily_imaging > image_stacking
+
+#=== RULES === 
+rule all:
+    input:
+        '{0:s}'.format(LOGDIR), #Make sure that the log dir exist before running => can not create this with a rule as snakemake wants to log the rule to the same folder through slurm!
+        'test/stacked_grids/image.deep.restored', 
+        'test/co_added_visibilities/image.deep.restored',
+        'test/stacked_images/image.restored.deep'
+
+#=== Co-added visibilities
+#Old solution, that used a list of input grids, but the gridding functionality in imager is broken so I am not using this rule...
+rule create_co_added_visibility_parset_from_MS_list:
+    input:
+        MS_list = ['{0:s}/{1:s}.ms'.format(MS_DIR,ms) for ms in MS_MAPPING.values()],
+        template_parset = 'first_pas_template_parset.in'  
+    output:
+        'test/co_added_visibilities/dumpgrid_parset_MS_list.in'
+    params:
+        input_MS_list = ','.join(['{0:s}/{1:s}.ms'.format(MS_DIR,ms) for ms in MS_MAPPING.values()]),
+        op = 'test/co_added_visibilities',
+        nchan = str(N_CHAN),
+        chan0 = str(C_ZERO),
+        chanwidth = str(C_WIDTH),
+        nwriters = str(1),
+        nchannelpercore = str(N_CHANNELS_PER_CPU), #need to set to one 
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
+-pn dumpgrid_parset.in -t {input.template_parset} -tn image.template -a dataset=[{params.input_MS_list}] \
+Cniter=1 Cgain=0.0 freqframe=bary Frequencies=[{params.nchan},{params.chan0},{params.chanwidth}] \
+IrestFrequency=HI nchanpercore={params.nchannelpercore} nwriters={params.nwriters}'
+#Set the gain to zero ant the minor cycle iteration to 1, also set the freqframe to barycentric + define the spectral window
+
+rule create_co_added_visibility_parset:
+    input:
+        MS = '{0:s}'.format(MS_COVIS),
+        template_parset = 'first_pas_template_parset.in'  
+    output:
+        'test/co_added_visibilities/dumpgrid_parset.in'
+    params:
+        input_MS = '{0:s}'.format(MS_COVIS),
+        op = 'test/co_added_visibilities',
+        nchan = str(N_CHAN),
+        chan0 = str(C_ZERO),
+        chanwidth = str(C_WIDTH),
+        nwriters = str(1),
+        nchannelpercore = str(N_CHANNELS_PER_CPU), #need to set to one 
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
+-pn dumpgrid_parset.in -t {input.template_parset} -tn image.template -a dataset={params.input_MS} \
+Cniter=1 Cgain=0.0 freqframe=bary Frequencies=[{params.nchan},{params.chan0},{params.chanwidth}] \
+IrestFrequency=HI nchanpercore={params.nchannelpercore} nwriters={params.nwriters}'
+#Set the gain to zero ant the minor cycle iteration to 1, also set the freqframe to barycentric + define the spectral window
+
+rule co_added_visibility_dumpgrid:
+    #This is the first pass imaging. I.e. gridding co-added visibilities to image it with cdeconvolver
+    input:
+        #MS_list = ['{0:s}/{1:s}.ms'.format(MS_DIR,ms) for ms in MS_MAPPING.values()],
+        MS = '{0:s}'.format(MS_COVIS),
+        parset = 'test/co_added_visibilities/dumpgrid_parset.in'
+    output:
+        directory('test/co_added_visibilities/grid.dumpgrid'),
+        directory('test/co_added_visibilities/psfgrid.wr.1.dumpgrid'),
+        directory('test/co_added_visibilities/pcf.dumpgrid')
+    params:
+        yanda_logfile = 'logfile_dumpgrid_co_added_visibilites.log'
+    resources:
+        walltime=1500,
+        #This is the memory [MB] on each node (currently using 1 node)!
+        mem_mb=120000,
+        ntasks=N_TASKS+1
+    shell:
+        ENV_SETUP + \
+        'cd test/co_added_visibilities/ && mpirun -np {0:d}'.format(N_TASKS+1) + ' imager -c dumpgrid_parset.in > ./{params.yanda_logfile}'#This is how to mix wildcards and variables in the shell execution string
+
+rule create_co_added_visibility_deep_parset:
+    input:
+        grid = 'test/co_added_visibilities/grid.dumpgrid',
+        psfgrid = 'test/co_added_visibilities/psfgrid.wr.1.dumpgrid',
+        pcf = 'test/co_added_visibilities/pcf.dumpgrid',
+        template_parset = 'second_pass_template_parset.in'
+    output:
+        'test/co_added_visibilities/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
+    params:
+        image_names = '{image_names}', #If I don't want to hardcode it in case I want to scale upt to beams
+        nwriters=str(1),
+        nchannelpercore=str(N_CHANNELS_PER_CPU),
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/co_added_visibilities \
+-pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.deep -a ' + \
+'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
+'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
+'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} \
+nchanpercore={params.nchannelpercore} nwriters={params.nwriters} '
+
+rule deep_co_added_visibility_imaging:
+    input:
+        grid = 'test/co_added_visibilities/grid.dumpgrid',
+        parset = 'test/co_added_visibilities/cdeconvolver_{image_names}.in'
+    output:
+        directory('test/co_added_visibilities/{image_names}.restored')
+    params:
+        yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
+        parset_name = 'cdeconvolver_{image_names}.in'
+    resources:
+        walltime=9000,
+        mem_mb=32000,
+        ntasks=N_TASKS
+    shell:
+        ENV_SETUP + \
+        'cd test/co_added_visibilities/ && mpirun -np {0:d}'.format(N_TASKS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
+
+#=== Grid and image stacking ===
+#=== First pass imaging: creating grids and images to stack
+rule create_parset:
+    input:
+        MS = lambda wildcards: '{0:s}/{1:s}.ms'.format(MS_DIR,MS_MAPPING[wildcards.night_index]),
+        template_parset = 'first_pas_template_parset.in'
+    output:
+        'test/night_{night_index}/dumpgrid_parset.in'
+    params:
+        op = 'test/night_{night_index}', #Setup a variable using a wildcard
+        nchan = str(N_CHAN),
+        chan0 = str(C_ZERO),
+        chanwidth = str(C_WIDTH),
+        nwriters = str(1),
+        nchannelpercore = str(N_CHANNELS_PER_CPU), #need to set to one 
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cimager -n image.dumpgrid -g WProject -op {params.op} \
+-pn dumpgrid_parset.in -t {input.template_parset} -tn image.template -a dataset={input.MS} \
+Cniter=1 Cgain=0.0 freqframe=bary Frequencies=[{params.nchan},{params.chan0},{params.chanwidth}] \
+IrestFrequency=HI nchanpercore={params.nchannelpercore} nwriters={params.nwriters}'
+#Set the gain to zero ant the minor cycle iteration to 1, also set the freqframe to barycentric + define the spectral window
+
+rule first_pass_imaging:
+    input:
+       'test/night_{night_index}/dumpgrid_parset.in'
+    output:
+        directory('test/night_{night_index}/grid.dumpgrid'),
+        directory('test/night_{night_index}/psfgrid.wr.1.dumpgrid'),
+        directory('test/night_{night_index}/pcf.dumpgrid'),
+        directory('test/night_{night_index}/psf.image.dumpgrid'),
+        directory('test/night_{night_index}/weights.dumpgrid')
+    params:
+        yanda_logfile = 'logfile_dumpgrid_night_{night_index}.log',
+        night_subdir = 'test/night_{night_index}/' #Need to run imaging inside the directory
+    resources:
+        walltime=900,
+        mem_mb=32000,
+        ntasks=N_TASKS+1
+    shell:
+        ENV_SETUP + \
+        'cd {params.night_subdir}  && ' + 'mpirun -np {0:d}'.format(N_TASKS+1) + ' imager -c dumpgrid_parset.in > ./{params.yanda_logfile}'#This is how to mix wildcards and variables in the shell execution string
+
+#=== Grid stacking and deep imaging of the grids (second pass imaging)
+rule grid_stacking:
+    #This rule can be further parallelised by defragmenting it to three stacking rules if needed
+    input:
+        grid = ['test/night_{0:s}/grid.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()],
+        psfgrid = ['test/night_{0:s}/psfgrid.wr.1.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()],
+        pcf = ['test/night_{0:s}/pcf.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()] #We define the relgular naming scheme used in our mapping for the input MS!
+    output:
+        grid = directory('test/stacked_grids/grid.deep'),
+        psfgrid = directory('test/stacked_grids/psfgrid.deep'),
+        pcf = directory('test/stacked_grids/pcf.deep')
+    params:
+        #Need to use abspath here I think
+        cp = '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids',
+        cn_grid = 'grid.deep',
+        cn_psfgrid = 'psfgrid.deep',
+        cn_pcf = 'pcf.deep'
+    resources:
+        walltime=300,
+        mem_mb=48000,
+    shell:
+        ENV_SETUP + \
+        'dstacking -cl {input.grid} -cp {params.cp} -cn {params.cn_grid} -c ; \
+        dstacking -cl {input.psfgrid} -cp {params.cp} -cn {params.cn_psfgrid} -c ; \
+        dstacking -cl {input.pcf} -cp {params.cp} -cn {params.cn_pcf} -c ; '
+
+rule create_deep_parset:
+    input:
+        grid = 'test/stacked_grids/grid.deep',
+        psfgrid = 'test/stacked_grids/psfgrid.deep',
+        pcf = 'test/stacked_grids/pcf.deep',
+        template_parset = 'second_pass_template_parset.in'
+    output:
+        'test/stacked_grids/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
+    params:
+        image_names = '{image_names}', #If I don't want to hardcode it in case I want to scale upt to beams
+        nwriters=str(1),
+        nchannelpercore=str(N_CHANNELS_PER_CPU),
+    shell:
+        ENV_SETUP + \
+        'dparset -i Cdeconvolver -n {params.image_names} -g WProject -op test/stacked_grids \
+-pn cdeconvolver_{params.image_names}.in -t {input.template_parset} -tn image.deep -a ' + \
+'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
+'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
+'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} \
+nchanpercore={params.nchannelpercore} nwriters={params.nwriters} '
+
+rule deep_imaging:
+    input:
+        grid = 'test/stacked_grids/grid.deep',
+        parset = 'test/stacked_grids/cdeconvolver_{image_names}.in'
+    output:
+        directory('test/stacked_grids/{image_names}.restored')
+    params:
+        yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
+        parset_name = 'cdeconvolver_{image_names}.in'
+    resources:
+        walltime=900,
+        mem_mb=32000,
+        ntasks=N_TASKS
+    shell:
+        ENV_SETUP + \
+        'cd test/stacked_grids/ && mpirun -np {0:d}'.format(N_TASKS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
+
+#=== Daily imaging (first pass) and image stacking
+rule create_daily_cdeconvolver_parset:
+    input:
+        grid = 'test/night_{night_index}/grid.dumpgrid',
+        psfgrid = 'test/night_{night_index}/psfgrid.wr.1.dumpgrid',
+        pcf = 'test/night_{night_index}/pcf.dumpgrid',
+        template_parset = 'second_pass_template_parset.in'
+    output:
+        'test/night_{night_index}/cdeconvolver_daily_parset.in'
+    params:
+        image_names = 'daily', #Bacause how the output will look like
+        op = 'test/night_{night_index}', #Setup a variable using a wildcard
+        nwriters=str(1),
+        nchannelpercore=str(N_CHANNELS_PER_CPU),
+        niter=str(3000) #Set a shallower cleaning for the daily images as the template parset is set for deep imaging
+    shell:
+        #The second pass parset file is designed for deep imaging and so the image name is image.deep !
+        ENV_SETUP + \
+        'dparset -i Cdeconvolver -n image.{params.image_names} -g WProject -op {params.op} ' +\
+'-pn cdeconvolver_daily_parset.in -t {input.template_parset} -tn image.deep -a ' + \
+'grid={0:s}/'.format(WORKING_DIR) + '{input.grid} ' + \
+'psfgrid={0:s}/'.format(WORKING_DIR) + '{input.psfgrid} ' + \
+'pcf={0:s}/'.format(WORKING_DIR) + '{input.pcf} ' +\
+'nchanpercore={params.nchannelpercore} nwriters={params.nwriters} ' +\
+'Cniter={params.niter}'
+
+rule cdeconvolver_daily_imaging:
+    input:
+        grid = 'test/night_{night_index}/grid.dumpgrid',
+        psfgrid = 'test/night_{night_index}/psfgrid.wr.1.dumpgrid', #to make sure rule order is right (also, I should define the rule order!)
+        pcf = 'test/night_{night_index}/pcf.dumpgrid',
+        parset = 'test/night_{night_index}/cdeconvolver_daily_parset.in'
+    output:
+        directory('test/night_{night_index}/image.daily.restored'),
+        directory('test/night_{night_index}/model.daily'),
+        directory('test/night_{night_index}/psf.daily'),
+        directory('test/night_{night_index}/residual.daily'),
+    params:
+        yanda_logfile = 'logfile_cdeconvolver_daily.log',
+        parset_name = 'cdeconvolver_daily_parset.in'
+    resources:
+        walltime=900,
+        mem_mb=32000,
+        ntasks=N_TASKS
+    shell:
+        ENV_SETUP + \
+        'cd test/night_{wildcards.night_index}/ ' + '&& mpirun -np {0:d}'.format(N_TASKS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
+
+rule image_stacking:
+    #Stacking all the output images even the model and the weights file just for testing purposes
+    input:
+        restored_image = ['test/night_{0:s}/image.daily.restored'.format(night_index) for night_index in MS_MAPPING.keys()],
+        psf_for_weighting = ['test/night_{0:s}/psf.image.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()], #For weighting
+        weighting = ['test/night_{0:s}/weights.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()], #For weighting
+        psf = ['test/night_{0:s}/psf.daily'.format(night_index) for night_index in MS_MAPPING.keys()],
+        residual = ['test/night_{0:s}/residual.daily'.format(night_index) for night_index in MS_MAPPING.keys()],
+        model = ['test/night_{0:s}/model.daily'.format(night_index) for night_index in MS_MAPPING.keys()]
+    output:
+        directory('test/stacked_images/image.restored.deep'),
+        directory('test/stacked_images/psf.image.deep'),
+        directory('test/stacked_images/psf.deep'),
+        directory('test/stacked_images/residual.deep'),
+        directory('test/stacked_images/model.deep'),
+    params:
+        #Need to use abspath here I think
+        cp = '{0:s}/test/stacked_images/'.format(WORKING_DIR),
+        cn_restored_image = 'image.restored.deep',
+        cn_psf = 'psf.image.deep',
+        cn_psf_for_weighting = 'psf.deep',
+        cn_residual = 'residual.deep',
+        cn_model = 'model.deep',
+        stack_indices_logfile_restored = '{0:s}/test/stacked_images/psf_weighting_restored.log'.format(WORKING_DIR),
+        stack_indices_logfile_residual = '{0:s}/test/stacked_images/psf_weighting_residual.log'.format(WORKING_DIR),
+        stack_indices_logfile_psf = '{0:s}/test/stacked_images/psf_weighting_psf.log'.format(WORKING_DIR)
+    resources:
+        walltime=900,
+        mem_mb=12000,
+    shell:
+        #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
+        #The normalised psf needs to be averaged as well as the weights
+        #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
+        #NOW I use the weights file for normalisation!
+        ENV_SETUP + \
+        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.weighting} -l {params.stack_indices_logfile_restored} -o -c ; ' + \
+        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -psf -pl {input.weighting} -l {params.stack_indices_logfile_psf} -o -c ; ' + \
+        'dstacking -cl {input.psf_for_weighting} -cp {params.cp} -cn {params.cn_psf_for_weighting} -o -c ; ' + \
+        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.weighting} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
+        'dstacking -cl {input.model} -cp {params.cp} -cn {params.cn_model} -o -n -c ; '

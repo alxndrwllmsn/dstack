@@ -43,7 +43,7 @@ c3 = '#FDE724';#Yellow
 outlier_color = 'dimgrey'
 
 #=== Functions ===
-def get_RMS_and_spectral_array_from_CIM(cim_path,output_spectra_name,all_dim=False,chan=None,chan_max=None):
+def get_RMS_and_spectral_array_from_CIM(cim_path,output_spectra_name, all_dim=False, chan=None,chan_max=None, robust=False, percentile_cut=1):
     """Create a spectra txt file containing channel frequencies and the measured RMS of the corresponding channel
     of the input Cim.
 
@@ -78,12 +78,20 @@ def get_RMS_and_spectral_array_from_CIM(cim_path,output_spectra_name,all_dim=Fal
         Has to be larger than the :chan: variable, and smaéller than the number of channels.
         Can be negative using python indexing scheme, but it can result in an indexing error if specified poorly!
 
+    robust: bool, optional
+        RMS is really sensitive to utliers, so a robust way to measure RMS is to use only data between some percentilke valuesű
+        e.g. ignore the top and bottom 10% of the data. If this value is set to True, this robust method is used to compute the RMS
+
+    percentile_cut: int, optional
+        If the RMS is computed via a robust method, this value gives the (upper) percentile value which below/above the data is being ignored.
+        A small number <10% is recommended, as the code does not take scaling due to the cut into account
+
     Return
     ======
     spectra_name: file
         Contains two columns: channel and RMS. The header informs the user of the units.
     """
-    rms_arr, rms_unit = ds.cim.measure_CIM_RMS(cim_path,all_dim=all_dim,chan=chan,chan_max=chan_max,return_dim=True)
+    rms_arr, rms_unit = ds.cim.measure_CIM_RMS(cim_path,all_dim=all_dim,chan=chan,chan_max=chan_max,return_dim=True, robust=robust,percentile_cut=percentile_cut)
     
     #Set teh full channel range for the spectral axis array
     #if all_dim == True:     
@@ -94,6 +102,29 @@ def get_RMS_and_spectral_array_from_CIM(cim_path,output_spectra_name,all_dim=Fal
 
     np.savetxt(output_spectra_name,np.column_stack((spectral_arr,rms_arr)), header='Freq [{0:s}] RMS [{1:s}]'.format(spectral_unit,rms_unit))
 
+def initialise_argument_list(required_list_length,argument_list):
+    """Funtion to recursively append the argument lists if needed.
+
+    Always append with the last element.
+
+    Parameters
+    ==========
+    required_list_length: int
+        Goal lenght to append
+
+    argument_list: list
+        List to append if needed
+
+    Return
+    ======
+    argument_list: list
+        Appended list
+
+    """
+    while len(argument_list) != required_list_length:
+        argument_list.append(argument_list[-1])
+
+    return argument_list
 
 def plot_spectra_list(input_spectra_file_list, output_name, label_list, beam_size_list=[None], flux_scaling_list=[1], frequency_scaling_list=[1], boundary_list=[(0,-1)], color_list=[None], flux_label=r'S [Jy]', frequency_label=r'$\mathcal{V}$ [GHz]'):
     """This is a one-fit-for-all type spectra plotting function to quickly compare spectras. The spectras are plotted onto the same plot.
@@ -153,31 +184,8 @@ def plot_spectra_list(input_spectra_file_list, output_name, label_list, beam_siz
     Return
     ======
     Spectra plot svaed as `output_name`
+ 
     """
-    def initialise_argument_list(required_list_length,argument_list):
-        """Child-function recursively appending the argument lists if needed.
-
-        Always append with the last element.
-
-        Parameters
-        ==========
-        required_list_length: int
-            Goal lenght to append
-
-        argument_list: list
-            List to append if needed
-
-        Return
-        ======
-        argument_list: list
-            Appended list
-
-        """
-        while len(argument_list) != required_list_length:
-            argument_list.append(argument_list[-1])
-
-        return argument_list
-
     #Initialise arguments by recursively appending them
     N_spectras = len(input_spectra_file_list)
     beam_size_list = initialise_argument_list(N_spectras,beam_size_list)
@@ -215,11 +223,70 @@ def plot_spectra_list(input_spectra_file_list, output_name, label_list, beam_siz
     plt.savefig(output_name,bbox_inches='tight')
 
 
-def plot_spectra_list_diff_triangle_matrix(input_spectra_file_list, beam_size_list, flux_scaling_list, frequency_scaling_list, boundary_list, color_list, label_list, output_name):
-    """
+def plot_spectra_list_comparison_triangle_matrix(input_spectra_file_list, output_name, label_list, beam_size_list=[None], flux_scaling_list=[1], frequency_scaling_list=[1], boundary_list=[(0,-1)], color_list=[None], flux_label=r'S [Jy]', frequency_label=r'$\mathcal{V}$ [GHz]'):
+    """This function is the nice version of the `simple plot_spectra_list()` function.
+
+    Instead of plotting all spectras on a single frame, it creates a triangle matrix plot of the spectras.
+    Each spectra is a diagonal element of the matrix, and in the lower triangle each panel two spectra is
+    shown of the respective rows and colums. Therefore, for multiple spectras very similar to one another,
+    This triangle plot makes easy to compare any spectra to any other spectra.
+
+    The frequency and flux units and ranges has to be consistent across the spectra similarly to the 
+    `simple plot_spectra_list()` function. The default argument values and the recursive append of the
+    argument valueas are also similar.
+
+    Parameters
+    ==========
+    input_spectra_file_list: list
+        List of paths for the spectra files
+
+    output_name: str
+        Output name of the plot created.
+
+    label_list: list
+        The list containing of the names of all the input spectra.
+
+    beam_size_list: list, optional
+        List containing the (average) beam axis size in pixels. If no beam correction needed, set it to `None`, which is the default setting.
+
+    flux_scaling_list: list, optional
+        Flux scaling values if the flux unit is not given in Jy, or the user wants a different unit. Else set to 1, which is the default value..
+
+    frequency_scaling_list: list, optional
+        Scaling factors for the frequency axes if the input frequencies are not in GHz, or the user wants a different unit. Else set to 1, which is the default value.
+
+    boundary_list: list, optional
+        Indices of the lower and upper boundaries of the spectral arrays to be shown. 
+        Values has to be touples containing both indices. If the full array should be shown set it to (0,-1), which is the default.
+
+    color_list: list, optional
+        Color list of the corresponding spectra. By default random colours are generated!
+
+    flux_label_list: str, optional
+        Common flux label of the spectras (y axis). [Jy] by default.
+
+    frequency_label_list: str, optional
+        Common frequency lables of the spectras (x axis). [GHz] by default.
+
+    Return
+    ======
+    Spectra plot svaed as `output_name`
 
     """
+    #Initialise arguments by recursively appending them
+    N_spectras = len(input_spectra_file_list)
+    beam_size_list = initialise_argument_list(N_spectras,beam_size_list)
+    flux_scaling_list = initialise_argument_list(N_spectras,flux_scaling_list)
+    frequency_scaling_list = initialise_argument_list(N_spectras,frequency_scaling_list)
+    boundary_list = initialise_argument_list(N_spectras,boundary_list)
+    color_list = initialise_argument_list(N_spectras,color_list)
 
+    #Generate random colors if needed
+    for i in range(0,len(color_list)):
+        if color_list[i] == None:
+            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+
+    #=== Create the figure
     fig, axes = plt.subplots(figsize=(2+4*len(input_spectra_file_list),2+4*len(input_spectra_file_list)),
                             sharex=True, sharey=True,
                             ncols=len(input_spectra_file_list), nrows=len(input_spectra_file_list))
@@ -243,7 +310,7 @@ def plot_spectra_list_diff_triangle_matrix(input_spectra_file_list, beam_size_li
                         second_spectra_data[:,1] /=  np.pi * beam_size_list[j] * beam_size_list[j] / (4 * np.log(2))
 
 
-                    axes[i, j].step(second_spectra_data[boundary_list[j][0]:boundary_list[j][1],0],
+                    axes[i, j].step(second_spectra_data[boundary_list[j][0]:boundary_list[j][1],0] * frequency_scaling_list[j],
                             second_spectra_data[boundary_list[j][0]:boundary_list[j][1],1] * flux_scaling_list[j],
                             lw=3, c=color_list[j], label=label_list[j], alpha=1)
                 else:
@@ -252,15 +319,15 @@ def plot_spectra_list_diff_triangle_matrix(input_spectra_file_list, beam_size_li
 
 
                 #Plot first spectra
-                axes[i, j].step(spectra_data[boundary_list[i][0]:boundary_list[i][1],0],
+                axes[i, j].step(spectra_data[boundary_list[i][0]:boundary_list[i][1],0] * frequency_scaling_list[i],
                     spectra_data[boundary_list[i][0]:boundary_list[i][1],1] * flux_scaling_list[i],
                     lw=3, c=color_list[i], label=label_list[i], alpha=1)
 
                 if i == len(input_spectra_file_list)-1:
-                    axes[i, j].set_xlabel(r'$\mathcal{V}$ [GHz]', fontsize=18)
+                    axes[i, j].set_xlabel(frequency_label, fontsize=18)
 
                 if j == 0:
-                    axes[i, j].set_ylabel(r'S [Jy]', fontsize=18)
+                    axes[i, j].set_ylabel(flux_label, fontsize=18)
 
     #Some style settings
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.0, hspace=0.0)
@@ -320,7 +387,7 @@ def run_spectral_analysis(parset_path, selected_sections):
         config = configparser.ConfigParser()
         config.read(parset_path)
 
-        log.info('Running section {0:s}'.format(single_section))
+        log.info('Processing section {0:s}'.format(single_section))
 
         params_dict = dict(config.items(single_section))
         del params_dict['function']
@@ -350,8 +417,8 @@ def run_spectral_analysis(parset_path, selected_sections):
             get_RMS_and_spectral_array_from_CIM(**convert_section_to_dict(parset_path,sec))
         elif config.get(sec,'function') == 'plot_spectra_list':
             plot_spectra_list(**convert_section_to_dict(parset_path,sec))
-        elif config.get(sec,'function') == 'plot_spectra_list_diff_triangle_matrix':
-            plot_spectra_list_diff_triangle_matrix(**convert_section_to_dict(parset_path,sec))
+        elif config.get(sec,'function') == 'plot_spectra_list_comparison_triangle_matrix':
+            plot_spectra_list_comparison_triangle_matrix(**convert_section_to_dict(parset_path,sec))
         else:
             raise ValueError('The given function {0:s} is not defined!'.format(config.get(sec,'function'))) 
 
@@ -360,152 +427,5 @@ if __name__ == "__main__":
     log.setLevel(logging.INFO)
     log.addHandler(logging.StreamHandler(sys.stdout))
 
-
-
     run_spectral_analysis('./spectra_quck_and_dirty_analyisis.in',
-                            selected_sections=['SimpleSpectraTestPlot'])
-
-
-    exit()
-
-
-    #Examples
-
-    plot_spectra_list_diff_triangle_matrix(['/home/krozgonyi/Desktop/beam17_results/spectras/co_added_visibility_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_image_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_grid_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/traditional_combined_nights_spectra.txt'],
-                        [5,5,5,5],
-                        [1,1,1,1000],
-                        #[0.0012622857250140181,0.0012197129794263414,0.001262288513992514,1000*0.0012197129794263414],
-                        #[1,1.0349,1,1000],
-                        [(58,158),(58,158),(58,158),(6377,6477)],
-                        #[(0,-1),(0,-1),(0,-1),(6377-58,6477+58)],
-                        [c0,c1,c2,outlier_color],
-                        ['Co added visibilities',
-                        'Stacked images',
-                        'Stacked grids',
-                        'Conventional imaging'],
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/all_comparision_matrix.pdf')
-
-
-    exit()
-
-
-    plot_spectra_list(['/home/krozgonyi/Desktop/beam17_results/spectras/rms_co_added_visibility_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_grid_spectra.txt'],
-                        [1,1],
-                        [1,1],
-                        [(0,-1),(0,-1)],
-                        [c0,c2],
-                        ['Co added visibilities',
-                        'Stacked grids'],
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_vis_grid_comparision.pdf')
-
-    exit()
-
-    plot_spectra_list(['/home/krozgonyi/Desktop/beam17_results/spectras/rms_co_added_visibility_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_image_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_grid_spectra.txt'],
-                        [1,1,1],
-                        [1,1,1],
-                        #[1000/np.sqrt(7),1.038*1000,1000],
-                        #[1000,1000,1000],
-                        [(0,-1),(0,-1),(0,-1)],
-                        [c0,c1,c2],
-                        ['Co added visibilities',
-                        'Stacked images',
-                        'Stacked grids'],
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_all_comparision.pdf')
-
-    exit()
-
-
-
-
-    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/co_added_visibilities/image.deep.restored',
-                                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_co_added_visibility_spectra.txt',
-                                        all_dim=False, chan=0, chan_max=70)
-
-    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/stacked_grids/image.deep.restored',
-                                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_grid_spectra.txt',
-                                        all_dim=False, chan=0, chan_max=70)
-
-    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/stacked_images/image.restored.deep',
-                                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_image_spectra.txt',
-                                        all_dim=False, chan=0, chan_max=70)
-
-    #exit()
-
-
-    plot_spectra_list_diff_triangle_matrix(['/home/krozgonyi/Desktop/beam17_results/quick_and_dirty_visibility_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/old_tapering/spectras/stacked_image_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/old_tapering/spectras/stacked_grid_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/old_tapering/spectras/traditional_combined_nights_spectra.txt'],
-                        [5,5,5,5],
-                        [1000,1,1,1000],
-                        #[1,1.038,1,1000],
-                        [(58,158),(58,158),(58,158),(6377,6477)],
-                        #[(0,-1),(0,-1),(0,-1),(6377-58,6477+58)],
-                        [c0,c1,c2,outlier_color],
-                        ['Co added visibilities',
-                        'Stacked images',
-                        'Stacked grids',
-                        'Conventional imaging'],
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/all_comparision_matrix.pdf')
-
-    exit()
-
-    plot_spectra_list(['/home/krozgonyi/Desktop/beam17_results/spectras/rms_co_added_visibility_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_image_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_grid_spectra.txt'],
-                        [1,1,1],
-                        [1000/np.sqrt(7),1000,1000],
-                        #[1000/np.sqrt(7),1.038*1000,1000],
-                        #[1000,1000,1000],
-                        [(0,-1),(0,-1),(0,-1)],
-                        [c0,c1,c2],
-                        ['Co added visibilities',
-                        'Stacked images',
-                        'Stacked grids'],
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/all_comparision.pdf')
-
-    exit()
-
-
-    #get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/noise_cube/co_added_visibilities/image.deep.restored',
-    #                                    '/home/krozgonyi/Desktop/beam17_results/noise_cube/rms_spectra.txt',
-    #                                    all_dim=True)
-
-    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/co_added_visibilities/image.deep.restored',
-                                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_co_added_visibility_spectra.txt',
-                                        all_dim=False, chan=0, chan_max=70)
-
-    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/stacked_grids/image.deep.restored',
-                                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_grid_spectra.txt',
-                                        all_dim=False, chan=0, chan_max=70)
-
-    get_RMS_and_spectral_array_from_CIM('/home/krozgonyi/Desktop/beam17_results/stacked_images/image.restored.deep',
-                                        '/home/krozgonyi/Desktop/beam17_results/spectras/rms_stacked_image_spectra.txt',
-                                        all_dim=False, chan=0, chan_max=70)
-
-
-
-
-    #exit()
-
-
-    
-    plot_spectra_list(['/home/krozgonyi/Desktop/beam17_results/spectras/co_added_visibility_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_image_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_grid_spectra.txt',
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/traditional_combined_nights_spectra.txt'],
-                        [5,5,5,5],
-                        [1,1,1,1000],
-                        [(58,158),(58,158),(58,158),(6377,6477)],
-                        [c0,c1,c2,c3],
-                        ['Co added visibilities',
-                        'Stacked images',
-                        'Stacked grids',
-                        'Conventional imaging'],
-                        '/home/krozgonyi/Desktop/beam17_results/spectras/all_comparision.pdf')
+                            selected_sections=['plot_robust_rms_spectras'])

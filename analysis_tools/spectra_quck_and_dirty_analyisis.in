@@ -1,15 +1,6 @@
-[SimpleSpectraTestPlot]
-
-#Test if the plot_spectra_list() function works well with only minimal input
-
-function = plot_spectra_list
-input_spectra_file_list = ['/home/krozgonyi/Desktop/beam17_results/spectras/co_added_visibility_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_image_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_grid_spectra.txt']
-label_list = ['vis', 'image', 'grid']
-output_name = '/home/krozgonyi/Desktop/beam17_results/spectras/simple_spectra_plot_test.pdf'
-
 [SimpleTriangePlot]
 
-function = plot_spectra_list_diff_triangle_matrix
+function = plot_spectra_list_comparison_triangle_matrix
 input_spectra_file_list = ['/home/krozgonyi/Desktop/beam17_results/spectras/co_added_visibility_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_image_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_grid_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/traditional_combined_nights_spectra.txt']
 output_name = '/home/krozgonyi/Desktop/beam17_results/spectras/all_comparision_matrix.pdf'
 beam_size_list = [5, 5, 5, 5]
@@ -17,5 +8,50 @@ flux_scaling_list = [1, 1, 1, 1000]
 boundary_list = [(58,158), (58,158), (58,158), (6377,6477)]
 color_list = ['#440154', '#30678D', '#35B778', 'dimgrey']
 label_list = ['Co added visibilities', 'Stacked images', 'Stacked grids', 'Conventional imaging']
+
+[co_added_vis_robust_rms]
+
+function = get_RMS_and_spectral_array_from_CIM
+cim_path = '/home/krozgonyi/Desktop/beam17_results/co_added_visibilities/image.deep.restored'
+output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_co_added-visibility_spectra.txt'
+all_dim = False
+chan = 0
+chan_max = 70
+robust = True
+percentile_cut = 5
+
+[image_stack_robust_rms]
+
+function = get_RMS_and_spectral_array_from_CIM
+cim_path = '/home/krozgonyi/Desktop/beam17_results/stacked_images/image.restored.deep'
+output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_stacked_image_spectra.txt'
+all_dim = False
+chan = 0
+chan_max = 70
+robust = True
+percentile_cut = 5
+
+[grid_stack_robust_rms]
+
+function = get_RMS_and_spectral_array_from_CIM
+cim_path = '/home/krozgonyi/Desktop/beam17_results/stacked_grids/image.deep.restored'
+output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_stacked_grid_spectra.txt'
+all_dim = False
+chan = 0
+chan_max = 70
+robust = True
+percentile_cut = 5
+
+[plot_robust_rms_spectras]
+
+function = plot_spectra_list
+input_spectra_file_list = ['/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_co_added-visibility_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_stacked_image_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_stacked_grid_spectra.txt']
+label_list = ['vis', 'image', 'grid']
+output_name = '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_spectra_comparison.pdf'
+
+
+
+
+
 
 
