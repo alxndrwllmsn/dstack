@@ -1,3 +1,7 @@
+[APP]
+
+CIMPath = /home/krozgonyi/Desktop/dstack_test_files/image.restored.wr.1.sim_PC
+
 [CGrid]
 
 GridPath = /home/krozgonyi/Desktop/dstack_test_files/grid.wr.1.sim_PC

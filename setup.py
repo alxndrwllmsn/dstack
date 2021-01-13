@@ -28,6 +28,7 @@ setup(
     entry_points={
     'console_scripts': [
         'dstacking = dstack.applications:dstacking',
-        'dparset = dstack.applications:dparset']
+        'dparset = dstack.applications:dparset',
+        'cim2fits = dstack.applications:cim2fits']
         }
     )

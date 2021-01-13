@@ -2,6 +2,9 @@
 
 echo "Run all unittest for dstcak:\n"
 
+echo "Unittest: apps"
+python3 applications_test.py 
+echo
 echo "Unittest: cgrid module"
 python3 cgrid_test.py
 echo

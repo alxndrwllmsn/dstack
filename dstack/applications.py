@@ -6,7 +6,7 @@ Parameters of the applications (e.g. input file names) are passed
 as arguments.
 """
 
-__all__ = ['dstacking', 'dparset']
+__all__ = ['dstacking', 'dparset', 'cim2fits']
 
 import sys
 import argparse
@@ -157,7 +157,7 @@ def dparset():
     str -i or --imager:
         The Imager used in the parset. Has to be supported by dstack.
     
-    str -n or ..image_names:
+    str -n or --image_names:
         The Images.Names parameters used to create the parset file. Defines the parameter for the output file, 
         thus if a template is used and the input is different specify that by the argument ``--template_image_names``.
 
@@ -329,6 +329,46 @@ def dparset():
             parset.remove_parset_parameter(prec_param_to_remove)
 
     parset.save_parset(output_path=args.output_path, parset_name=args.parset_name,use_image_names=args.use_image_names)
+
+def cim2fits():
+    """Simple command line tool to convert CASAImages to .fits format. It is a wrapper arounf the python-casacore.images.image.tofits() function
+
+    The DINGO pipeline needs to converts the final deep images to .fits format if the output is not .fits by default as SofiA 2.0 requires .fits input.
+
+    The application runs in the working directory by default, but absolute pats can be defined as well.
+
+    Keyword Arguments
+    =================
+    str -i or --input:
+        Input CASAImage either fileneam only or full path.
+    
+    str -o or --output:
+        TOutput .fits file name or full path.
+
+    Returns
+    =======
+    fits: file
+        The input image in a .fits format.
+    """
+    parser = argparse.ArgumentParser(description='This is an application to convert CASAImages to .fits format')
+
+    #=== Required arguments ===
+    parser.add_argument('-i', '--input', 
+                        help='Input CASAImage either fileneam only or full path.',
+                        required=True, action="store", type=str)
+
+    parser.add_argument('-o', '--output', 
+                        help='Output .fits file name or full path.',
+                        required=True, action="store", type=str)
+
+    #=== Application MAIN ===
+    args = parser.parse_args()
+
+    input_cim = ds.cim.create_CIM_object(args.input)
+
+    input_cim.tofits(args.output)
+
+    del input_cim
 
 if __name__ == "__main__":
     pass

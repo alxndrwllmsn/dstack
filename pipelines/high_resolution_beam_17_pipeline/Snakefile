@@ -145,7 +145,7 @@ rule co_added_visibility_dumpgrid:
     resources:
         walltime=1500,
         #This is the memory [MB] on each node (currently using 1 node)!
-        mem_mb=120000,
+        mem_mb=160000,
         ntasks=N_TASKS+1
     shell:
         ENV_SETUP + \
@@ -182,8 +182,8 @@ rule deep_co_added_visibility_imaging:
         yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
         parset_name = 'cdeconvolver_{image_names}.in'
     resources:
-        walltime=9000,
-        mem_mb=32000,
+        walltime=1500,
+        mem_mb=120000,
         ntasks=N_TASKS
     shell:
         ENV_SETUP + \
@@ -225,8 +225,8 @@ rule first_pass_imaging:
         yanda_logfile = 'logfile_dumpgrid_night_{night_index}.log',
         night_subdir = 'test/night_{night_index}/' #Need to run imaging inside the directory
     resources:
-        walltime=900,
-        mem_mb=32000,
+        walltime=1500,
+        mem_mb=120000,
         ntasks=N_TASKS+1
     shell:
         ENV_SETUP + \
@@ -250,8 +250,8 @@ rule grid_stacking:
         cn_psfgrid = 'psfgrid.deep',
         cn_pcf = 'pcf.deep'
     resources:
-        walltime=300,
-        mem_mb=48000,
+        walltime=900,
+        mem_mb=64000,
     shell:
         ENV_SETUP + \
         'dstacking -cl {input.grid} -cp {params.cp} -cn {params.cn_grid} -c ; \
@@ -290,7 +290,7 @@ rule deep_imaging:
         parset_name = 'cdeconvolver_{image_names}.in'
     resources:
         walltime=900,
-        mem_mb=32000,
+        mem_mb=120000,
         ntasks=N_TASKS
     shell:
         ENV_SETUP + \
@@ -338,7 +338,7 @@ rule cdeconvolver_daily_imaging:
         parset_name = 'cdeconvolver_daily_parset.in'
     resources:
         walltime=900,
-        mem_mb=32000,
+        mem_mb=120000,
         ntasks=N_TASKS
     shell:
         ENV_SETUP + \
@@ -372,7 +372,7 @@ rule image_stacking:
         stack_indices_logfile_psf = '{0:s}/test/stacked_images/psf_weighting_psf.log'.format(WORKING_DIR)
     resources:
         walltime=900,
-        mem_mb=12000,
+        mem_mb=64000,
     shell:
         #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
         #The normalised psf needs to be averaged as well as the weights

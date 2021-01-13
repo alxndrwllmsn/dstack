@@ -428,4 +428,4 @@ if __name__ == "__main__":
     log.addHandler(logging.StreamHandler(sys.stdout))
 
     run_spectral_analysis('./spectra_quck_and_dirty_analyisis.in',
-                            selected_sections=['plot_robust_rms_spectras'])
+                            selected_sections=['HighRes_plot_simple_spectra','plot_simple_spectra'])
