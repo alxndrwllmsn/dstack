@@ -23,174 +23,118 @@ color_list = ['#440154', '#30678D', '#35B778']
 label_list = ['Co added visibilities', 'Stacked images', 'Stacked grids']
 
 #==================================
-[HighRes_co_added_spectra]
 
-function = get_RMS_and_spectral_array_from_CIM
-cim_path = '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/co_added_visibilities/image.deep.restored'
-output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/rms_co_added-visibility_spectra.txt'
-all_dim = False
-chan = 0
-chan_max = 2
-robust = False
-percentile_cut = 1
-
-[HighRes_image_stack_spectra]
-
-function = get_RMS_and_spectral_array_from_CIM
-cim_path = '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/stacked_images/image.restored.deep'
-output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/rms_stacked_image_spectra.txt'
-all_dim = False
-chan = 0
-chan_max = 2
-robust = True
-percentile_cut = 1
-
-[HighRes_grid_stack_spectra]
-
-function = get_RMS_and_spectral_array_from_CIM
-cim_path = '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/stacked_grids/image.deep.restored'
-output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/rms_stacked_grid_spectra.txt'
-all_dim = False
-chan = 0
-chan_max = 2
-robust = True
-percentile_cut = 1
-
-[HighRes_plot_spectra]
-
-function = plot_spectra_list
-input_spectra_file_list = ['/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/rms_co_added-visibility_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/rms_stacked_image_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/rms_stacked_grid_spectra.txt']
-label_list = ['Co-added visibility', 'Stacked images', 'Stacked grids']
-color_list = ['#440154', '#30678D', '#35B778']
-flux_label=r'RMS [<Jy/beam> (?)]'
-frequency_label=r'$\mathcal{V}$ [Hz]'
-output_name = '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/rms_spectra_comparison.pdf'
-
-#=================================
-[HighRes_plot_simple_spectra]
-
-function = plot_spectra_list
-input_spectra_file_list = ['/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/co_added_visibility_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/stacked_image_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/stacked_grid_spectra.txt']
-beam_size_list = [6, 6, 6]
-flux_scaling_list = [1, 1, 1]
-boundary_list = [(0,70), (0,70), (0,70)]
-label_list = ['Co-added visibility', 'Stacked images', 'Stacked grids']
-color_list = ['#440154', '#30678D', '#35B778']
-flux_label=r'S [Jy]'
-frequency_label=r'$\mathcal{V}$ [GHz]'
-output_name = '/home/krozgonyi/Desktop/beam17_results/high_resolution_results/spectras/simple_noise_spectra_comparison_high_res.pdf'
-
-
-#=================================
-[plot_simple_spectra]
-
-function = plot_spectra_list
-input_spectra_file_list = ['/home/krozgonyi/Desktop/beam17_results/spectras/co_added_visibility_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_image_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_grid_spectra.txt']
-beam_size_list = [5, 5, 5]
-flux_scaling_list = [1, 1, 1]
-boundary_list = [(0,70), (0,70), (0,70)]
-label_list = ['Co-added visibility', 'Stacked images', 'Stacked grids']
-color_list = ['#440154', '#30678D', '#35B778']
-flux_label=r'S [Jy]'
-frequency_label=r'$\mathcal{V}$ [GHz]'
-output_name = '/home/krozgonyi/Desktop/beam17_results/spectras/simple_noise_spectra_comparison.pdf'
-
-#==================================
-
-[TriangePlotHighResDirtyVisAdded]
+[quick_and_dirty_spectras_source_1]
 
 function = plot_spectra_list_comparison_triangle_matrix
-input_spectra_file_list = ['/home/krozgonyi/Desktop/beam17_results/spectras/co_added_visibility_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_image_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/stacked_grid_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/traditional_combined_nights_spectra.txt','/home/krozgonyi/Desktop/beam17_results/spectras/high_resolution_co_added_visibility_dirty_spectra.txt']
-output_name = '/home/krozgonyi/Desktop/beam17_results/spectras/high_res_co_added_dirty_comparision_matrix.pdf'
-beam_size_list = [5, 5, 5, 5, 6]
-flux_scaling_list = [1, 1, 1, 1000, 1000]
-boundary_list = [(58,158), (58,158), (58,158), (6377,6477), (58,158)]
-color_list = ['#440154', '#30678D', '#35B778', 'dimgrey', 'black']
-label_list = ['Co added visibilities', 'Stacked images', 'Stacked grids', 'Conventional imaging', 'High res dirty co added']
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/co_added_visibilities/beam17_all_cubelets/beam17_all_1_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_images/beam17_all_cubelets/beam17_all_1_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/beam17_all_cubelets/beam17_all_1_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/spectras/all_comparision_matrix_source_1.pdf'
+beam_size_list = [5, 5, 5]
+flux_scaling_list = [1, 1, 1]
+color_list = ['#440154', '#30678D', '#35B778']
+label_list = ['Co added visibilities', 'Stacked images', 'Stacked grids']
+
+[quick_and_dirty_spectras_source_2]
+
+function = plot_spectra_list_comparison_triangle_matrix
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/co_added_visibilities/beam17_all_cubelets/beam17_all_2_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/beam17_all_cubelets/beam17_all_2_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/spectras/all_comparision_matrix_source_2.pdf'
+beam_size_list = [5, 5]
+flux_scaling_list = [1, 1]
+color_list = ['#440154', '#35B778']
+label_list = ['Co added visibilities', 'Stacked grids']
+
+[quick_and_dirty_spectras_source_3]
+
+function = plot_spectra_list_comparison_triangle_matrix
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/co_added_visibilities/beam17_all_cubelets/beam17_all_3_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/beam17_all_cubelets/beam17_all_3_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/spectras/all_comparision_matrix_source_3.pdf'
+beam_size_list = [5, 5]
+flux_scaling_list = [1, 1]
+color_list = ['#440154', '#35B778']
+label_list = ['Co added visibilities', 'Stacked grids']
+
+[quick_and_dirty_spectras_source_4]
+
+function = plot_spectra_list_comparison_triangle_matrix
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/co_added_visibilities/beam17_all_cubelets/beam17_all_5_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_images/beam17_all_cubelets/beam17_all_3_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/beam17_all_cubelets/beam17_all_6_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/spectras/all_comparision_matrix_source_4.pdf'
+beam_size_list = [5, 5, 5]
+flux_scaling_list = [1, 1, 1]
+color_list = ['#440154', '#30678D', '#35B778']
+label_list = ['Co added visibilities', 'Stacked images', 'Stacked grids']
+
+[quick_and_dirty_spectras_source_5]
+
+function = plot_spectra_list_comparison_triangle_matrix
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/co_added_visibilities/beam17_all_cubelets/beam17_all_4_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/beam17_all_cubelets/beam17_all_4_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/spectras/all_comparision_matrix_source_5.pdf'
+beam_size_list = [5, 5]
+flux_scaling_list = [1, 1]
+color_list = ['#440154', '#35B778']
+label_list = ['Co added visibilities', 'Stacked grids']
+
+
+[quick_and_dirty_spectras_source_6]
+
+function = plot_spectra_list
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/beam17_all_cubelets/beam17_all_5_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/spectras/all_comparision_matrix_source_6.pdf'
+beam_size_list = [5]
+flux_scaling_list = [1]
+color_list = ['#35B778']
+label_list = ['Stacked grids']
+
+[quick_and_dirty_spectras_source_7]
+
+function = plot_spectra_list
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_images/beam17_all_cubelets/beam17_all_2_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/spectras/all_comparision_matrix_source_7.pdf'
+beam_size_list = [5]
+flux_scaling_list = [1]
+color_list = ['#30678D']
+label_list = ['Stacked images']
 
 #==================================
 
-[co_added_vis_robust_rms]
+[quick_and_dirty_high_res_spectras_source_1]
 
-function = get_RMS_and_spectral_array_from_CIM
-cim_path = '/home/krozgonyi/Desktop/beam17_results/co_added_visibilities/image.deep.restored'
-output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_co_added-visibility_spectra.txt'
-all_dim = False
-chan = 0
-chan_max = 70
-robust = True
-percentile_cut = 1
-
-[image_stack_robust_rms]
-
-function = get_RMS_and_spectral_array_from_CIM
-cim_path = '/home/krozgonyi/Desktop/beam17_results/stacked_images/image.restored.deep'
-output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_stacked_image_spectra.txt'
-all_dim = False
-chan = 0
-chan_max = 70
-robust = True
-percentile_cut = 1
-
-[grid_stack_robust_rms]
-
-function = get_RMS_and_spectral_array_from_CIM
-cim_path = '/home/krozgonyi/Desktop/beam17_results/stacked_grids/image.deep.restored'
-output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_stacked_grid_spectra.txt'
-all_dim = False
-chan = 0
-chan_max = 70
-robust = True
-percentile_cut = 1
-
-[plot_robust_rms_spectras]
-
-function = plot_spectra_list
-input_spectra_file_list = ['/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_co_added-visibility_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_stacked_image_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_stacked_grid_spectra.txt']
-label_list = ['Co-added visibility', 'Stacked images', 'Stacked grids']
+function = plot_spectra_list_comparison_triangle_matrix
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/co_added_visibilities/beam17_all_cubelets/beam17_all_1_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/stacked_images/beam17_all_cubelets/beam17_all_1_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/stacked_grids/beam17_all_cubelets/beam17_all_1_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/spectras/all_comparision_matrix_source_1.pdf'
+beam_size_list = [6, 6, 6]
+flux_scaling_list = [1, 1, 1]
 color_list = ['#440154', '#30678D', '#35B778']
-flux_label=r'RMS [<Jy/beam> (?)]'
-frequency_label=r'$\mathcal{V}$ [Hz]'
-output_name = '/home/krozgonyi/Desktop/beam17_results/spectras/robust_rms_spectra_comparison.pdf'
+label_list = ['Co added visibilities', 'Stacked images', 'Stacked grids']
 
-#===============================
-[dirty_co_added_vis_rms]
+[quick_and_dirty_high_res_spectras_source_2]
 
-function = get_RMS_and_spectral_array_from_CIM
-cim_path = '/home/krozgonyi/Desktop/beam17_results/dirty_deep_images/co_added.visibility.dirty'
-output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/spectras/dirty_rms_co_added_visibility_spectra.txt'
-all_dim = False
-chan = 0
-chan_max = 70
-robust = False
-percentile_cut = 1
+function = plot_spectra_list_comparison_triangle_matrix
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/co_added_visibilities/beam17_all_cubelets/beam17_all_3_spec.txt', '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/stacked_grids/beam17_all_cubelets/beam17_all_3_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/spectras/all_comparision_matrix_source_2.pdf'
+beam_size_list = [6, 6]
+flux_scaling_list = [1, 1]
+color_list = ['#440154', '#35B778']
+label_list = ['Co added visibilities', 'Stacked grids']
 
-
-[dirty_image_stacking_rms]
-
-function = get_RMS_and_spectral_array_from_CIM
-cim_path = '/home/krozgonyi/Desktop/beam17_results/dirty_deep_images/image.stack.dirty'
-output_spectra_name = '/home/krozgonyi/Desktop/beam17_results/spectras/dirty_rms_stacked_image_spectra.txt'
-all_dim = False
-chan = 0
-chan_max = 70
-robust = False
-percentile_cut = 1
-
-[plot_dirty_rms_spectras]
+[quick_and_dirty_high_res_spectras_source_3]
 
 function = plot_spectra_list
-input_spectra_file_list = ['/home/krozgonyi/Desktop/beam17_results/spectras/dirty_rms_co_added_visibility_spectra.txt', '/home/krozgonyi/Desktop/beam17_results/spectras/dirty_rms_stacked_image_spectra.txt']
-label_list = ['Co added visibilities', 'Stacked images']
-color_list = ['#440154', '#30678D']
-flux_label=r'RMS [<Jy/beam> (?)]'
-frequency_label=r'$\mathcal{V}$ [Hz]'
-output_name = '/home/krozgonyi/Desktop/beam17_results/spectras/dirty_rms_spectra_comparison.pdf'
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/stacked_grids/beam17_all_cubelets/beam17_all_2_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/spectras/all_comparision_matrix_source_3.pdf'
+beam_size_list = [6]
+flux_scaling_list = [1]
+color_list = ['#35B778']
+label_list = ['Stacked grids']
 
+[quick_and_dirty_high_res_spectras_source_4]
 
-
-
-
-
+function = plot_spectra_list
+input_spectra_file_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/co_added_visibilities/beam17_all_cubelets/beam17_all_3_spec.txt']
+output_name = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/spectras/all_comparision_matrix_source_4.pdf'
+beam_size_list = [6]
+flux_scaling_list = [1]
+color_list = ['#440154']
+label_list = ['Co added visibilities']
 
 

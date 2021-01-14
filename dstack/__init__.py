@@ -11,4 +11,4 @@ from . import applications, cim, cgrid, parset, msutil
 __name__ = "dstcak"
 __author__ = ["Kristof Rozgonyi (@rstofi)"]
 
-__all__ = ['applications', 'cim', 'cgrid', 'parset', 'msutil']
+__all__ = ['applications', 'cim', 'cgrid', 'parset', 'msutil', 'sdiagnostics']

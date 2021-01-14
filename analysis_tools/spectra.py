@@ -209,10 +209,10 @@ def plot_spectra_list(input_spectra_file_list, output_name, label_list, beam_siz
 
         #Beam correction from Jy=beam to Jy
         if beam_size_list[i] != None:
-            spectra_data[:,1] /=  np.pi * beam_size_list[i] * beam_size_list[i] / (4 * np.log(2))
+            spectra_data[:,2] /=  np.pi * beam_size_list[i] * beam_size_list[i] / (4 * np.log(2))
 
-        ax1.step(spectra_data[boundary_list[i][0]:boundary_list[i][1],0] * frequency_scaling_list[i],
-                spectra_data[boundary_list[i][0]:boundary_list[i][1],1] * flux_scaling_list[i],
+        ax1.step(spectra_data[boundary_list[i][0]:boundary_list[i][1],1] * frequency_scaling_list[i],
+                spectra_data[boundary_list[i][0]:boundary_list[i][1],2] * flux_scaling_list[i],
                 lw=3, c=color_list[i], label=label_list[i], alpha=1)
 
     ax1.legend(fontsize=16,loc='best')
@@ -299,7 +299,7 @@ def plot_spectra_list_comparison_triangle_matrix(input_spectra_file_list, output
                 spectra_data = np.genfromtxt(input_spectra_file_list[i])
                 #Beam correction from Jy=beam to Jy
                 if beam_size_list[i] != None:
-                    spectra_data[:,1] /=  np.pi * beam_size_list[i] * beam_size_list[i] / (4 * np.log(2))
+                    spectra_data[:,2] /=  np.pi * beam_size_list[i] * beam_size_list[i] / (4 * np.log(2))
 
                 axes[i, j].grid()
 
@@ -307,11 +307,11 @@ def plot_spectra_list_comparison_triangle_matrix(input_spectra_file_list, output
                     second_spectra_data = np.genfromtxt(input_spectra_file_list[j])
                     #Beam correction from Jy=beam to Jy
                     if beam_size_list[j] != None:
-                        second_spectra_data[:,1] /=  np.pi * beam_size_list[j] * beam_size_list[j] / (4 * np.log(2))
+                        second_spectra_data[:,2] /=  np.pi * beam_size_list[j] * beam_size_list[j] / (4 * np.log(2))
 
 
-                    axes[i, j].step(second_spectra_data[boundary_list[j][0]:boundary_list[j][1],0] * frequency_scaling_list[j],
-                            second_spectra_data[boundary_list[j][0]:boundary_list[j][1],1] * flux_scaling_list[j],
+                    axes[i, j].step(second_spectra_data[boundary_list[j][0]:boundary_list[j][1],1] * frequency_scaling_list[j],
+                            second_spectra_data[boundary_list[j][0]:boundary_list[j][1],2] * flux_scaling_list[j],
                             lw=3, c=color_list[j], label=label_list[j], alpha=1)
                 else:
                     #axes[i, j].legend(fontsize=16,loc='best')
@@ -319,8 +319,8 @@ def plot_spectra_list_comparison_triangle_matrix(input_spectra_file_list, output
 
 
                 #Plot first spectra
-                axes[i, j].step(spectra_data[boundary_list[i][0]:boundary_list[i][1],0] * frequency_scaling_list[i],
-                    spectra_data[boundary_list[i][0]:boundary_list[i][1],1] * flux_scaling_list[i],
+                axes[i, j].step(spectra_data[boundary_list[i][0]:boundary_list[i][1],1] * frequency_scaling_list[i],
+                    spectra_data[boundary_list[i][0]:boundary_list[i][1],2] * flux_scaling_list[i],
                     lw=3, c=color_list[i], label=label_list[i], alpha=1)
 
                 if i == len(input_spectra_file_list)-1:
@@ -428,4 +428,4 @@ if __name__ == "__main__":
     log.addHandler(logging.StreamHandler(sys.stdout))
 
     run_spectral_analysis('./spectra_quck_and_dirty_analyisis.in',
-                            selected_sections=['HighRes_plot_simple_spectra','plot_simple_spectra'])
+                            selected_sections=['quick_and_dirty_spectras_source_6'])
