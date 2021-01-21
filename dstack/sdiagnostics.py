@@ -31,6 +31,7 @@ from astroquery.skyview import SkyView
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import dstack as ds
 
@@ -132,6 +133,32 @@ def get_source_files(source_ID, sofia_dir_path, name_base):
 
     return source_index, catalog_path, cubelet_path_dict, spectra_path
 
+def get_N_sources(sofia_dir_path, name_base):
+    """Simple script to get the number of sources from the SoFiA output catalog
+
+    Parameters
+    ==========
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+
+    Return
+    ======
+    N_sources: int
+        Number of sources found by SoFiA. Equals to the number of rows in the dattabase created by SoFiA
+    """
+    #Get the catalog path
+    catalog_path = sofia_dir_path + name_base + 'cat.xml'
+    
+    catalog = parse_single_table(catalog_path).to_table(use_names_over_ids=True)
+
+    N_sources = np.shape(catalog)[0]
+    
+    return N_sources
+
 #= Conversions & formulae
 def get_z_from_freq(obs_freq):
     """ Convert observed frequency to (measured) redshift
@@ -167,9 +194,9 @@ def get_velocity_from_freq(obs_freq, v_frame='optical'):
         New velocity frame velocity values in [km/s]
     """
     if v_frame == 'optical':
-        vel = _C * (_HI_RESTFREQ / (obs_freq - 1.))
+        vel = _C * ((_HI_RESTFREQ / obs_freq ) - 1.)
     elif v_frame == 'radio':
-        vel = _C * ((1. - obs_freq) / _HI_RESTFREQ)
+        vel = _C * (1. - (obs_freq / _HI_RESTFREQ))
     else:
         raise ValueError('Not supported velocity frame!')
     
@@ -194,8 +221,7 @@ def get_velocity_dispersion_from_freq(obs_freq_disp, obs_freq, v_frame='optical'
     vel_disp: float
         Velocity dispersion values in [km/s]
     """
-    vel = get_velocity_from_freq(obs_freq, v_frame)
-    vel_disp = ( _C * obs_freq_disp ) / vel
+    vel_disp = _C * (obs_freq_disp  / obs_freq )
 
     return vel_disp
 
@@ -255,7 +281,7 @@ def get_column_density_sensitivity(S_rms, z, b_maj, b_min, dnu, sigma_S=1):
     Return
     ======
     N_HI_sensitivity: float
-        Column density sensitivity
+        Column density sensitivity in [N particles / cm^2]
     """
     S_sensitivity = S_rms * dnu * sigma_S
 
@@ -423,7 +449,12 @@ def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_pixel=600
     pos = SkyCoord(ra=ra, dec=dec, unit='deg')
 
     # get (download) the image and select the first elemnt of the list (only one elemnt should be in the list returned)
-    optical_fits = SkyView.get_images(position=pos, survey=survey, projection='Sin', pixels=N_pixel)[0]
+    
+    # I got an index out of range error when running this script, and I don't know why...
+    try:
+        optical_fits = SkyView.get_images(position=pos, survey=survey, projection='Sin', pixels=N_pixel)[0]
+    except:
+        optical_fits = SkyView.get_images(position=pos, survey=survey, projection='Sin', pixels=N_pixel)
 
     return optical_fits
 
@@ -461,7 +492,19 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, N_optical_pi
     source_index, catalog_path, cubelet_path_dict, spectra_path = get_source_files(source_ID, sofia_dir_path, name_base)
     
     #Get optical image and coordinate system
-    optical_im_fits = get_optical_image(catalog_path, source_index, N_pixel=N_optical_pixels)[0]
+    
+    #This solution is handeling an error inherited from the `get_optical_image` function...
+    try:
+        optical_im_fits = get_optical_image(catalog_path, source_index, N_pixel=N_optical_pixels)[0]
+    except:
+        optical_im_fits = get_optical_image(catalog_path, source_index, N_pixel=N_optical_pixels)
+
+        print('')
+        print(optical_im_fits)
+        print(type(optical_im_fits))
+        print('')
+    
+
     optical_im = optical_im_fits.data
     optical_im_wcs = WCS(optical_im_fits.header)
 
@@ -477,6 +520,8 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
 
     The third variable returned is a `None` for the mom1 an mom2 maps.
     Except if the masking is set to True, because then the column density sensitivity limit also returned
+
+    For the moment0 maps the units are automatically converted to units of 10^20 particles / cm^2 !
 
     Parameters
     ==========
@@ -536,8 +581,12 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
 
         #Get moment0 (column density) map sensitivity and wcs 
         mom0_map = fits.getdata(cubelet_path_dict['mom0'])
-        col_den_map = get_column_density(mom0_map, z, b_maj, b_min) * 1e-19 #Convert to ???
-        col_den_sen_lim = get_column_density_sensitivity(rms, z, b_maj, b_min, dnu, 1) * 1e-19
+        col_den_map = get_column_density(mom0_map, z, b_maj, b_min) * 1e-20 #Set the unit to [10^20 paricle / cm^2]
+        col_den_sen_lim = get_column_density_sensitivity(rms, z, b_maj, b_min, dnu, 1) * 1e-20
+ 
+        #Mask out the pixels with 0 values
+        mask = (col_den_map == 0.)
+        col_den_map = np.ma.array(col_den_map, mask=mask)
 
         if moment == 0:
             return col_den_map, mom_wcs, col_den_sen_lim
@@ -715,6 +764,7 @@ def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_ba
     ax.add_patch(beam_ellip)
 
     plt.savefig(output_fname,bbox_inches='tight')
+    plt.close()
 
 def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, masking=True, mask_sigma=3, contours=False, contour_levels=[3,5,7,9,11], b_maj=30, b_min=30, b_pa=0, **kwargs):
     """Create the mom map with optionally the fitted contours in the foreground and masking of low
@@ -793,11 +843,9 @@ def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, ma
     cb.ax.tick_params(direction='in', length=6, width=2)
 
     if moment == 0:
-        cb.ax.set_ylabel(r'N HI [???]', fontsize = 18)
-    elif moment == 1:
+        cb.ax.set_ylabel(r'N$_{HI}$ [10$^{20}$cm$^2$]', fontsize = 18)
+    else:
         cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', fontsize = 18)
-    elif moment == 2:
-        cb.ax.set_ylabel(r'$\sigma$v$_{opt}$ [km/s]', fontsize = 18)
 
     #Label settings
     ax.coords.grid(color='white', alpha=0.5, linestyle='dashed')
@@ -814,7 +862,7 @@ def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, ma
     ax.add_patch(beam_ellip)
 
     plt.savefig(output_fname,bbox_inches='tight')
-
+    plt.close()
 
 def plot_spectra(source_ID, sofia_dir_path, name_base, output_fname, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
     """Plot the integrated spectra of the source.
@@ -859,16 +907,450 @@ def plot_spectra(source_ID, sofia_dir_path, name_base, output_fname, v_frame='op
 
     ax.step(velocity, flux, lw=3, c=c1)
     
-    ax.set_xlabel('Velocity (km/s)', fontsize=18)
+    ax.set_xlabel(r'v$_{opt}$ (km/s)', fontsize=18)
     ax.set_ylabel('Flux density (Jy)', fontsize=18)
     ax.grid()
 
     plt.savefig(output_fname,bbox_inches='tight')
+    plt.close()
+
+def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, masking=True, mask_sigma=3, contour_levels=[3,5,7,9,11], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+    """Create all analytics plots on a fingle figure gor a given source. The plots created are:
+
+        - mom0 contours on the optical background
+        - mom0 map with contours
+        - mom1 map
+        - mom2 map
+        - spectra
+
+    This code is mostly copy-paste of the individual imaging functions, which is not a good practice...
+    Also, this code have waaaay to many arguments...
+
+    Nevertheless, this is the only code which should be run on all sources found by SoFiA.
+
+    The code can be slow, as all cubelet arrays are read in multiple times due to modularisation.
+    I am not sure how good of a solution this is, but makes the code more readable I think...
+
+    Based on the functions above, it should be self-explanatory what exacty happening in this code.
+
+    
+    Parameters
+    ==========
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+   
+    output_fname: str
+        The full path and filename for the output image created.
+ 
+    masking: bool
+        If True, pixel values below a certain sensitivity threshold will be masked out.
+
+    mask_sigma: int
+        The masking threshold value. The masking is performed based on the moment0 map.
+        The threshold is given in terms of column density sensitivity values (similarly to contour lines)
+
+    contour_levels: list
+        List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
+
+    N_optical_pixels: int
+        Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
+     b_maj: float
+        Angular major axis of the beam [arcsec]
+    
+    b_min: float
+        Angular minor axis of the beam [arcsec]
+
+    b_pa: float
+        Angle of the beam [deg]
+
+    v_frame: str
+        The velocity frame. Can be 'frequency', 'optical' or 'radio'
+    
+    beam_correction: bool
+        If True, the flux values are corrected for the synthesised beam
+
+    b_maj_px: float
+        The major axis of the beam in pixels
+
+    b_min_px: float
+        The minor axis of the beam in pixels
+
+    Return
+    ======
+    output_image: file
+        The image created
+    
+
+    """
+    #Get the data arrays
+    mom0_map, mom_wcs, col_den_sen_lim = get_momN_ndarray(moment=0, source_ID=source_ID, sofia_dir_path=sofia_dir_path, name_base=name_base, b_maj=b_maj, b_min=b_min)
+    optical_im, optical_im_wcs = get_optical_image_ndarray(source_ID=source_ID, sofia_dir_path=sofia_dir_path, name_base=name_base, N_optical_pixels=N_optical_pixels)
+
+    mom1_map, mom_wcs, col_den_sen_lim = get_momN_ndarray(moment=1, source_ID=source_ID, sofia_dir_path=sofia_dir_path, name_base=name_base,
+            masking=masking, mask_sigma=mask_sigma, b_maj=b_maj, b_min=b_min)
+
+    mom2_map, mom_wcs, col_den_sen_lim = get_momN_ndarray(moment=2, source_ID=source_ID, sofia_dir_path=sofia_dir_path, name_base=name_base,
+            masking=masking, mask_sigma=mask_sigma, b_maj=b_maj, b_min=b_min)
+
+    flux, velocity = get_spectra_array(source_ID=source_ID, sofia_dir_path=sofia_dir_path, name_base=name_base,
+            v_frame=v_frame, beam_correction=beam_correction, b_maj_px=b_maj_px, b_min_px=b_min_px)
+
+    #Create the plot
+    fig = plt.figure(1, figsize=(25,12))
+    #Big spacing between plots, as the source cubelets can vary and the colorbars are not calculated into the subplot sizes...
+    fig.subplots_adjust(left=0.15, right=0.8, top=0.9, bottom=0.1, wspace=0.5, hspace=0.25)
+
+    fig.suptitle('Source no. {0:d}'.format(source_ID), fontsize=24)
+
+    #mom0 conours with optical background
+    ax0 = fig.add_subplot(231, projection=optical_im_wcs)
+
+    ax0.imshow(optical_im.data,origin='lower',cmap='Greys')
+    ax0.contour(mom0_map, levels=np.multiply(np.array(contour_levels),col_den_sen_lim),transform=ax0.get_transform(mom_wcs))
+
+    ax0.coords.grid(color='k', alpha=0.5, linestyle='dashed')
+    ax0.coords[0].set_major_formatter('hh:mm:ss')
+    ax0.coords[1].set_major_formatter('dd:mm')
+    ax0.coords[0].set_axislabel('RA (J2000)', fontsize=16)
+    ax0.coords[1].set_axislabel('Dec (J2000)', fontsize=16)
+
+    #Add beam ellipse centre is defined as a fraction of the background image size
+    beam_loc_ra = optical_im_wcs.array_index_to_world(int(0.025 * N_optical_pixels), int(0.025 * N_optical_pixels)).ra.value
+    beam_loc_dec = optical_im_wcs.array_index_to_world(int(0.025 * N_optical_pixels), int(0.025 * N_optical_pixels)).dec.value
+
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj/3600, b_min/3600, b_pa, fc='black', ec='black', alpha=0.75, transform=ax0.get_transform('fk5'))
+    ax0.add_patch(beam_ellip)
+
+    #mom0 map
+    ax1 = fig.add_subplot(232, projection=mom_wcs)
+    
+   
+    mom0_fig = ax1.imshow(mom0_map, origin='lower', cmap=_CMAP)
+
+    ax1.contour(mom0_map, levels=np.multiply(np.array(contour_levels),col_den_sen_lim),
+            transform=ax1.get_transform(mom_wcs), colors='white', alpha=0.5)
+
+    #Colorbar settings
+    cb = fig.colorbar(mom0_fig, ax=ax1, orientation='vertical', aspect=30, fraction=0.04975, pad=0)
+    
+    cb.ax.yaxis.get_offset_text().set_fontsize(18)
+    cb.ax.tick_params(labelsize=18)
+    cb.ax.tick_params(direction='in', length=6, width=2)
+    cb.ax.set_ylabel(r'N$_{HI}$ [10$^{20}$cm$^2$]', fontsize = 18)
+    
+    #Label settings
+    ax1.coords.grid(color='white', alpha=0.5, linestyle='dashed')
+    ax1.coords[0].set_major_formatter('hh:mm:ss')
+    ax1.coords[1].set_major_formatter('dd:mm')
+    ax1.coords[0].set_axislabel('RA (J2000)', fontsize=16)
+    ax1.coords[1].set_axislabel('Dec (J2000)', fontsize=16)
+
+    #Add beam ellipse centre is defined as a fraction of the background image size
+    beam_loc_ra = mom_wcs.array_index_to_world(int(np.shape(mom0_map)[0] * 0.05), int(np.shape(mom0_map)[0] * 0.05)).ra.value
+    beam_loc_dec = mom_wcs.array_index_to_world(int(np.shape(mom0_map)[0] * 0.05), int(np.shape(mom0_map)[0] * 0.05)).dec.value
+
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj/3600, b_min/3600, b_pa, fc='white', ec='white', alpha=1., transform=ax1.get_transform('fk5'))
+    ax1.add_patch(beam_ellip)
+
+    #mom1 map
+    ax2 = fig.add_subplot(234, projection=mom_wcs)
+ 
+    mom1_fig = ax2.imshow(mom1_map, origin='lower', cmap=_CMAP)
+
+    #Colorbar settings
+    cb = fig.colorbar(mom1_fig, ax=ax2, aspect=30, fraction=0.04975, pad=0)
+    
+    cb.ax.yaxis.get_offset_text().set_fontsize(18)
+    cb.ax.tick_params(labelsize=18)
+    cb.ax.tick_params(direction='in', length=6, width=2)
+    cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', fontsize = 18)
+    
+    #Label settings
+    ax2.coords.grid(color='white', alpha=0.5, linestyle='dashed')
+    ax2.coords[0].set_major_formatter('hh:mm:ss')
+    ax2.coords[1].set_major_formatter('dd:mm')
+    ax2.coords[0].set_axislabel('RA (J2000)', fontsize=16)
+    ax2.coords[1].set_axislabel('Dec (J2000)', fontsize=16)
+
+    #Add beam ellipse centre is defined as a fraction of the background image size
+    beam_loc_ra = mom_wcs.array_index_to_world(int(np.shape(mom1_map)[0] * 0.05), int(np.shape(mom1_map)[0] * 0.05)).ra.value
+    beam_loc_dec = mom_wcs.array_index_to_world(int(np.shape(mom1_map)[0] * 0.05), int(np.shape(mom1_map)[0] * 0.05)).dec.value
+
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj/3600, b_min/3600, b_pa, fc='white', ec='white', alpha=1., transform=ax2.get_transform('fk5'))
+    ax2.add_patch(beam_ellip)
+
+    #mom2 map
+    ax3 = fig.add_subplot(235, projection=mom_wcs)
+ 
+    mom2_fig = ax3.imshow(mom2_map, origin='lower', cmap=_CMAP)
+
+    #Colorbar settings
+    cb = fig.colorbar(mom2_fig, ax=ax3, aspect=30, fraction=0.04975, pad=0)
+    
+    cb.ax.yaxis.get_offset_text().set_fontsize(18)
+    cb.ax.tick_params(labelsize=18)
+    cb.ax.tick_params(direction='in', length=6, width=2)
+    cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', fontsize = 18)
+    
+    #Label settings
+    ax3.coords.grid(color='white', alpha=0.5, linestyle='dashed')
+    ax3.coords[0].set_major_formatter('hh:mm:ss')
+    ax3.coords[1].set_major_formatter('dd:mm')
+    ax3.coords[0].set_axislabel('RA (J2000)', fontsize=16)
+    ax3.coords[1].set_axislabel('Dec (J2000)', fontsize=16)
+
+    #Add beam ellipse centre is defined as a fraction of the background image size
+    beam_loc_ra = mom_wcs.array_index_to_world(int(np.shape(mom2_map)[0] * 0.05), int(np.shape(mom2_map)[0] * 0.05)).ra.value
+    beam_loc_dec = mom_wcs.array_index_to_world(int(np.shape(mom2_map)[0] * 0.05), int(np.shape(mom2_map)[0] * 0.05)).dec.value
+
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj/3600, b_min/3600, b_pa, fc='white', ec='white', alpha=1., transform=ax3.get_transform('fk5'))
+    ax3.add_patch(beam_ellip)
+
+    #Spectra plot
+    ax4 = fig.add_subplot(233)
+
+    ax4.step(velocity, flux, lw=3, c=c1)
+    
+    ax4.set_xlabel(r'v$_{opt}$ (km/s)', fontsize=18)
+    ax4.set_ylabel('Flux density (Jy)', fontsize=18)
+    ax4.grid()
+    
+    plt.savefig(output_fname,bbox_inches='tight')
+    plt.close('all')
+
+def create_complementary_figures_to_sofia_output(sofia_dir_path, name_base, masking=True, mask_sigma=3, contour_levels=[3,5,7,9,11], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+    """The top-level function of this module. It creates a directory within the SoFiA output directory and
+    generate the following plots for each source in that directory:
+        
+        - summary plot
+   
+    Into a sub-folder for each source:
+
+        - mom0 contours on the optical background
+        - mom0 map with contours
+        - mom1 map
+        - mom2 map
+        - spectra
+
+    I will create an application for this task, which I can integrate into the pipeline, so the pipeline
+    can automatically generate these plots, which are complementary to the SoFiA output.
+
+    These images can be rendered into a `Radiopadre` notebook for quick look at the data.
+    Or this function can be called within the notebook...
+
+    For the detailed description and details see each individual function called.
+
+    The naming scheme of the individual images follows the SoFiA cubelet naming scheme.
+    The images are created under the folder `name_base`_ds_images/ folder
+    The individual source images are created unde the source_ID/ folders
+
+    Parameters
+    ==========
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+   
+    masking: bool
+        If True, pixel values below a certain sensitivity threshold will be masked out.
+
+    mask_sigma: int
+        The masking threshold value. The masking is performed based on the moment0 map.
+        The threshold is given in terms of column density sensitivity values (similarly to contour lines)
+
+    contour_levels: list
+        List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
+
+    N_optical_pixels: int
+        Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
+     
+    b_maj: float
+        Angular major axis of the beam [arcsec]
+    
+    b_min: float
+        Angular minor axis of the beam [arcsec]
+
+    b_pa: float
+        Angle of the beam [deg]
+
+    v_frame: str
+        The velocity frame. Can be 'frequency', 'optical' or 'radio'
+    
+    beam_correction: bool
+        If True, the flux values are corrected for the synthesised beam
+
+    b_maj_px: float
+        The major axis of the beam in pixels
+
+    b_min_px: float
+        The minor axis of the beam in pixels
+
+    Return
+    ======
+    output_images: files
+        The images created
+    """
+    #Create the image directory if not existing
+    working_dir = sofia_dir_path + name_base + 'ds_images/'
+    
+    if not os.path.exists(working_dir):
+        os.mkdir(working_dir)
+
+    #Loop through sources
+    N_sources = get_N_sources(sofia_dir_path = sofia_dir_path, name_base = name_base)
+
+    for ID in range(1, N_sources + 1):
+        log.info('Creating images for source no. {0:d}'.format(ID))
+
+        #Summary image
+        source_analytics_plot(source_ID = ID, 
+                sofia_dir_path = sofia_dir_path,
+                name_base = name_base,
+                N_optical_pixels = N_optical_pixels,
+                masking = masking,
+                mask_sigma = mask_sigma,
+                contour_levels = contour_levels,
+                b_maj = b_maj,
+                b_min = b_min,
+                b_pa = b_pa,
+                beam_correction = beam_correction, 
+                b_maj_px = b_maj_px, 
+                b_min_px = b_min_px,
+                v_frame = v_frame,
+                output_fname = working_dir + name_base + '{0:d}_summary.png'.format(ID))
+
+        #Create sub-directory and the individual images inside
+        source_working_dir = working_dir + 'source_{0:d}/'.format(ID)
+    
+        if not os.path.exists(source_working_dir):
+            os.mkdir(source_working_dir)
+        
+        #mom0 with optical background
+        plot_optical_background_with_mom0_conturs(source_ID = ID, 
+                sofia_dir_path = sofia_dir_path,
+                name_base = name_base,
+                contour_levels = contour_levels,
+                N_optical_pixels = N_optical_pixels,
+                b_maj = b_maj,
+                b_min = b_min,
+                b_pa = b_pa,
+                output_fname = source_working_dir + name_base + '{0:d}_optical.png'.format(ID)) 
+
+        #mom maps
+        contour_list = [True, False, False]
+        
+        for mom, cont_enable in zip(range(0,3), contour_list): 
+            plot_momN_map(moment = mom, 
+                    source_ID = ID,
+                    sofia_dir_path = sofia_dir_path,
+                    name_base = name_base,
+                    masking = masking,
+                    mask_sigma = mask_sigma,
+                    contours = cont_enable,
+                    contour_levels = contour_levels,
+                    b_maj = b_maj,
+                    b_min = b_min,
+                    b_pa = b_pa,
+                    output_fname = source_working_dir + name_base + '{0:d}_mom{1:d}.png'.format(ID,mom))
+
+        #spectra
+        plot_spectra(source_ID = ID,
+                sofia_dir_path = sofia_dir_path,
+                name_base = name_base,
+                v_frame = v_frame,
+                beam_correction = beam_correction,
+                b_maj_px = b_maj_px,
+                b_min_px = b_min_px,
+                output_fname = source_working_dir + name_base + '{0:d}_spec.png'.format(ID))
 
 
 #=== MAIN ===
 if __name__ == "__main__":
     #pass
+    
+    source_analytics_plot(source_ID = 1, 
+                sofia_dir_path = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/conventional_imaging/',
+                name_base = 'beam17_all_',
+                N_optical_pixels=900,
+                masking = True,
+                mask_sigma = 3,
+                beam_correction=True, 
+                b_maj_px=5, 
+                b_min_px=5,
+                output_fname='/home/krozgonyi/Desktop/ctest.png')
+
+    exit()
+
+
+
+    #2km baselines
+    stacking_method_sofia_output_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/',
+        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_images/',
+        #'/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/co_added_visibilities/',
+        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/conventional_imaging/']
+
+    for stacking_sofia_output in stacking_method_sofia_output_list:
+        create_complementary_figures_to_sofia_output(
+            sofia_dir_path = stacking_sofia_output,
+            name_base = 'beam17_all_',
+            N_optical_pixels = 900,
+            masking = True,
+            mask_sigma = 3,
+            contour_levels = [3,5,7,9,11],
+            b_maj = 30,
+            b_min = 30,
+            b_pa = 0,
+            beam_correction = True, 
+            b_maj_px = 5, 
+            b_min_px = 5,
+            v_frame = 'optical')
+
+    #6 km baselines
+    high_res_stacking_method_sofia_output_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/ihigh_resolution/stacked_grids/',
+        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/stacked_images/',
+        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/co_added_visibilities/']
+
+    for stacking_sofia_output in high_res_stacking_method_sofia_output_list:
+        create_complementary_figures_to_sofia_output(
+            sofia_dir_path = stacking_sofia_output,
+            name_base = 'beam17_all_',
+            N_optical_pixels = 900,
+            masking = True,
+            mask_sigma = 3,
+            contour_levels = [3,5,7,9,11],
+            b_maj = 12,
+            b_min = 12,
+            b_pa = 0,
+            beam_correction = True, 
+            b_maj_px = 6, 
+            b_min_px = 6,
+            v_frame = 'optical')
+
+    exit()
+
+    for i in range(1,7):
+        source_analytics_plot(source_ID = i, 
+                sofia_dir_path = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/',
+                name_base = 'beam17_all_',
+                N_optical_pixels=900,
+                masking = True,
+                mask_sigma = 3,
+                beam_correction=True, 
+                b_maj_px=5, 
+                b_min_px=5,
+                output_fname='/home/krozgonyi/Desktop/test_{0:d}.png'.format(i))
+
+    exit()
+
 
     plot_spectra(source_ID = 3, 
             sofia_dir_path = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/',
@@ -885,7 +1367,7 @@ if __name__ == "__main__":
             sofia_dir_path = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/',
             name_base = 'beam17_all_',
             masking = True,
-            Mask_sigma = 3,
+            mask_sigma = 3,
             contours = False,
             output_fname = '/home/krozgonyi/Desktop/test.png')
 
