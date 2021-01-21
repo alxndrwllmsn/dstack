@@ -354,8 +354,8 @@ def fget_beam(fitsfile_path):
     fitsfile_path: str
         The input fits path
 
-    Returns
-    =======
+    Return
+    ======
     b_maj: float
         Angular major axis of the beam [arcsec]
     
@@ -379,8 +379,8 @@ def fget_channel_width(fitsfile_path):
     fitsfile_path: str
         The input fits path
 
-    Returns
-    =======
+    Return
+    ======
     dnu: float
         The channel width in [Hz]
     """
@@ -574,11 +574,78 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
     else:
         raise ValueError('Invalid moment value was given. Only moment 0,1 and 2 maps are supported!')
 
-def get_spectra_array(source_ID, sofia_dir_path, name_base, b_maj=30, b_min=30):
-    """
-    """
+def get_spectra_array(source_ID, sofia_dir_path, name_base, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+    """Returns two arrays: Integrated Flux [Jy] and velocity [km/s] (optical by default) for spectral plots.
+    Again, modularisation is the idea behind this function. However, there are some caveats with the SoFiA output and
+    the ways the spectra is created.
 
+    When the grids are created the pixel units are changed to [Jy/pixel]. However, the output images have
+    the real unit of [Jy/beam]! This is beacuse the grid unis is correctly [Jy/pixel], but the conversion
+    does not happen (of the unit) when the grids are FFTd to the image plane.
 
+    Therefore, the SoFiA output spectra has the unit [Jy/pixel], but it is actually [Jy/beam],
+    and so the beam correction needs to be done. For the correction, we need to manually
+    divide by the beam area which, for Gaussian beams, will be
+
+                   :math:pi * a * b / (4 * ln(2)):
+
+    where a and b are the major and minor axis of the beam in units of pixels.
+
+    This correction can be disabled, but currently is the default.
+
+    The velocity axis can be frequency, optical or radio velocity.
+
+    Parameters
+    ==========
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+    
+    v_frame: str
+        The velocity frame. Can be 'frequency', 'optical' or 'radio'
+    
+    beam_correction: bool
+        If True, the flux values are corrected for the synthesised beam
+
+    b_maj_px: float
+        The major axis of the beam in pixels
+
+    b_min_px: float
+        The minor axis of the beam in pixels
+
+    Return
+    ======
+    flux_array: `numpy.ndarray`
+        The measured integrated flux values in [Jy]
+
+    velocity_array: `numpy.ndarray`
+        The corresponding velocity valuse in the given frame
+    """
+    source_index, catalog_path, cubelet_path_dict, spectra_path = get_source_files(source_ID, sofia_dir_path, name_base)
+
+    sofia_spectra = np.genfromtxt(spectra_path)
+
+    #Get the corresponding arrays and transform them to the given frame
+    flux_array= sofia_spectra[:,2]
+    
+    if beam_correction:
+        flux_array /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
+
+    freq_array = sofia_spectra[:,1]
+
+    if v_frame == 'frequency':
+        return flux_array, freq_array
+
+    else:
+        velocity_array = get_velocity_from_freq(freq_array, v_frame=v_frame)
+        return flux_array, velocity_array
+       
 #= Plot functions
 def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_base, output_fname, contour_levels=[3,5,7,9,11], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, **kwargs):
     """Create a map with the `DSS2 Red` image in the background and the mom0 map fitted contours in the foreground.
@@ -748,9 +815,70 @@ def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, ma
 
     plt.savefig(output_fname,bbox_inches='tight')
 
+
+def plot_spectra(source_ID, sofia_dir_path, name_base, output_fname, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+    """Plot the integrated spectra of the source.
+
+    Parameters
+    ==========
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+
+    output_fname: str
+        The full path and filename for the output image created.
+    
+    v_frame: str
+        The velocity frame. Can be 'frequency', 'optical' or 'radio'
+    
+    beam_correction: bool
+        If True, the flux values are corrected for the synthesised beam
+
+    b_maj_px: float
+        The major axis of the beam in pixels
+
+    b_min_px: float
+        The minor axis of the beam in pixels
+
+    Return
+    ======
+    output_image: file
+        The image created
+    """
+    flux, velocity = get_spectra_array(source_ID, sofia_dir_path, name_base, v_frame, beam_correction, b_maj_px, b_min_px)
+
+    #Create plot
+    fig = plt.figure(1, figsize=(12,12))
+    ax = fig.add_subplot(111)
+
+    ax.step(velocity, flux, lw=3, c=c1)
+    
+    ax.set_xlabel('Velocity (km/s)', fontsize=18)
+    ax.set_ylabel('Flux density (Jy)', fontsize=18)
+    ax.grid()
+
+    plt.savefig(output_fname,bbox_inches='tight')
+
+
 #=== MAIN ===
 if __name__ == "__main__":
     #pass
+
+    plot_spectra(source_ID = 3, 
+            sofia_dir_path = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/',
+            name_base = 'beam17_all_',
+            beam_correction=True, 
+            b_maj_px=5, 
+            b_min_px=5,
+            output_fname='/home/krozgonyi/Desktop/test.png')
+
+    exit()
 
     plot_momN_map(moment=2,
             source_ID = 1,
