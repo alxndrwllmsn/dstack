@@ -13,7 +13,13 @@ Some simple functions defined here only for the source analytics. Nd so
 these scripts are designed to handle the SoFiA output of HI sources.
 """
 
-__all__ = ['get_z_from_freq', 'fget_wcs', 'get_column_density']
+__all__ = ['add_inner_title', 'get_source_files', 'get_N_sources', 'get_z_from_freq',
+        'get_velocity_from_freq', 'get_velocity_dispersion_from_freq', 'get_column_density',
+        'get_column_density_sensitivity', 'get_freq_and_redshift_from_catalog', 'get_RMS_from_catalog',
+        'fget_wcs', 'fget_beam', 'fget_channel_width', 'get_optical_image', 'get_optical_image_ndarray',
+        'get_momN_ndarray', 'get_spectra_array', 'plot_optical_background_with_mom0_conturs',
+        'plot_momN_map', 'plot_spectra', 'source_analytics_plot',
+        'create_complementary_figures_to_sofia_output']
 
 import os, sys
 import shutil
@@ -1463,6 +1469,27 @@ if __name__ == "__main__":
     #pass
     log.setLevel(logging.INFO)
     log.addHandler(logging.StreamHandler(sys.stdout))
+
+    #Chiles example
+
+    create_complementary_figures_to_sofia_output(
+        sofia_dir_path = '/home/krozgonyi/Desktop/chiles_example/runSoFiA/',
+        name_base = 'chiles_example_',
+        N_optical_pixels = 100,
+        masking = True,
+        mask_sigma = 3,
+        contour_levels = [3,5,7,9,11],
+        b_maj = 7,
+        b_min = 5,
+        b_pa = -45,
+        beam_correction = True, 
+        b_maj_px = 4, 
+        b_min_px = 4,
+        v_frame = 'optical')
+
+    exit()
+
+
 
     #2km baselines
     stacking_method_sofia_output_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/',
