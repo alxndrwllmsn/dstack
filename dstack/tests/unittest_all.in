@@ -31,3 +31,14 @@ NChannels = 11
 ParsetPath = ./template_parset_for_unittesting.in
 ImageNames = image.test
 GridderName = WProject
+
+[Sdiagnostics]
+
+source_ID = 1
+sofia_dir_path = /home/krozgonyi/Desktop/dstack_test_files/sofia_test_output/
+name_base = beam17_all_
+N_sources = 6
+freq = 1414527199.176572
+z = 0.004155842752864736
+rms = 0.001249554862735548
+dnu = 18520.0

@@ -15,3 +15,5 @@ echo "Unittest: msutil module"
 python3 msutil_test.py
 echo "Unittest: parset module"
 python3 parset_test.py
+echo "Unittest: sdiagnostics module"
+python3 sdiagnostics_test.py

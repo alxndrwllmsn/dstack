@@ -99,7 +99,7 @@ def add_inner_title(ax, title, loc, size=None, **kwargs):
     loc: int
         Location. Can be verbose as well I think...
 
-    size: dict
+    size: dict, optional
         A dictionary containing the fontsize of the title
         eg. dict(size=18)
     
@@ -233,7 +233,7 @@ def get_velocity_from_freq(obs_freq, v_frame='optical'):
     0obs_freq: float
         Observation frequency in [Hz]
 
-    v_frame: str
+    v_frame: str, optional
         Velocity frame to transform into. Can be `optical` or `radio`
 
     Return
@@ -250,7 +250,7 @@ def get_velocity_from_freq(obs_freq, v_frame='optical'):
     
     return vel
 
-def get_velocity_dispersion_from_freq(obs_freq_disp, obs_freq, v_frame='optical'):
+def get_velocity_dispersion_from_freq(obs_freq_disp, obs_freq):
     """Convert the measured frequency dispersion values to velocity dispersion values
 
     Parameters
@@ -261,9 +261,6 @@ def get_velocity_dispersion_from_freq(obs_freq_disp, obs_freq, v_frame='optical'
     0obs_freq: float
         Observation frequency in [Hz]
 
-    v_frame: str
-        Velocity frame to transform into. Can be `optical` or `radio`
-
     Return
     ======
     vel_disp: float
@@ -273,7 +270,7 @@ def get_velocity_dispersion_from_freq(obs_freq_disp, obs_freq, v_frame='optical'
 
     return vel_disp
 
-def get_column_density(S, z, b_maj, b_min):
+def get_column_density(S, z, b_maj, b_min, scaling=1e-20):
     """Compute the column density by using eq. 74 from Meyer et al. 2017 
 
     It is needed to derive the moment0 maps.
@@ -292,16 +289,21 @@ def get_column_density(S, z, b_maj, b_min):
     b_min: float
         Angular minor axis of the beam [arcsec]
 
+    scaling: float, optional
+        A scaling factor that is used to convert the column density to a more readable unit.
+        By default the unit is N atoms / cm^2, however it s more practical to have the
+        units in terms of 10^(20) atoms / cm^2 for example. This can be acheved by the scaling factor
+
     Return
     ======
     N_HI: float
         Column density
     """
-    N_HI = 2.33 * np.power(10,20) * np.power((1 + z),4) * ( S / (b_maj * b_min) )
+    N_HI = 2.33 * 1e+20 * np.power((1 + z),4) * ( S / (b_maj * b_min) ) * scaling
 
     return N_HI
 
-def get_column_density_sensitivity(S_rms, z, b_maj, b_min, dnu, sigma_S=1):
+def get_column_density_sensitivity(S_rms, z, b_maj, b_min, dnu, sigma_S=1, scaling=1e-20):
     """Compute the column density sensitivity by using eq. 135 from Meyer et al. 2017 
 
     It is needed to derive a moasking of the low SNR regions in the  moment0 maps.
@@ -323,8 +325,15 @@ def get_column_density_sensitivity(S_rms, z, b_maj, b_min, dnu, sigma_S=1):
     dnu: float
         The frequency width of interest [Hz]
 
-    sigma_S: float
-        ??? set to 1 by default for now
+    sigma_S: float, optional
+        What sensiticity level (sigma) we want to compute. One by default gives the noise floor,
+        and e.g. 3 gives the 3sigma sensitivity level.
+
+    scaling: float, optional
+        A scaling factor that is used to convert the column density to a more readable unit.
+        By default the unit is N atoms / cm^2, however it s more practical to have the
+        units in terms of 10^(20) atoms / cm^2 for example. This can be acheved by the scaling factor
+
 
     Return
     ======
@@ -333,7 +342,7 @@ def get_column_density_sensitivity(S_rms, z, b_maj, b_min, dnu, sigma_S=1):
     """
     S_sensitivity = S_rms * dnu * sigma_S
 
-    N_HI_sensitivity = get_column_density(S_sensitivity, z, b_maj, b_min)
+    N_HI_sensitivity = get_column_density(S_sensitivity, z, b_maj, b_min, scaling)
  
     return N_HI_sensitivity
 
@@ -353,7 +362,7 @@ def get_freq_and_redshift_from_catalog(catalog_path, source_index, rest_frame='f
     source_index: int
         The row index of the source in the catalog.
 
-    rest_frame: str
+    rest_frame: str, optional
         The rest frame used. Currently only 'frequency' frame supported. 
 
     Return
@@ -384,7 +393,7 @@ def get_RMS_from_catalog(catalog_path, source_index, rest_frame='frequency'):
     source_index: int
         The row index of the source in the catalog.
 
-    rest_frame: str
+    rest_frame: str, optional
         The rest frame used. Currently only 'frequency' frame supported. 
 
     Return
@@ -422,6 +431,13 @@ def fget_wcs(fitsfile_path):
 def fget_beam(fitsfile_path):
     """Get synthesised beam parameters from the
     input fits header
+
+    Apparently the Sofia output fits have no beam information
+    in their header.
+
+    In fact some .fits I had to use SoFiA on had no beam info
+    in the header, or at least the BMAJ, BMIN, BPA were not defined
+    in the header. And so, I am not using this function.
 
     Parameters
     ==========
@@ -463,7 +479,7 @@ def fget_channel_width(fitsfile_path):
     return dnu
 
 #= Get optical image
-def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_pixels=600,temp_fits_path='/home/krozgonyi/Desktop/optical_image.fits'):
+def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_pixels=600, temp_fits_path=os.getcwd()):
     """ Download optical image cutsouts of sources from SkyVeiw via astroquery
     The optical image is by default from the 2nd Digitised sky survey (DSS2)
     red band: https://skyview.gsfc.nasa.gov/current/cgi/moreinfo.pl?survey=DSS2%20Red
@@ -504,15 +520,16 @@ def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_p
     source_index: int
         The index of the source in the catalog. (row index)
 
-    survey: str
+    survey: str, optional
         The name of the survey. `DSS2 Red` by default, but see the available list here: https://astroquery.readthedocs.io/en/latest/skyview/skyview.html
 
-    N_optical_pixels: int
+    N_optical_pixels: int, optional
         Number of pixels. The DSS2 Red pixel size is 1" thus for the default settings, this is the image siize in arcseconds. 
    
-    temp_fits_path: str
+    temp_fits_path: str, optional
         Full path and file name to a fits file wich will be created in case no online data can be retrieved. This is a temprorary file and will be deleted
-    
+        This is the working directory by default.
+
     Return
     ======
     optical_fits_first_element: `PrimaryHDU`
@@ -631,7 +648,7 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, N_optical_pi
       The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
       However, it has to end with a lower dash (?): _ !
 
-    N_optical_pixels: int
+    N_optical_pixels: int, optional
          Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
 
     Return
@@ -680,17 +697,17 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
       The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
       However, it has to end with a lower dash (?): _ !
 
-    masking: bool
+    masking: bool, optional
         If True, pixel values below a certain sensitivity threshold will be masked out.
 
-    mask_sigma: int
+    mask_sigma: int, optional
         The masking threshold value. The masking is performed based on the moment0 map.
         The threshold is given in terms of column density sensitivity values (similarly to contour lines)
 
-    b_maj: float
+    b_maj: float, optional
         Angular major axis of the beam [arcsec]
     
-    b_min: float
+    b_min: float, optional
         Angular minor axis of the beam [arcsec]
 
     Return
@@ -723,8 +740,8 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
 
         #Get moment0 (column density) map sensitivity and wcs 
         mom0_map = fits.getdata(cubelet_path_dict['mom0'])
-        col_den_map = get_column_density(mom0_map, z, b_maj, b_min) * 1e-20 #Set the unit to [10^20 paricle / cm^2]
-        col_den_sen_lim = get_column_density_sensitivity(rms, z, b_maj, b_min, dnu, 1) * 1e-20
+        col_den_map = get_column_density(mom0_map, z, b_maj, b_min)
+        col_den_sen_lim = get_column_density_sensitivity(rms, z, b_maj, b_min, dnu, 1)
  
         #Mask out the pixels with 0 values
         mask = (col_den_map == 0.)
@@ -798,16 +815,16 @@ def get_spectra_array(source_ID, sofia_dir_path, name_base, v_frame='optical', b
       The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
       However, it has to end with a lower dash (?): _ !
     
-    v_frame: str
+    v_frame: str, optional
         The velocity frame. Can be 'frequency', 'optical' or 'radio'
     
-    beam_correction: bool
+    beam_correction: bool, optional
         If True, the flux values are corrected for the synthesised beam
 
-    b_maj_px: float
+    b_maj_px: float, optional
         The major axis of the beam in pixels
 
-    b_min_px: float
+    b_min_px: float, optional
         The minor axis of the beam in pixels
 
     Return
@@ -860,19 +877,19 @@ def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_ba
     output_fname: str
         The full path and filename for the output image created.
  
-    contour_levels: list
+    contour_levels: list, optional
         List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
 
-    N_optical_pixels: int
+    N_optical_pixels: int, optional
         Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
     
-    b_maj: float
+    b_maj: float, optional
         Angular major axis of the beam [arcsec]
     
-    b_min: float
+    b_min: float, optional
         Angular minor axis of the beam [arcsec]
 
-    b_pa: float
+    b_pa: float, optional
         Angle of the beam [deg]
 
     Return
@@ -940,26 +957,26 @@ def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, ma
     output_fname: str
         The full path and filename for the output image created.
  
-    masking: bool
+    masking: bool, optional
         If True, pixel values below a certain sensitivity threshold will be masked out.
 
-    mask_sigma: int
+    mask_sigma: int, optional
         The masking threshold value. The masking is performed based on the moment0 map.
         The threshold is given in terms of column density sensitivity values (similarly to contour lines)
 
-    contours: bool
+    contours: bool, optional
         If True, the contours will be overlayed onto the mom0 image
 
-    contour_levels: list
+    contour_levels: list, optional
         List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
 
-    b_maj: float
+    b_maj: float, optional
         Angular major axis of the beam [arcsec]
     
-    b_min: float
+    b_min: float, optional
         Angular minor axis of the beam [arcsec]
 
-    b_pa: float
+    b_pa: float, optional
         Angle of the beam [deg]
 
     Return
@@ -1040,16 +1057,16 @@ def plot_spectra(source_ID, sofia_dir_path, name_base, output_fname, v_frame='op
     output_fname: str
         The full path and filename for the output image created.
     
-    v_frame: str
+    v_frame: str, optional
         The velocity frame. Can be 'frequency', 'optical' or 'radio'
     
-    beam_correction: bool
+    beam_correction: bool, optional
         If True, the flux values are corrected for the synthesised beam
 
-    b_maj_px: float
+    b_maj_px: float, optional
         The major axis of the beam in pixels
 
-    b_min_px: float
+    b_min_px: float, optional
         The minor axis of the beam in pixels
 
     Return
@@ -1113,37 +1130,38 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
     output_fname: str
         The full path and filename for the output image created.
  
-    masking: bool
+    masking: bool, optional
         If True, pixel values below a certain sensitivity threshold will be masked out.
 
-    mask_sigma: int
+    mask_sigma: int, optional
         The masking threshold value. The masking is performed based on the moment0 map.
         The threshold is given in terms of column density sensitivity values (similarly to contour lines)
 
-    contour_levels: list
+    contour_levels: list, optional
         List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
 
-    N_optical_pixels: int
+    N_optical_pixels: int, optional
         Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
-     b_maj: float
+    
+    b_maj: float, optional
         Angular major axis of the beam [arcsec]
     
-    b_min: float
+    b_min: float, optional
         Angular minor axis of the beam [arcsec]
 
-    b_pa: float
+    b_pa: float, optional
         Angle of the beam [deg]
 
-    v_frame: str
+    v_frame: str, optional
         The velocity frame. Can be 'frequency', 'optical' or 'radio'
     
-    beam_correction: bool
+    beam_correction: bool, optional
         If True, the flux values are corrected for the synthesised beam
 
-    b_maj_px: float
+    b_maj_px: float, optional
         The major axis of the beam in pixels
 
-    b_min_px: float
+    b_min_px: float, optional
         The minor axis of the beam in pixels
 
     Return
@@ -1350,38 +1368,38 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path, name_base, mask
       The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
       However, it has to end with a lower dash (?): _ !
    
-    masking: bool
+    masking: bool, optional
         If True, pixel values below a certain sensitivity threshold will be masked out.
 
-    mask_sigma: int
+    mask_sigma: int, optional
         The masking threshold value. The masking is performed based on the moment0 map.
         The threshold is given in terms of column density sensitivity values (similarly to contour lines)
 
-    contour_levels: list
+    contour_levels: list, optional
         List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
 
-    N_optical_pixels: int
+    N_optical_pixels: int, optional
         Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
      
-    b_maj: float
+    b_maj: float, optional
         Angular major axis of the beam [arcsec]
     
-    b_min: float
+    b_min: float, optional
         Angular minor axis of the beam [arcsec]
 
-    b_pa: float
+    b_pa: float, optional
         Angle of the beam [deg]
 
-    v_frame: str
+    v_frame: str, optional
         The velocity frame. Can be 'frequency', 'optical' or 'radio'
     
-    beam_correction: bool
+    beam_correction: bool, optional
         If True, the flux values are corrected for the synthesised beam
 
-    b_maj_px: float
+    b_maj_px: float, optional
         The major axis of the beam in pixels
 
-    b_min_px: float
+    b_min_px: float, optional
         The minor axis of the beam in pixels
 
     Return

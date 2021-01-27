@@ -4,7 +4,7 @@ dstack
 Python package to stack images and grids for the DINGO survey
 Author(s): Kristof Rozgonyi (@rstofi)
 """
-from . import applications, cim, cgrid, parset, msutil
+from . import applications, cim, cgrid, parset, msutil, sdiagnostics
 
 #from .version import version as __version__
 

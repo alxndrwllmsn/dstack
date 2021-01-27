@@ -65,6 +65,7 @@ def setup_Parset_unittest(parset_path):
     config.read(parset_path)
 
     ParsetPath = config.get('Parset','ParsetPath')
+    assert os.path.isfile(ParsetPath) == True, 'Invalid input parset is given {0:s}'.format(ParsetPath)
     ImageNames = config.get('Parset','ImageNames')
     GridderName = config.get('Parset','GridderName')
 

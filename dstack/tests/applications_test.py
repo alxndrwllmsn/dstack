@@ -53,7 +53,8 @@ def setup_APP_unittest(parset_path):
     config.read(parset_path)
 
     CIMPath =  config.get('APP','CIMPath')
-
+    assert os.path.isdir(CIMPath) == True, 'Invalid input image is given {0:s}'.format(CIMPath)
+    
     return CIMPath
 
 class TestAPP(unittest.TestCase):

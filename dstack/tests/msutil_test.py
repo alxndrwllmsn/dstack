@@ -55,7 +55,8 @@ def setup_MSutil_unittest(parset_path):
     config.read(parset_path)
 
     MSpath = config.get('MSUtil','Mspath')
-
+    assert os.path.isdir(MSpath) == True, 'Invalid input MS is given {0:s}'.format(MSpath)
+    
     PhaseCentre = SkyCoord(ra=ast.literal_eval(config.get('MSUtil','PhaseCentre'))[0] * u.rad, 
                 dec=ast.literal_eval(config.get('MSUtil','PhaseCentre'))[1] * u.rad,
                 frame='icrs', equinox='J2000')
