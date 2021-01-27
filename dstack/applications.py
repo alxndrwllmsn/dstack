@@ -6,7 +6,7 @@ Parameters of the applications (e.g. input file names) are passed
 as arguments.
 """
 
-__all__ = ['dstacking', 'dparset', 'cim2fits']
+__all__ = ['dstacking', 'dparset', 'cim2fits', 'sdplots']
 
 import sys
 import argparse
@@ -72,8 +72,8 @@ def dstacking():
         Boolean argument, if not given set to False otherwise True.
         If True the in-memory CASAIMages given by ``cimpath_list`` are deleted, and the optional write-lock releases.
 
-    Returns
-    =======
+    Return
+    ======
     Stacked CASAImage: file
         Creates the stacked CASAImage.
     """
@@ -126,7 +126,7 @@ def dstacking():
     if args.weight_with_psf == True:
         args.psfpath_list = argflatten(args.psfpath_list)
 
-        ds.cim.CIM_stacking_base(cimpath_list= args.cimpath_list,
+        ds.cim.CIM_stacking_base(cimpath_list = args.cimpath_list,
                                 cim_output_path = args.cim_output_path,
                                 cim_outputh_name = args.cim_outputh_name,
                                 weight_with_psf = args.weight_with_psf,
@@ -137,7 +137,7 @@ def dstacking():
                                 close = args.close)
 
     else:
-        ds.cim.CIM_stacking_base(cimpath_list= args.cimpath_list,
+        ds.cim.CIM_stacking_base(cimpath_list = args.cimpath_list,
                                 cim_output_path = args.cim_output_path,
                                 cim_outputh_name = args.cim_outputh_name,
                                 normalise = args.normalise,
@@ -198,8 +198,8 @@ def dparset():
         Boolean. If True the Images.image_names.param parametes set to be the default parameters for the ambigous imaging parameters.
         Set to False by default, i.e. the default parameters are the Images.parameters for the ambigous parameters.
 
-    Returns
-    =======
+    Return
+    ======
     parset: file
         Creates the parset file defined by the arguments.
     """
@@ -345,8 +345,8 @@ def cim2fits():
     str -o or --output:
         TOutput .fits file name or full path.
 
-    Returns
-    =======
+    Return
+    ======
     fits: file
         The input image in a .fits format.
     """
@@ -369,6 +369,145 @@ def cim2fits():
     input_cim.tofits(args.output)
 
     del input_cim
+
+def sdplots():
+    """Application that creates complementary diagnostics plots for the output of a SoFiA source finder.
+
+    The diagnostics plots are discussed in detail in the `sdiagnostic` module of `dstack`.
+    
+    This application calls the `ds.sdiagnostic.create_complementary_figures_to_sofia_output()` function.
+    
+    Keyword Arguments
+    =================
+    str, -s or --sofia_dir_path:
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    str -n or --name_base:
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+   
+    optional -m or --masking:
+        Boolean. If True (default), pixel values below a certain sensitivity threshold will be masked out.
+
+    optional -ms or --mask_sigma:
+        Float. The masking threshold value. The masking is performed based on the moment0 map.
+        The threshold is given in terms of column density sensitivity values (similarly to contour lines)
+
+    optional -c or --contour_levels:
+        List. List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
+
+    optional -N or --N_optical_pixels:
+        Int. Number of pixels of the background image. Image size in arcseconds if the background is `DSS2 Red` (default)
+     
+    optional -j or --b_maj:
+        Float. Angular major axis of the beam [arcsec]
+    
+    optional -i or --b_min:
+        Float. Angular minor axis of the beam [arcsec]
+
+    optional -a or --b_pa:
+        Float. Angle of the beam [deg]
+
+    optional -f or --v_frame:
+        Str. The velocity frame. Can be 'frequency', 'optical' or 'radio'
+    
+    optical -bc or --beam_correction:
+        Boolean. If True, the flux values are corrected for the synthesised beam
+
+    optional -jp or --b_maj_px:
+        Float. The major axis of the beam in pixels
+
+    optional -ip or --b_min_px:
+        Float. The minor axis of the beam in pixels
+
+    Return
+    ======
+    output_images: multiple files
+        Create summary plots and in separate folders sub images of mom0 contours + optical background,
+        mom0, mom1, mom2 maps and spectra for each SoFiA source.
+ 
+    """
+    parser = argparse.ArgumentParser(description='This is an application to create complementary imaes of sources found by the SoFiA source finder.')
+
+    #=== Required arguments ===
+    parser.add_argument('-s', '--sofia_dir_path', 
+                        help='Full path to the SoFiA output directory. Has to end with a / !',
+                        required=True, action="store", type=str)
+
+    parser.add_argument('-n', '--name_base',
+                        help='Name base of the output files. The same as the output.filename vaiable with an underscore at the end, as it has to end with _ !',
+                        required=True, action="store", type=str)
+
+    #=== Optional arguments ===
+    parser.add_argument('-m', '--masking',
+                    help='If True (default), masking will be applied to the moment maps.',
+                    required=False, action="store_false")
+
+    parser.add_argument('-ms', '--masking_sigma',
+                    help='The threshold in terms of column density sensitivity sigmas, which below pixels are masked',
+                    required=False, nargs='?', default=3., type=float)
+
+    parser.add_argument('-c', '--contour_levels',
+                    help='List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity',
+                    required=False, action="append", nargs='*', type=float)
+
+    parser.add_argument('-N', '--N_optical_pixels',
+                    help='Number of pixels of the background image. Image size in arcseconds if the background is `DSS2 Red` (default)',
+                    required=False, default=600, nargs='?', type=int)
+
+    parser.add_argument('-j', '--b_maj',
+                    help='Angular major axis of the beam [arcsec]',
+                    required=False, default=30., nargs='?', type=float)
+
+    parser.add_argument('-i', '--b_min',
+                    help='Angular minor axis of the beam [arcsec]',
+                    required=False, default=30., nargs='?', type=float)
+
+    parser.add_argument('-a', '--b_pa',
+                    help='Angle of the beam [deg]',
+                    required=False, default=0., nargs='?', type=float)
+
+    parser.add_argument('-f', '--v_frame',
+                    help="The velocity frame. Can be 'frequency', 'optical' or 'radio'",
+                    required=False, nargs='?', default='optical', type=str)
+
+    parser.add_argument('-bc', '--beam_correction',
+                    help='If True, the flux values are corrected for the synthesised beam',
+                    required=False, action="store_true")
+
+    parser.add_argument('-jp', '--b_maj_px',
+                    help='The major axis of the beam in pixels',
+                    required=False, default=5., nargs='?', type=float)
+
+    parser.add_argument('-ip', '--b_min_px',
+                    help='The minor axis of the beam in pixels',
+                    required=False, default=5., nargs='?', type=float)
+
+    #=== Application MAIN ===
+    args = parser.parse_args()
+
+    #Set up logging if needed
+    #if args.log:
+    #    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+    if args.contour_levels == None:
+        args.contour_levels = [3.0, 5.0, 7.0, 9.0, 11.0]
+    else:
+        args.contour_levels = argflatten(args.contour_levels)
+
+    ds.sdiagnostics.create_complementary_figures_to_sofia_output(
+            sofia_dir_path = args.sofia_dir_path,
+            name_base = args.name_base,
+            masking = args.masking,
+            contour_levels = args.contour_levels,
+            N_optical_pixels = args.N_optical_pixels,
+            b_maj = args.b_maj,
+            b_min = args.b_min,
+            b_pa = args.b_pa,
+            v_frame = args.v_frame,
+            beam_correction = args.beam_correction,
+            b_maj_px = args.b_maj_px,
+            b_min_px = args.b_min_px)
 
 if __name__ == "__main__":
     pass

@@ -777,7 +777,7 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
             return velocity_dispersion_map, mom_wcs, col_den_sen_lim
 
         else:
-            return velocity_map, mom_wcs, None
+            return velocity_dispersion_map, mom_wcs, None
 
     else:
         raise ValueError('Invalid moment value was given. Only moment 0,1 and 2 maps are supported!')
@@ -1379,7 +1379,7 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path, name_base, mask
         List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
 
     N_optical_pixels: int, optional
-        Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
+        Number of pixels of the background image. Image size in arcseconds if the background is `DSS2 Red` (default)
      
     b_maj: float, optional
         Angular major axis of the beam [arcsec]
