@@ -11,3 +11,4 @@ Subpackages
    dstack.cim
    dstack.parset
    dstack.msutil
+   dstack.sdiagnostics
