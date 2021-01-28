@@ -85,7 +85,7 @@ warnings.filterwarnings('ignore', category=Warning, append=True)
 
 #=== Functions ===
 #For improved 
-def add_inner_title(ax, title, loc, size=None, **kwargs):
+def add_inner_title(ax, title, loc, prop=None, **kwargs):
     """Create a fancy inner title for plots
 
     Parameters
@@ -99,19 +99,19 @@ def add_inner_title(ax, title, loc, size=None, **kwargs):
     loc: int
         Location. Can be verbose as well I think...
 
-    size: dict, optional
-        A dictionary containing the fontsize of the title
-        eg. dict(size=18)
+    prop: dict, optional
+        A dictionary containing the properties of the title
+        eg. dict(size=18, color='green')
     
     Return
     ======
     at: artist
         The inner title artist that is added to the plot
     """
-    if size is None:
-        size = dict(size=plt.rcParams['legend.fontsize'])
+    if prop is None:
+        prop = dict(size=plt.rcParams['legend.fontsize'])
     
-    at = AnchoredText(title, loc=loc, prop=size,
+    at = AnchoredText(title, loc=loc, prop=prop,
                       pad=0., borderpad=0.5,
                       frameon=False, **kwargs)
     ax.add_artist(at)
@@ -479,7 +479,7 @@ def fget_channel_width(fitsfile_path):
     return dnu
 
 #= Get optical image
-def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_pixels=600, temp_fits_path=os.getcwd()):
+def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_pixels=600, temp_fits_path=str(os.getcwd() + '/temp.fits')):
     """ Download optical image cutsouts of sources from SkyVeiw via astroquery
     The optical image is by default from the 2nd Digitised sky survey (DSS2)
     red band: https://skyview.gsfc.nasa.gov/current/cgi/moreinfo.pl?survey=DSS2%20Red
@@ -743,6 +743,8 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
         col_den_map = get_column_density(mom0_map, z, b_maj, b_min)
         col_den_sen_lim = get_column_density_sensitivity(rms, z, b_maj, b_min, dnu, 1)
  
+        #print(b_maj, np.amax(col_den_map))
+
         #Mask out the pixels with 0 values
         mask = (col_den_map == 0.)
         col_den_map = np.ma.array(col_den_map, mask=mask)
@@ -855,7 +857,7 @@ def get_spectra_array(source_ID, sofia_dir_path, name_base, v_frame='optical', b
         return flux_array, velocity_array
        
 #= Plot functions
-def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_base, output_fname, contour_levels=[3,5,7,9,11], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, **kwargs):
+def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_base, output_fname, contour_levels=[1.6,2.7,5.3,8,13,21], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, **kwargs):
     """Create a map with the `DSS2 Red` image in the background and the mom0 map fitted contours in the foreground.
 
     Simple function for quick analysis of a single source.
@@ -878,7 +880,8 @@ def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_ba
         The full path and filename for the output image created.
  
     contour_levels: list, optional
-        List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
+        List of contour levels to be drawn. The levels are defined in 10^20 atoms / cm^2 units.
+        An extra contour in red is drawn at the 3sigma column density sensitivity level.
 
     N_optical_pixels: int, optional
         Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
@@ -908,7 +911,9 @@ def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_ba
     ax = fig.add_subplot(111, projection=optical_im_wcs)
 
     ax.imshow(optical_im.data,origin='lower',cmap='Greys')
-    ax.contour(col_den_map, levels=np.multiply(np.array(contour_levels),col_den_sen_lim),transform=ax.get_transform(mom0_wcs))
+    ax.contour(col_den_map, levels=np.multiply(np.array([3]),col_den_sen_lim),transform=ax.get_transform(mom0_wcs),
+                colors='red', linewidths=2.5)
+    ax.contour(col_den_map, levels=contour_levels,transform=ax.get_transform(mom0_wcs), linewidths=2.5)
 
     ax.coords.grid(color='k', alpha=0.5, linestyle='dashed')
     ax.coords[0].set_major_formatter('hh:mm:ss')
@@ -924,14 +929,14 @@ def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_ba
     ax.add_patch(beam_ellip)
 
     #Add inner title
-    t = add_inner_title(ax, survey_used + ' + mom0 contours', loc=2, size=dict(size=16))
+    t = add_inner_title(ax, survey_used + ' + mom0 contours', loc=2, prop=dict(size=16))
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
 
-def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, masking=True, mask_sigma=3, contours=False, contour_levels=[3,5,7,9,11], b_maj=30, b_min=30, b_pa=0, **kwargs):
+def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, masking=True, mask_sigma=3, contours=False, contour_levels=[1.6,2.7,5.3,8,13,21], b_maj=30, b_min=30, b_pa=0, **kwargs):
     """Create the mom map with optionally the fitted contours in the foreground and masking of low
     column density sensitivity pixels (mom1 and mom2 only).
 
@@ -968,7 +973,8 @@ def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, ma
         If True, the contours will be overlayed onto the mom0 image
 
     contour_levels: list, optional
-        List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
+        List of contour levels to be drawn. The levels are defined in 10^20 atoms / cm^2 units.
+        An extra contour in red is drawn at the 3sigma column density sensitivity level.
 
     b_maj: float, optional
         Angular major axis of the beam [arcsec]
@@ -998,7 +1004,11 @@ def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, ma
     mom_fig = ax.imshow(mom_map, origin='lower', cmap=_CMAP)
 
     if contours:
-        ax.contour(mom_map, levels=np.multiply(np.array(contour_levels),col_den_sen_lim),
+        ax.contour(mom_map, levels=np.multiply(np.array([3]),col_den_sen_lim),
+                transform=ax.get_transform(mom_wcs), colors='red',
+                linewidths=2.5, alpha=0.5)
+        
+        ax.contour(mom_map, levels=contour_levels, linewidths = 2.5,
                 transform=ax.get_transform(mom_wcs), colors='white', alpha=0.5)
 
     #Colorbar settings
@@ -1029,9 +1039,9 @@ def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, ma
 
     #Add inner title
     if moment == 0:
-        t = add_inner_title(ax, 'mom0 + contours', loc=2, size=dict(size=16))
+        t = add_inner_title(ax, 'mom0 + contours', loc=2, prop=dict(size=16))
     else:
-        t = add_inner_title(ax, 'mom{0:d} map'.format(moment), loc=2, size=dict(size=16))
+        t = add_inner_title(ax, 'mom{0:d} map'.format(moment), loc=2, prop=dict(size=16))
 
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
@@ -1088,14 +1098,14 @@ def plot_spectra(source_ID, sofia_dir_path, name_base, output_fname, v_frame='op
     ax.grid()
 
     #Add inner title
-    t = add_inner_title(ax, 'Spectra', loc=2, size=dict(size=16))
+    t = add_inner_title(ax, 'Spectra', loc=2, prop=dict(size=16))
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
 
-def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, masking=True, mask_sigma=3, contour_levels=[3,5,7,9,11], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, masking=True, mask_sigma=3, contour_levels=[1.6,2.7,5.3,8,13,21], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
     """Create all analytics plots on a fingle figure gor a given source. The plots created are:
 
         - mom0 contours on the optical background
@@ -1138,7 +1148,8 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
         The threshold is given in terms of column density sensitivity values (similarly to contour lines)
 
     contour_levels: list, optional
-        List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
+        List of contour levels to be drawn. The levels are defined in 10^20 atoms / cm^2 units.
+        An extra contour in red is drawn at the 3sigma column density sensitivity level.
 
     N_optical_pixels: int, optional
         Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
@@ -1196,7 +1207,10 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
     ax0 = fig.add_subplot(231, projection=optical_im_wcs)
 
     ax0.imshow(optical_im.data,origin='lower',cmap='Greys')
-    ax0.contour(mom0_map, levels=np.multiply(np.array(contour_levels),col_den_sen_lim),transform=ax0.get_transform(mom_wcs))
+    
+    ax0.contour(mom0_map, levels=np.multiply(np.array([3]),col_den_sen_lim),transform=ax0.get_transform(mom_wcs),
+            linewidths=2.5, colors='red')
+    ax0.contour(mom0_map, levels=contour_levels,transform=ax0.get_transform(mom_wcs), linewidths=2.5)
 
     ax0.coords.grid(color='k', alpha=0.5, linestyle='dashed')
     ax0.coords[0].set_major_formatter('hh:mm:ss')
@@ -1212,7 +1226,7 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
     ax0.add_patch(beam_ellip)
 
     #Add inner title
-    t = add_inner_title(ax0, survey_used + ' + mom0 contours', loc=2, size=dict(size=16))
+    t = add_inner_title(ax0, survey_used + ' + mom0 contours', loc=2, prop=dict(size=16))
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
 
@@ -1222,7 +1236,11 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
    
     mom0_fig = ax1.imshow(mom0_map, origin='lower', cmap=_CMAP)
 
-    ax1.contour(mom0_map, levels=np.multiply(np.array(contour_levels),col_den_sen_lim),
+    ax1.contour(mom0_map, levels=np.multiply(np.array([3]),col_den_sen_lim),
+            transform=ax1.get_transform(mom_wcs), colors='red', alpha=0.5, linewidths=2.5)
+
+
+    ax1.contour(mom0_map, levels=contour_levels, linewidths=2.5,
             transform=ax1.get_transform(mom_wcs), colors='white', alpha=0.5)
 
     #Colorbar settings
@@ -1248,7 +1266,7 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
     ax1.add_patch(beam_ellip)
 
     #Add inner title
-    t = add_inner_title(ax1, 'mom0 map + contours', loc=2, size=dict(size=16))
+    t = add_inner_title(ax1, 'mom0 map + contours', loc=2, prop=dict(size=16))
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
 
@@ -1280,7 +1298,7 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
     ax2.add_patch(beam_ellip)
 
     #Add inner title
-    t = add_inner_title(ax2, 'mom1 map', loc=2, size=dict(size=16))
+    t = add_inner_title(ax2, 'mom1 map', loc=2, prop=dict(size=16))
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
 
@@ -1312,7 +1330,7 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
     ax3.add_patch(beam_ellip)
 
     #Add inner title
-    t = add_inner_title(ax3, 'mom2 map', loc=2, size=dict(size=16))
+    t = add_inner_title(ax3, 'mom2 map', loc=2, prop=dict(size=16))
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
 
@@ -1326,14 +1344,14 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
     ax4.grid()
     
     #Add inner title
-    t = add_inner_title(ax4, 'Spectra', loc=2, size=dict(size=16))
+    t = add_inner_title(ax4, 'Spectra', loc=2, prop=dict(size=16))
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
    
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close('all')
 
-def create_complementary_figures_to_sofia_output(sofia_dir_path, name_base, masking=True, mask_sigma=3, contour_levels=[3,5,7,9,11], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+def create_complementary_figures_to_sofia_output(sofia_dir_path, name_base, masking=True, mask_sigma=3, contour_levels=[1.6,2.7,5.3,8,13,21], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
     """The top-level function of this module. It creates a directory within the SoFiA output directory and
     generate the following plots for each source in that directory:
         
@@ -1376,7 +1394,8 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path, name_base, mask
         The threshold is given in terms of column density sensitivity values (similarly to contour lines)
 
     contour_levels: list, optional
-        List of contour levels to be drawn. The levels are defined in terms of column-density sensitivity
+        List of contour levels to be drawn. The levels are defined in 10^20 atoms / cm^2 units.
+        An extra contour in red is drawn at the 3sigma column density sensitivity level.
 
     N_optical_pixels: int, optional
         Number of pixels of the background image. Image size in arcseconds if the background is `DSS2 Red` (default)
@@ -1484,73 +1503,5 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path, name_base, mask
 
 #=== MAIN ===
 if __name__ == "__main__":
-    #pass
-    log.setLevel(logging.INFO)
-    log.addHandler(logging.StreamHandler(sys.stdout))
-
-    #Chiles example
-
-    create_complementary_figures_to_sofia_output(
-        sofia_dir_path = '/home/krozgonyi/Desktop/chiles_example/runSoFiA/',
-        name_base = 'chiles_example_',
-        N_optical_pixels = 100,
-        masking = True,
-        mask_sigma = 3,
-        contour_levels = [3,5,7,9,11],
-        b_maj = 7,
-        b_min = 5,
-        b_pa = -45,
-        beam_correction = True, 
-        b_maj_px = 4, 
-        b_min_px = 4,
-        v_frame = 'optical')
-
-    exit()
-
-
-
-    #2km baselines
-    stacking_method_sofia_output_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_images/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/co_added_visibilities/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/conventional_imaging/']
-
-    for stacking_sofia_output in stacking_method_sofia_output_list:
-        create_complementary_figures_to_sofia_output(
-            sofia_dir_path = stacking_sofia_output,
-            name_base = 'beam17_all_',
-            N_optical_pixels = 900,
-            masking = True,
-            mask_sigma = 3,
-            contour_levels = [3,5,7,9,11],
-            b_maj = 30,
-            b_min = 30,
-            b_pa = 0,
-            beam_correction = True, 
-            b_maj_px = 5, 
-            b_min_px = 5,
-            v_frame = 'optical')
-
-    #6 km baselines
-    high_res_stacking_method_sofia_output_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/stacked_grids/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/stacked_images/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/co_added_visibilities/']
-
-    for stacking_sofia_output in high_res_stacking_method_sofia_output_list:
-        create_complementary_figures_to_sofia_output(
-            sofia_dir_path = stacking_sofia_output,
-            name_base = 'beam17_all_',
-            N_optical_pixels = 900,
-            masking = True,
-            mask_sigma = 3,
-            contour_levels = [3,5,7,9,11],
-            b_maj = 12,
-            b_min = 12,
-            b_pa = 0,
-            beam_correction = True, 
-            b_maj_px = 6, 
-            b_min_px = 6,
-            v_frame = 'optical')
-
-    exit()
-
+    pass
+ 
