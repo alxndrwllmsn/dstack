@@ -181,7 +181,7 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
                 #Plot the contours as function of 10^20 particle / cm^2
                 axes[i,j].contour(mom0_map_list[i], levels=contour_levels,
                         transform=axes[i,j].get_transform(mom0_wcs_list[i]),
-                        colors=color_list[i], linewidths=2.5, alpha=0.65)
+                        colors=color_list[i], linewidths=1.5, alpha=0.8)
 
                 #Grid
                 #axes[i,j].coords.grid(color='white', alpha=0.5, linestyle='solid', linewidth=1)
@@ -192,19 +192,20 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
                 ra.set_ticklabel_visible(False)
                 dec.set_ticklabel_visible(False)
 
+                if i == j:
+                    #Plot the 3sigma sensitivity limit with red in the bottome
+                    axes[i,j].contour(mom0_map_list[i], levels=np.multiply(np.array([3]), mom0_sen_lim_list[i]),
+                            transform=axes[i,j].get_transform(mom0_wcs_list[i]),
+                            colors='red', linewidths=1.5, alpha=1.)
+
                 if i != j:
                     axes[i,j].contour(mom0_map_list[j], levels=contour_levels,
                             transform=axes[i,j].get_transform(mom0_wcs_list[j]),
-                            colors=color_list[j], linewidths=2.5, alpha=0.65)
+                            colors=color_list[j], linewidths=1.5, alpha=0.8)
 
                 
                 else:
-                    #Plot the 3sigma sensitivity limit with red
-                    axes[i,j].contour(mom0_map_list[i], levels=np.multiply(np.array([3]), mom0_sen_lim_list[i]),
-                            transform=axes[i,j].get_transform(mom0_wcs_list[i]),
-                            colors='red', linewidths=2.5, alpha=0.65)
-
-                    #Add inner title
+                                        #Add inner title
                     t = ds.sdiagnostics.add_inner_title(axes[i,j], label_list[i], loc=2, 
                             prop=dict(size=16,color=color_list[i]))
                     t.patch.set_ec("none")
@@ -267,12 +268,12 @@ if __name__ == "__main__":
 
     log.info('..done')
 
-    #exit()
-    """
-
+    exit()
     #"""
+
+    """
     #6km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution'
+    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/'
 
     sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
         'stacked_grids/', 'stacked_images/']))
@@ -283,8 +284,8 @@ if __name__ == "__main__":
             sofia_dir_list = sofia_dir_path_list,
             name_base_list = ['beam17_all_'],
             output_name = working_dir + 'validation/mom0_with_contours.pdf',
-            N_optical_pixels = 900,
-            contour_levels = [3, 9, 30, 90],
+            N_optical_pixels = 800,
+            contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
             color_list = [c0, c2, c1],
             label_list=['co-added visibilities', 'stacked grids', 'stacked images'])
 
@@ -294,7 +295,7 @@ if __name__ == "__main__":
     exit()
     #"""
 
-    #"""
+    """
     #Chiles example SoFiA analysis
     ds.sdiagnostics.create_complementary_figures_to_sofia_output(
         sofia_dir_path = '/home/krozgonyi/Desktop/chiles_example/runSoFiA/',

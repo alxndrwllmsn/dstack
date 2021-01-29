@@ -912,8 +912,9 @@ def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_ba
 
     ax.imshow(optical_im.data,origin='lower',cmap='Greys')
     ax.contour(col_den_map, levels=np.multiply(np.array([3]),col_den_sen_lim),transform=ax.get_transform(mom0_wcs),
-                colors='red', linewidths=2.5)
-    ax.contour(col_den_map, levels=contour_levels,transform=ax.get_transform(mom0_wcs), linewidths=2.5)
+                colors='red', linewidths=1.5, alpha=1.0)
+    ax.contour(col_den_map, levels=contour_levels,transform=ax.get_transform(mom0_wcs),
+            linewidths=2.5, alpha=0.8)
 
     ax.coords.grid(color='k', alpha=0.5, linestyle='dashed')
     ax.coords[0].set_major_formatter('hh:mm:ss')
@@ -1006,10 +1007,10 @@ def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, ma
     if contours:
         ax.contour(mom_map, levels=np.multiply(np.array([3]),col_den_sen_lim),
                 transform=ax.get_transform(mom_wcs), colors='red',
-                linewidths=2.5, alpha=0.5)
+                linewidths=1.5, alpha=1.)
         
-        ax.contour(mom_map, levels=contour_levels, linewidths = 2.5,
-                transform=ax.get_transform(mom_wcs), colors='white', alpha=0.5)
+        ax.contour(mom_map, levels=contour_levels, linewidths = 1.5,
+                transform=ax.get_transform(mom_wcs), colors='white', alpha=0.8)
 
     #Colorbar settings
     cb = plt.colorbar(mom_fig, ax=ax, aspect=30, fraction=0.04975, pad=0)
@@ -1209,8 +1210,9 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
     ax0.imshow(optical_im.data,origin='lower',cmap='Greys')
     
     ax0.contour(mom0_map, levels=np.multiply(np.array([3]),col_den_sen_lim),transform=ax0.get_transform(mom_wcs),
-            linewidths=2.5, colors='red')
-    ax0.contour(mom0_map, levels=contour_levels,transform=ax0.get_transform(mom_wcs), linewidths=2.5)
+            linewidths=1.5, colors='red', alpha=1.)
+    ax0.contour(mom0_map, levels=contour_levels,transform=ax0.get_transform(mom_wcs),
+            linewidths=1.5, alpha=0.8)
 
     ax0.coords.grid(color='k', alpha=0.5, linestyle='dashed')
     ax0.coords[0].set_major_formatter('hh:mm:ss')
