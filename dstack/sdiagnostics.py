@@ -521,7 +521,9 @@ def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_p
         The index of the source in the catalog. (row index)
 
     survey: str, optional
-        The name of the survey. `DSS2 Red` by default, but see the available list here: https://astroquery.readthedocs.io/en/latest/skyview/skyview.html
+        The name of the survey. `DSS2 Red` by default, but see the available list here:
+        https://astroquery.readthedocs.io/en/latest/skyview/skyview.html
+        If this parameter set to None, by default an empty image will returned.
 
     N_optical_pixels: int, optional
         Number of pixels. The DSS2 Red pixel size is 1" thus for the default settings, this is the image siize in arcseconds. 
@@ -559,6 +561,50 @@ def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_p
 
         return optical_fits_list
 
+    def create_empty_sky_image(N_optical_pixels, pos, temp_fits_path):
+        """Simple function to create an fits HDU defining an empty sky with the
+        proper centre and size.
+        """
+        data_array = np.zeros((N_optical_pixels,N_optical_pixels))
+
+        #Create the WCS
+        w = WCS(naxis=2)
+        # The negation in the longitude is needed by definition of RA, DEC
+        w.wcs.cdelt = [-1 / 3600, 1 / 3600] #pixels in arcseconds
+        w.wcs.crpix = [N_optical_pixels // 2 + 1, N_optical_pixels // 2 + 1]
+        w.wcs.ctype = ["RA---SIN", "DEC--SIN"]
+        w.wcs.crval = [pos.ra.deg, pos.dec.deg]
+        w.naxis = 2
+        w.wcs.radesys = 'ICRS'
+        w.wcs.equinox = 2000.0
+
+        #Create file and read in and the nelete it....
+        #Remove file if exists
+        if os.path.exists(temp_fits_path):
+            os.remove(temp_fits_path)
+        
+        fits.writeto(filename=temp_fits_path, data=data_array, header=w.to_header(), 
+                checksum=True, output_verify='ignore', overwrite=False)
+        
+        optical_fits = fits.open(temp_fits_path)
+        
+        #Remove for good
+        os.remove(temp_fits_path)
+
+        survey_name = 'None'
+
+        return optical_fits, survey_name
+
+    if survey == None:
+        log.info('Sky image set to None, so generating empty background image...')
+        optical_fits, survey = create_empty_sky_image(N_optical_pixels,pos,temp_fits_path)
+        log.info('... done! using empty sky')
+        
+        optical_fits_first_element = optical_fits[0]
+
+        return optical_fits_first_element, survey
+
+
     log.info('Try to get {0:s} background image...'.format(survey))
     optical_fits_list = try_skyview_image(pos,survey,N_optical_pixels)
     
@@ -593,35 +639,7 @@ def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_p
     
     else:
         log.info('Failed to retrieve DSS images, creating balnk sky image...')
-        #Create an empty fits file read in and delete it
-        data_array = np.zeros((N_optical_pixels,N_optical_pixels))
-
-        #Create the WCS
-        w = WCS(naxis=2)
-        # The negation in the longitude is needed by definition of RA, DEC
-        w.wcs.cdelt = [-1 / 3600, 1 / 3600] #pixels in arcseconds
-        w.wcs.crpix = [N_optical_pixels // 2 + 1, N_optical_pixels // 2 + 1]
-        w.wcs.ctype = ["RA---SIN", "DEC--SIN"]
-        w.wcs.crval = [pos.ra.deg, pos.dec.deg]
-        w.naxis = 2
-        w.wcs.radesys = 'ICRS'
-        w.wcs.equinox = 2000.0
-
-        #Create file and read in and the nelete it....
-        #Remove file if exists
-        if os.path.exists(temp_fits_path):
-            os.remove(temp_fits_path)
-        
-        fits.writeto(filename=temp_fits_path, data=data_array, header=w.to_header(), 
-                checksum=True, output_verify='ignore', overwrite=False)
-        
-        optical_fits = fits.open(temp_fits_path)
-        
-        #Remove for good
-        os.remove(temp_fits_path)
-
-        survey = 'None'
-
+        optical_fits, survey = create_empty_sky_image(N_optical_pixels,pos,temp_fits_path)
         log.info('... done! using empty sky')
     
     optical_fits_first_element = optical_fits[0]
@@ -629,7 +647,7 @@ def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_p
     return optical_fits_first_element, survey
 
 #= Create data cube functions for plotting
-def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, N_optical_pixels=600):
+def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, survey='DSS2 Red', N_optical_pixels=600):
     """Return the background optical image as a numpy array. It is an useful modularisation for ploting
     Furthermore, this can be imported to external code for more complex analysis.
 
@@ -662,7 +680,8 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, N_optical_pi
     source_index, catalog_path, cubelet_path_dict, spectra_path = get_source_files(source_ID, sofia_dir_path, name_base)
     
     #Get optical image and coordinate system
-    optical_im_fits_hdu, survey_used = get_optical_image(catalog_path, source_index, N_optical_pixels=N_optical_pixels)
+    optical_im_fits_hdu, survey_used = get_optical_image(catalog_path, source_index,
+            survey=survey, N_optical_pixels=N_optical_pixels)
 
     optical_im = optical_im_fits_hdu.data
     optical_im_wcs = WCS(optical_im_fits_hdu.header)
