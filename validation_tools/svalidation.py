@@ -30,9 +30,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patheffects import withStroke
- 
+
+import cmocean
+
 import dstack as ds
 
 
@@ -65,8 +68,17 @@ outlier_color = 'dimgrey'
 
 #Select the colormap and set outliers
 _CMAP = matplotlib.cm.viridis
-
 _CMAP.set_bad(color=outlier_color)
+
+#Set the secondary colormap
+#_DIV_CMAP = cmocean.cm.oxy
+_CMAP2 = matplotlib.cm.plasma
+_CMAP2.set_bad(color=outlier_color)
+
+#Set diverging colormap default
+#_DIV_CMAP = cmocean.cm.balance
+_DIV_CMAP = cmocean.cm.delta
+_DIV_CMAP.set_bad(color=outlier_color)
 
 #=== Disable fits warnings ===
 #In fact this ignores all Warnings, so comment this line for debugging!
@@ -216,7 +228,7 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
 
     for i in range(0,N_sources):
         for j in range(0,N_sources):
-            if i<j:
+            if i < j:
                 #Upper triangle blank
                 axes[i,j].set_axis_off() #This does not work with projection
                
@@ -294,7 +306,7 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
     plt.close()
 
 
-def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=['']):
+def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], temp_fits_path=str(os.getcwd() + '/temp.fits'), ident_list=['?']):
     """
 
     """
@@ -308,6 +320,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     b_min_list = initialise_argument_list(N_sources, b_min_list)
     b_pa_list = initialise_argument_list(N_sources, b_pa_list)
     label_list = initialise_argument_list(N_sources,label_list)
+    ident_list = initialise_argument_list(N_sources, ident_list)
 
     #The name bases might be the same
     if len(name_base_list) != N_sources:
@@ -318,28 +331,20 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
         if color_list[i] == None:
             color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
 
-    #Get the data arrays and coordinate systems for the plots
-    #I only get a single (!) background image: this is an empty image corrsponding
-    # to the first source sky coordinates
 
-    optical_background, optical_wcs, survey = ds.sdiagnostics.get_optical_image_ndarray(source_ID_list[0],
-                sofia_dir_list[0], name_base_list[0], N_optical_pixels=N_optical_pixels,
-                survey=None)
+    #=== Create background image
 
-
-    #Mask all pixels
+    #Create the backround image from scratch
     source_index, catalog_path, cubelet_path_dict, spectra_path = ds.sdiagnostics.get_source_files(source_ID_list[0], sofia_dir_path_list[0], name_base_list[0])
-    
-
     catalog = ds.sdiagnostics.parse_single_table(catalog_path).to_table(use_names_over_ids=True)
 
-    #Get the optical image centre from the SoFiA RA, Dec coordinates of the selected source
+    #Get the background image centre from the SoFiA RA, Dec coordinates of the selected source
     ra = catalog['ra'][source_index]
     dec = catalog['dec'][source_index]
     pos = SkyCoord(ra=ra, dec=dec, unit='deg',equinox='J2000')
 
-
-    mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+    #Get the firts source's moment map for the pixel size
+    mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
                                         source_ID = source_ID_list[0],
                                         sofia_dir_path = sofia_dir_list[0],
                                         name_base = name_base_list[0],
@@ -348,19 +353,13 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                                         b_maj = b_maj_list[0],
                                         b_min = b_min_list[0])
 
-
-    #print(astropy.wcs.utils.proj_plane_pixel_scales(map_wcs))
-    #print(6/3600)
-
-    #exit()
-
+    #Initialise the background image
     data_array = np.zeros((N_optical_pixels,N_optical_pixels))
 
-    #Create the WCS
+    #Create the WCS using the first dources moment map projected pixel size
     w = WCS(naxis=2)
     # The negation in the longitude is needed by definition of RA, DEC
-    #w.wcs.cdelt = astropy.wcs.utils.proj_plane_pixel_scales(map_wcs) #pixels in arcseconds
-    w.wcs.cdelt = [6 / 3600, 6 / 3600]
+    w.wcs.cdelt = astropy.wcs.utils.proj_plane_pixel_scales(map_wcs) #pixels in arcseconds
     w.wcs.crpix = [N_optical_pixels // 2 + 1, N_optical_pixels // 2 + 1]
     w.wcs.ctype = ["RA---SIN", "DEC--SIN"]
     w.wcs.crval = [pos.ra.deg, pos.dec.deg]
@@ -368,9 +367,8 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     w.wcs.radesys = 'ICRS'
     w.wcs.equinox = 2000.0
 
-    #Create file and read in and the nelete it....
+    #Create file and read in and then delete it....
     #Remove file if exists
-    temp_fits_path='./a.fits'
     if os.path.exists(temp_fits_path):
         os.remove(temp_fits_path)
     
@@ -382,9 +380,11 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     #Remove for good
     os.remove(temp_fits_path)
 
-   
+    del mom_map, map_wcs, map_sen_lim
 
-    #==============
+    #Now we have the background image that has the same pixel size as the moment maps
+
+    #NOTE that all mom map has to have the same pixel size!
     
     #Get the moment maps and sensitivities
     mom_map_list = []
@@ -393,6 +393,11 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
 
     transformed_map_list = []
 
+    #Get max min values for setting up the colorbars
+    c_min = np.inf
+    c_max = -np.inf
+
+    #Get all the moment maps and transform them into the background image coordinate frame
     for i in range(0,N_sources):
 
         mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
@@ -404,57 +409,85 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                                         b_maj = b_maj_list[i],
                                         b_min = b_min_list[i])
 
+        if np.any(w.wcs.cdelt) != np.any(astropy.wcs.utils.proj_plane_pixel_scales(map_wcs)):
+            raise ValueError('Different pixel size of the input moment map from {0:s}'.format(sofia_dir_list[i]))
+
+        #mom_map = np.divide(mom_map, map_sen_lim)
+
+        if np.amax(mom_map) > c_max:
+            c_max = np.amax(mom_map)
+
+        if np.amin(mom_map) < c_min:
+            c_min = np.amin(mom_map)
 
         mom_map_list.append(mom_map)
         mom_wcs_list.append(map_wcs)
         mom_sen_lim_list.append(map_sen_lim)
 
+        #Add the moment maps to the background image, however
+        #NOTE that the moment maps can be different sizes and the projection to
+        # the backround image is non-trivial. I put together a quick routine to
+        # transform the moment maps onto the right place and orientation, but
+        # it uses the corner pixel (numpy) of each moment map as a reference pixel.
+        # As a result, I can easily loop through the moment map pixels and transform
+        # to the background image. However, I am not sure why (maybe because I
+        # used sources on the southern sky), but the moment maps are rotated in
+        # the wrong direction in the Dec (x) axis.
+        #
+        #NOTE that because of this method the background image has to be large
+        # enough for the moment map to be (wrongly) mapped onto.
 
-        #print(astropy.wcs.utils.skycoord_to_pixel(astropy.wcs.utils.pixel_to_skycoord([0,1],[0,1], map_wcs, origin=0), w, origin=0))
-        #print(astropy.wcs.utils.pixel_to_pixel(map_wcs,optical_wcs))
-        
-
+        #Define the data array wich the moment map will be transformed
         transformed_map = np.zeros((N_optical_pixels,N_optical_pixels))
 
-        x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(astropy.wcs.utils.pixel_to_skycoord(0, 0, map_wcs, origin=0), w, origin=0)
+        #Get the referenc epixels
+        x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
+                astropy.wcs.utils.pixel_to_skycoord(0, 0, map_wcs, origin=0), w, origin=0)
     
         x_ref_index = int(x_ref)
         y_ref_index = int(y_ref)
 
-        print(x_ref_index, y_ref_index)
+        #Add the moment map to the background image
+        for j in range(0,np.shape(mom_map)[0]):
+            for k in range(0,np.shape(mom_map)[1]):
 
-        for i in range(0,np.shape(mom_map)[0]):
-            for j in range(0,np.shape(mom_map)[1]):
-                #x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(astropy.wcs.utils.pixel_to_skycoord(j,i, map_wcs, origin=0), w, origin=0)
-    
+                #This is a slower pixel-to-pixel tranformation
+                #x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
+                #astropy.wcs.utils.pixel_to_skycoord(k,j, map_wcs, origin=0), w, origin=0)
                 #x_ref_index = int(x_ref)
                 #y_ref_index = int(y_ref)
+                #transformed_map[y_ref_index, x_ref_index] = mom_map[j,k]
 
+                transformed_map[y_ref_index + j, x_ref_index - k] = mom_map[j,k]
 
-                #transformed_map[y_ref_index, x_ref_index] = mom_map[i,j]
-
-                transformed_map[y_ref_index + i, x_ref_index - j] = mom_map[i,j]
-
+        #Flip the result image along the Dec axis
         transformed_map = np.flip(transformed_map,axis=1)
 
-        #Mask zero values
+        #Mask zero values as the input moment maps are masked as well.
         mask = (transformed_map == 0.)
         transformed_map = np.ma.array(transformed_map, mask=mask)
 
-
         transformed_map_list.append(transformed_map)
 
+    del mom_map, map_wcs, mom_sen_lim_list, transformed_map
 
-    #print(astropy.wcs.utils.proj_plane_pixel_scales(map_wcs))
-    #print(astropy.wcs.utils.proj_plane_pixel_area(map_wcs))
+    #=== Get the min max values for the difference maps
+    c_diff_min = np.inf
+    c_diff_max = -np.inf
 
+    for i in range(0,N_sources):
+        for j in range(0,N_sources):
+            if i > j:
+                #mask NaN values
+                diff_map = np.subtract(transformed_map_list[j],transformed_map_list[i]) 
+                diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))
+                
+                if c_diff_min > np.amin(diff_map):
+                    c_diff_min = np.amin(diff_map)
+                if c_diff_max < diff_map.max():
+                    c_diff_max = diff_map.max()
 
-    #All mom map pixels has to be the same scale and cover the same area.
-
-        
-
-
-    #exit()
+    del diff_map
 
     #=== Create the figure
     fig, axes = plt.subplots(figsize=(2 + 4 * N_sources, 2 + 4 * N_sources),
@@ -482,35 +515,52 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
 
 
             else:
-                #axes[i,j].imshow(optical_background, origin='lower', cmap='Greys')
-                #axes[i,j].coords.grid(color='white', alpha=0.5, linestyle='dashed')
- 
-                if i == j:
-                    axes[i,j].imshow(transformed_map_list[i], alpha=1., origin='lower')
-                    #transform=axes[i,j].get_transform(mom_wcs_list[i]))
-
-
-                    #axes[i,j].coords.grid(color='white', alpha=0.5, linestyle='dashed')
-                    #axes[i,j].set_axisbelow(True)
-                
+                #Unset ticks and labels
                 ra = axes[i,j].coords[0]
                 dec = axes[i,j].coords[1]
 
                 ra.set_ticklabel_visible(False)
                 dec.set_ticklabel_visible(False)
-            
-                if i != j:
-                    #axes[i,j].contour(mom0_map_list[j], levels=contour_levels,
-                    #        transform=axes[i,j].get_transform(mom0_wcs_list[j]),
-                    #        colors=color_list[j], linewidths=1.5, alpha=0.8)
 
-                    axes[i,j].imshow(np.subtract(transformed_map_list[i],transformed_map_list[j]), alpha = 1., origin='lower')
-                    #axes[i,j].coords.grid(color='white', alpha=0.5, linestyle='dashed')
-                
-                else:
-                                        #Add inner title
-                    t = ds.sdiagnostics.add_inner_title(axes[i,j], label_list[i], loc=2, 
-                            prop=dict(size=16,color=color_list[i]))
+                if i == j:
+                    if moment == 1:
+                        mom_ax = axes[i,j].imshow(transformed_map_list[i], alpha=1.,
+                            origin='lower', vmin=c_min, vmax=c_max, cmap=_DIV_CMAP)
+                    else:
+                        mom_ax = axes[i,j].imshow(transformed_map_list[i], alpha=1.,
+                            origin='lower', vmin=c_min, vmax=c_max, cmap=_CMAP)
+
+                    axes[i,j].coords.grid(color='white', linewidth=0.5, 
+                            alpha=0.15, linestyle='dashed')
+                    #axes[i,j].set_axisbelow(True)
+               
+                    #Add colorbar
+                    cbaxes = inset_axes(axes[i,j], width="5.5%", height="75%", 
+                            loc='lower right') 
+                    cb = plt.colorbar(mom_ax, cax=cbaxes, orientation='vertical')
+
+                    #set ticks and label left side
+                    cbaxes.yaxis.set_ticks_position('left')
+                    #cbaxes.yaxis.set_label_position('left')
+                    
+                    #cbaxes.spines['top'].set_edgecolor('white')
+                    #cbaxes.spines['right'].set_color('white')
+                    #cbaxes.spines['left'].set_color('white')
+                    #cbaxes.spines['bottom'].set_color('white')
+
+                    cb.ax.tick_params(colors='white')
+                   
+                    if moment == 0:
+                        cb.ax.set_ylabel(r'N$_{HI}$ [10$^{20}$cm$^2$]', color='black',
+                            fontsize = 18, labelpad=10)
+                    else:
+                        cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', color='black',
+                            fontsize = 18, labelpad=10)
+ 
+                    #Add inner title
+                    t = ds.sdiagnostics.add_inner_title(axes[i,j], 
+                            str(label_list[i] + ' ({0:s})'.format(ident_list[i])),
+                            loc=2, prop=dict(size=16,color=color_list[i]))
                     t.patch.set_ec("none")
                     t.patch.set_alpha(0.5)
 
@@ -521,6 +571,45 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                     beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj_list[i]/3600, b_min_list[i]/3600,
                             b_pa_list[i], fc='white', ec='white', alpha=1., transform=axes[i,j].get_transform('fk5'))
                     axes[i,j].add_patch(beam_ellip)
+
+
+                if i != j:
+                    diff_map = np.subtract(transformed_map_list[j],transformed_map_list[i])
+                    diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))  
+                    
+                    mom_ax = axes[i,j].imshow(diff_map,
+                            vmin=c_diff_min, vmax=c_diff_max, alpha = 1., origin='lower',
+                            cmap=_CMAP2)
+                    
+                    axes[i,j].coords.grid(color='white', alpha=0.25,
+                            linewidth=0.5, linestyle='dashed')
+                
+                    #Add colorbar
+                    cbaxes = inset_axes(axes[i,j], width="5.5%", height="75%", 
+                            loc='lower right') 
+                    cb = plt.colorbar(mom_ax, cax=cbaxes, orientation='vertical')
+
+                    #set ticks and label left side
+                    cbaxes.yaxis.set_ticks_position('left')
+                    #cbaxes.yaxis.set_label_position('left')
+                    
+                    #cbaxes.spines['top'].set_edgecolor('white')
+                    #cbaxes.spines['right'].set_color('white')
+                    #cbaxes.spines['left'].set_color('white')
+                    #cbaxes.spines['bottom'].set_color('white')
+
+                    cb.ax.tick_params(colors='white')
+                    
+                    #cb.ax.set_ylabel(r'N$_{HI}$ [10$^{20}$cm$^2$]', color='black',
+                    #        fontsize = 18, labelpad=10)
+
+                    #Add inner title
+                    t = ds.sdiagnostics.add_inner_title(axes[i,j], 
+                            str(r'({0:s} - {1:s})'.format(ident_list[j],ident_list[i])),
+                            loc=2, prop=dict(size=16,color='black'))
+                    t.patch.set_ec("none")
+                    t.patch.set_alpha(0.5)
+
 
             if i == (N_sources - 1):
                 ra.set_ticklabel_visible(True)
@@ -796,29 +885,67 @@ if __name__ == "__main__":
     log.setLevel(logging.INFO)
     log.addHandler(logging.StreamHandler(sys.stdout))
 
+    """
+    #2km baselines
     working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
 
     sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
         'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
 
-    log.info('Creating momN contour triangle plot for 2km baselie results...')
 
-    plot_momN_triangle_matrix(moment = 0,
-            source_ID_list=[1, 1, 1, 2],
-            sofia_dir_list = sofia_dir_path_list,
-            name_base_list = ['beam17_all_'],
-            output_name = working_dir + 'validation/momN_map.pdf',
-            N_optical_pixels = 170,
-            masking_list = [True],
-            color_list = [c0, c2, c1, outlier_color],
-            label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
-            b_maj_list = [30, 30, 30, 30],
-            b_min_list = [30, 30, 30, 30],
-            b_pa_list = [0, 0, 0, 0])
+    for mom in range(0,3):
+        log.info('Creating mom{0:d} contour triangle plot for 2km baselie results...'.format(mom))
 
-    log.info('..done')
+        plot_momN_triangle_matrix(moment = mom,
+                source_ID_list=[1, 1, 1, 2],
+                sofia_dir_list = sofia_dir_path_list,
+                name_base_list = ['beam17_all_'],
+                output_name = working_dir + 'validation/mom{0:d}_map.pdf'.format(mom),
+                N_optical_pixels = 170,
+                masking_list = [True],
+                mask_sigma_list = [3.0],
+                color_list = [c0, c2, c1, outlier_color],
+                label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
+                ident_list = ['V', 'G', 'I', 'C'],
+                b_maj_list = [30, 30, 30, 30],
+                b_min_list = [30, 30, 30, 30],
+                b_pa_list = [0, 0, 0, 0])
+
+        log.info('..done')
 
     exit()
+    #"""
+    
+    #"""
+    #6km baselines
+    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/'
+
+    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
+        'stacked_grids/', 'stacked_images/']))
+
+
+    for mom in range(0,3):
+        log.info('Creating mom{0:d} contour triangle plot for 6km baselie results...'.format(mom))
+
+        plot_momN_triangle_matrix(moment = mom,
+                source_ID_list=[1, 1, 1],
+                sofia_dir_list = sofia_dir_path_list,
+                name_base_list = ['beam17_all_'],
+                output_name = working_dir + 'validation/mom{0:d}_map.pdf'.format(mom),
+                N_optical_pixels = 400,
+                masking_list = [True],
+                mask_sigma_list = [3.],
+                color_list = [c0, c2, c1],
+                label_list = ['co-added visibilities', 'stacked grids', 'stacked images'],
+                ident_list = ['V', 'G', 'I'],
+                b_maj_list = [12, 12, 12],
+                b_min_list = [12, 12, 12],
+                b_pa_list = [0, 0, 0])
+
+        log.info('..done')
+
+    exit()
+    #"""
  
     #"""
     #2km baselines
