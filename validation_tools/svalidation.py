@@ -109,7 +109,7 @@ def initialise_argument_list(required_list_length,argument_list):
 
     return argument_list
 
-def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, contour_levels=[1.6,2.7,5.3,8,13,21], masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=['']):
+def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, contour_levels=[1.6,2.7,5.3,8,13,21], masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], col_den_sensitivity_lim_list=[None]):
     """Create a triangle plot from the input SoFiA sources. In the plot diagonal
     the contour plot of each source is shown. The upper triangle is empty,
     while in the lower triangle panels both the i and j panel conbtour plots are
@@ -167,6 +167,12 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
 
     label_list: list of str
         The name/titile used for each source.
+    
+    col_den_sensitivity_lim_list: list of float
+        A list containing the column density sensitivity for each SoFiA output provided by
+        the user, rather than using the by default value computed from the SoFiA RMS value.
+        Given in units of 10^20 HI /cm^2
+    
     Return
     ======
     output_image: file
@@ -182,6 +188,7 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
     b_min_list = initialise_argument_list(N_sources, b_min_list)
     b_pa_list = initialise_argument_list(N_sources, b_pa_list)
     label_list = initialise_argument_list(N_sources,label_list)
+    col_den_sensitivity_lim_list = initialise_argument_list(N_sources, col_den_sensitivity_lim_list)
 
     #The name bases might be the same
     if len(name_base_list) != N_sources:
@@ -197,7 +204,7 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
     #This will be used as the background for all the contours
 
     optical_background, optical_wcs, survey = ds.sdiagnostics.get_optical_image_ndarray(source_ID_list[0],
-                sofia_dir_list[0], name_base_list[0], N_optical_pixels)
+                sofia_dir_list[0], name_base_list[0], N_optical_pixels=N_optical_pixels)
 
     #Get the moment maps and sensitivities
     mom0_map_list = []
@@ -213,12 +220,13 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
                                         masking = masking_list[i],
                                         mask_sigma = mask_sigma_list[i],
                                         b_maj = b_maj_list[i],
-                                        b_min = b_min_list[i])
-
+                                        b_min = b_min_list[i],
+                                        col_den_sensitivity = col_den_sensitivity_lim_list[i])
 
         mom0_map_list.append(mom0_map)
         mom0_wcs_list.append(map_wcs)
         mom0_sen_lim_list.append(map_sen_lim)
+        print(map_sen_lim)
 
     #=== Create the figure
     fig, axes = plt.subplots(figsize=(2 + 4 * N_sources, 2 + 4 * N_sources),
@@ -306,8 +314,14 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
     plt.close()
 
 
-def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], temp_fits_path=str(os.getcwd() + '/temp.fits'), ident_list=['?']):
-    """
+def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], temp_fits_path=str(os.getcwd() + '/temp.fits'), ident_list=['?'], col_den_sensitivity_lim_list=[None], sensitivity=False):
+    """This is a big and complex (poorly written) function to generate a triangle
+    matrix showing the SoFiA stamps in the diagonal elements and the pixel-by-pixel
+    difference in the lower triangle.
+
+    This is a one-fit for all function.
+
+    NOTE: I need to finish this docstring... 
 
     """
     #Initialise arguments by recursively appending them
@@ -321,6 +335,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     b_pa_list = initialise_argument_list(N_sources, b_pa_list)
     label_list = initialise_argument_list(N_sources,label_list)
     ident_list = initialise_argument_list(N_sources, ident_list)
+    col_den_sensitivity_lim_list = initialise_argument_list(N_sources, col_den_sensitivity_lim_list)
 
     #The name bases might be the same
     if len(name_base_list) != N_sources:
@@ -330,7 +345,12 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     for i in range(0,N_sources):
         if color_list[i] == None:
             color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
-
+    
+    #If the sensitivity maps are returned, then the moment is set to 0!
+    if sensitivity:
+        if moment != 0:
+            raise Warning('Moment selected: {0:d}, but currently, only the moment0 sensitivity maps are supported!'.format(moment))
+            moment = 0
 
     #=== Create background image
 
@@ -351,7 +371,8 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                                         masking = masking_list[0],
                                         mask_sigma = mask_sigma_list[0],
                                         b_maj = b_maj_list[0],
-                                        b_min = b_min_list[0])
+                                        b_min = b_min_list[0],
+                                        col_den_sensitivity = col_den_sensitivity_lim_list[i])
 
     #Initialise the background image
     data_array = np.zeros((N_optical_pixels,N_optical_pixels))
@@ -407,12 +428,15 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                                         masking = masking_list[i],
                                         mask_sigma = mask_sigma_list[i],
                                         b_maj = b_maj_list[i],
-                                        b_min = b_min_list[i])
+                                        b_min = b_min_list[i],
+                                        col_den_sensitivity = col_den_sensitivity_lim_list[i])
 
         if np.any(w.wcs.cdelt) != np.any(astropy.wcs.utils.proj_plane_pixel_scales(map_wcs)):
             raise ValueError('Different pixel size of the input moment map from {0:s}'.format(sofia_dir_list[i]))
 
-        #mom_map = np.divide(mom_map, map_sen_lim)
+        #Transform mom0 map to sensitivity if sensitivity set to True:
+        if sensitivity:
+            mom_map = np.divide(mom_map, map_sen_lim)
 
         if np.amax(mom_map) > c_max:
             c_max = np.amax(mom_map)
@@ -550,12 +574,16 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
 
                     cb.ax.tick_params(colors='white')
                    
-                    if moment == 0:
-                        cb.ax.set_ylabel(r'N$_{HI}$ [10$^{20}$cm$^2$]', color='black',
+                    if sensitivity:
+                        cb.ax.set_ylabel(r'SNR', color='black',
                             fontsize = 18, labelpad=10)
                     else:
-                        cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', color='black',
-                            fontsize = 18, labelpad=10)
+                        if moment == 0:
+                            cb.ax.set_ylabel(r'N$_{HI}$ [10$^{20}$cm$^2$]', color='black',
+                                fontsize = 18, labelpad=10)
+                        else:
+                            cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', color='black',
+                                fontsize = 18, labelpad=10)
  
                     #Add inner title
                     t = ds.sdiagnostics.add_inner_title(axes[i,j], 
@@ -610,7 +638,6 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                     t.patch.set_ec("none")
                     t.patch.set_alpha(0.5)
 
-
             if i == (N_sources - 1):
                 ra.set_ticklabel_visible(True)
                 ra.set_axislabel('RA -- sin', fontsize=18)
@@ -624,13 +651,6 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
 
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
-
-
-
-
-
-
-
 
 def plot_spectra_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list, output_name, beam_correction_list=[True], b_maj_px_list=[5.], b_min_px_list=[5.0], v_frame_list=['optical'], color_list=[None], label_list=[''], ident_list=['?']):
     """Plot a triangle matrix of the spectra from different SoFiA runs. The diagonal
@@ -892,9 +912,47 @@ if __name__ == "__main__":
     sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
         'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
 
+    log.info('Creating mom0 contour triangle plot for 2km baselie results...')
+    
+    #Use the column densizty sensitivity of the co-added visibility combination
+    # for all the sensitivity maps
+    mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+        source_ID = 1,
+        sofia_dir_path = sofia_dir_path_list[0],
+        name_base = 'beam17_all_',
+        b_maj = 30,
+        b_min = 30)
+
+    plot_mom0_contour_triangle_matrix(source_ID_list=[1, 1, 1, 2],
+            sofia_dir_list = sofia_dir_path_list,
+            name_base_list = ['beam17_all_'],
+            output_name = working_dir + 'validation/mom0_with_uniform_sensitivity_contours.pdf',
+            N_optical_pixels = 800,
+            contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
+            color_list = [c0, c2, c1, outlier_color],
+            label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
+            b_maj_list = [30, 30, 30, 30],
+            b_min_list = [30, 30, 30, 30],
+            b_pa_list = [0, 0, 0, 0],
+            col_den_sensitivity_lim_list = [sen_lim])
+
+    log.info('..done')
+
+    exit()
+    #"""
+
+
+    #"""
+    #2km baselines
+    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
+
+    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
+        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
+
 
     for mom in range(0,3):
         log.info('Creating mom{0:d} contour triangle plot for 2km baselie results...'.format(mom))
+
 
         plot_momN_triangle_matrix(moment = mom,
                 source_ID_list=[1, 1, 1, 2],
@@ -911,7 +969,45 @@ if __name__ == "__main__":
                 b_min_list = [30, 30, 30, 30],
                 b_pa_list = [0, 0, 0, 0])
 
+        
         log.info('..done')
+
+
+        #Also create the sensitivity map
+        if mom == 0:
+            log.info('Creating the sensitivity triangle plot...')
+
+
+            #Use the column densizty sensitivity of the co-added visibility combination
+            # for all the sensitivity maps
+            mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+                source_ID = 1,
+                sofia_dir_path = sofia_dir_path_list[0],
+                name_base = 'beam17_all_',
+                b_maj = 30,
+                b_min = 30)
+
+
+            plot_momN_triangle_matrix(moment = mom,
+                source_ID_list=[1, 1, 1, 2],
+                sofia_dir_list = sofia_dir_path_list,
+                name_base_list = ['beam17_all_'],
+                output_name = working_dir + 'validation/sensitivity_map.pdf'.format(mom),
+                N_optical_pixels = 170,
+                masking_list = [True],
+                mask_sigma_list = [3.0],
+                color_list = [c0, c2, c1, outlier_color],
+                label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
+                ident_list = ['V', 'G', 'I', 'C'],
+                b_maj_list = [30, 30, 30, 30],
+                b_min_list = [30, 30, 30, 30],
+                b_pa_list = [0, 0, 0, 0],
+                col_den_sensitivity_lim_list = [sen_lim, sen_lim, sen_lim, sen_lim],
+                sensitivity = True)
+        
+            log.info('...done')
+
+            exit()
 
     exit()
     #"""

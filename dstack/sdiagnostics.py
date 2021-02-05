@@ -604,7 +604,6 @@ def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_p
 
         return optical_fits_first_element, survey
 
-
     log.info('Try to get {0:s} background image...'.format(survey))
     optical_fits_list = try_skyview_image(pos,survey,N_optical_pixels)
     
@@ -678,7 +677,7 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, survey='DSS2
         The WCS of the optical image
     """
     source_index, catalog_path, cubelet_path_dict, spectra_path = get_source_files(source_ID, sofia_dir_path, name_base)
-    
+   
     #Get optical image and coordinate system
     optical_im_fits_hdu, survey_used = get_optical_image(catalog_path, source_index,
             survey=survey, N_optical_pixels=N_optical_pixels)
@@ -688,7 +687,7 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, survey='DSS2
 
     return optical_im, optical_im_wcs, survey_used
 
-def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True, mask_sigma=3, b_maj=30, b_min=30):
+def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True, mask_sigma=3, b_maj=30, b_min=30, col_den_sensitivity=None):
     """Return the mom map defined by the arguments as a numpy array. It is an useful modularisation for ploting
     Furthermore, this can be imported to external code for more complex analysis.
 
@@ -728,7 +727,13 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
     
     b_min: float, optional
         Angular minor axis of the beam [arcsec]
-
+    
+    col_den_sensitivity: float
+        The column density sensitivity if the user wants to use a different value than
+        from what computed from the SoFiA RMS value. None by default, and so the 
+        SoFiA RMS value is used. Useful if e.g. the user wants to use an RMS of the cube
+        computed differently from SoFiA. In the units of 10^20 HI / cm^2
+    
     Return
     ======
     col_den_map: `numpy.ndarray`
@@ -760,9 +765,11 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
         #Get moment0 (column density) map sensitivity and wcs 
         mom0_map = fits.getdata(cubelet_path_dict['mom0'])
         col_den_map = get_column_density(mom0_map, z, b_maj, b_min)
-        col_den_sen_lim = get_column_density_sensitivity(rms, z, b_maj, b_min, dnu, 1)
- 
-        #print(b_maj, np.amax(col_den_map))
+
+        if col_den_sensitivity != None:
+            col_den_sen_lim = col_den_sensitivity
+        else:
+            col_den_sen_lim = get_column_density_sensitivity(rms, z, b_maj, b_min, dnu, 1)
 
         #Mask out the pixels with 0 values
         mask = (col_den_map == 0.)
@@ -783,7 +790,10 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
             return velocity_map, mom_wcs, col_den_sen_lim
 
         else:
-            return velocity_map, mom_wcs, None
+            if col_den_sensitivity != None:
+                return velocity_map, mom_wcs, col_den_sensitivity
+            else:
+                return velocity_map, mom_wcs, None
 
     elif moment == 2:
         freq, z = get_freq_and_redshift_from_catalog(catalog_path,source_index)
@@ -798,7 +808,10 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
             return velocity_dispersion_map, mom_wcs, col_den_sen_lim
 
         else:
-            return velocity_dispersion_map, mom_wcs, None
+            if col_den_sensitivity != None:
+                return velocity_dispersion_map, mom_wcs, col_den_sensitivity
+            else:
+                return velocity_dispersion_map, mom_wcs, None
 
     else:
         raise ValueError('Invalid moment value was given. Only moment 0,1 and 2 maps are supported!')
