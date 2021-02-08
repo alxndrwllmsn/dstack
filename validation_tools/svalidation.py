@@ -16,6 +16,7 @@ import numpy as np
 import logging
 import warnings
 import random
+import copy
 
 import astropy #Some functions I call explicitly from astropy
 from astropy.io import fits
@@ -138,37 +139,37 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
     output_name: str
         The name and full path to the output tiangle plot generated.
 
-    N_optical_pixels: int
+    N_optical_pixels: int, optional
         Number of pixels for the optical background image.
 
-    contour_levels: list of float
+    contour_levels: list of float, optional
         List containing the column density contours to drawn in units of 10^(20)
         HI atoms / cm^2.
 
-    masking_list: list of bool
+    masking_list: list of bool, optional
         If True, the respective mom0 maps will be msked
 
-    mask_sigma_list: list of float
+    mask_sigma_list: list of float, optional
         If the mom0 map is masked, pixels below this threshold will be masked.
         The values are given in units of column density sensitivity.
 
-    b_maj_list: list of float
+    b_maj_list: list of float, optional
         The major axis of the synthesised beam in arcseconds.
 
-    b_min_list: list of float
+    b_min_list: list of float, optional
         The minor axis of the synthesised beam in arcseconds.
 
-    b_pa_list: list of float
+    b_pa_list: list of float, optional
         The position angle of the synthesised beam.
 
-    color_list: list of colors
+    color_list: list of colors, optional
         A list defining each sources color. If None is given a random color is
         generated.
 
-    label_list: list of str
+    label_list: list of str, optional
         The name/titile used for each source.
     
-    col_den_sensitivity_lim_list: list of float
+    col_den_sensitivity_lim_list: list of float, optional
         A list containing the column density sensitivity for each SoFiA output provided by
         the user, rather than using the by default value computed from the SoFiA RMS value.
         Given in units of 10^20 HI /cm^2
@@ -226,7 +227,6 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
         mom0_map_list.append(mom0_map)
         mom0_wcs_list.append(map_wcs)
         mom0_sen_lim_list.append(map_sen_lim)
-        print(map_sen_lim)
 
     #=== Create the figure
     fig, axes = plt.subplots(figsize=(2 + 4 * N_sources, 2 + 4 * N_sources),
@@ -313,49 +313,72 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
 
+def get_common_frame_for_sofia_sources(moment, source_ID, sofia_dir_path, name_base, N_optical_pixels=600, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, temp_fits_path=str(os.getcwd() + '/temp.fits')):
+    """This function creates an empty sky image based on a SoFiA source.
+    The image centre is defined by the SoFiA cataloge RA and Dec of the source,
+    while the image size is given by the user. This function is really similar to
+    the function `get_optical_image_ndarray()`, however, the pixel size of the
+    image is defined by the pixel size of the SoFiA source cubelet.
 
-def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], temp_fits_path=str(os.getcwd() + '/temp.fits'), ident_list=['?'], col_den_sensitivity_lim_list=[None], sensitivity=False):
-    """This is a big and complex (poorly written) function to generate a triangle
-    matrix showing the SoFiA stamps in the diagonal elements and the pixel-by-pixel
-    difference in the lower triangle.
+    Thus, this function can be used as a frame (background image) to wich the
+    SoFiA cubelet moment maps can be projected.
 
-    This is a one-fit for all function.
+    This is the basis of comparing SoFiA source cubelets of the same sky position,
+    but with different cubelet size.
 
-    NOTE: I need to finish this docstring... 
+    For more details of the projection see `convert_source_mom_map_to_common_frame()`
 
-    """
-    #Initialise arguments by recursively appending them
-    N_sources = len(source_ID_list)
-    assert len(sofia_dir_list) == N_sources, 'More or less sources are given than SoFiA directory paths!'
-
-    masking_list = initialise_argument_list(N_sources,masking_list)
-    mask_sigma_list = initialise_argument_list(N_sources, mask_sigma_list)
-    b_maj_list = initialise_argument_list(N_sources, b_maj_list)
-    b_min_list = initialise_argument_list(N_sources, b_min_list)
-    b_pa_list = initialise_argument_list(N_sources, b_pa_list)
-    label_list = initialise_argument_list(N_sources,label_list)
-    ident_list = initialise_argument_list(N_sources, ident_list)
-    col_den_sensitivity_lim_list = initialise_argument_list(N_sources, col_den_sensitivity_lim_list)
-
-    #The name bases might be the same
-    if len(name_base_list) != N_sources:
-        name_base_list = initialise_argument_list(N_sources, name_base_list)
-
-    #Generate random colors if needed
-    for i in range(0,N_sources):
-        if color_list[i] == None:
-            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+    Parameters
+    ==========
+    moment: int
+        The moment map that ndarray is returned (0,1 or 2) 
     
-    #If the sensitivity maps are returned, then the moment is set to 0!
-    if sensitivity:
-        if moment != 0:
-            raise Warning('Moment selected: {0:d}, but currently, only the moment0 sensitivity maps are supported!'.format(moment))
-            moment = 0
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
 
-    #=== Create background image
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
 
-    #Create the backround image from scratch
-    source_index, catalog_path, cubelet_path_dict, spectra_path = ds.sdiagnostics.get_source_files(source_ID_list[0], sofia_dir_path_list[0], name_base_list[0])
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+    
+    N_optical_pixels: int, optional
+        Number of pixels for the optical background image created. The pixel size
+        is derived from the SoFiA cubelet provided.
+
+    masking: bool, optional
+        If True, pixel values below a certain sensitivity threshold will be masked out.
+
+    mask_sigma: int, optional
+        The masking threshold value. The masking is performed based on the moment0 map.
+        The threshold is given in terms of column density sensitivity values (similarly to contour lines)
+
+    b_maj: float, optional
+        Angular major axis of the beam [arcsec]
+    
+    b_min: float, optional
+        Angular minor axis of the beam [arcsec]
+    
+    col_den_sensitivity_lim: float, optional
+        The column density sensitivity if the user wants to use a different value than
+        from what computed from the SoFiA RMS value. None by default, and so the 
+        SoFiA RMS value is used. Useful if e.g. the user wants to use an RMS of the cube
+        computed differently from SoFiA. In the units of 10^20 HI / cm^2
+ 
+    temp_fits_path: string, optional
+        Full path and name for a temprorary .fits file created while generating
+        the HDU for the backround (empty) image.
+    
+    Return
+    ======
+    data_array: `numpy.ndarray.ndarray`
+        2D array of zeros with N_optical_pixels x N_optical_pixels size
+    x: astropy.WCS
+        World coordinate system info for the background image
+    """
+    #Create the backround image from scratch => Use the first source
+    source_index, catalog_path, cubelet_path_dict, spectra_path = ds.sdiagnostics.get_source_files(source_ID, sofia_dir_path, name_base)
     catalog = ds.sdiagnostics.parse_single_table(catalog_path).to_table(use_names_over_ids=True)
 
     #Get the background image centre from the SoFiA RA, Dec coordinates of the selected source
@@ -363,16 +386,16 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     dec = catalog['dec'][source_index]
     pos = SkyCoord(ra=ra, dec=dec, unit='deg',equinox='J2000')
 
-    #Get the firts source's moment map for the pixel size
+    #Get the source's moment map for the pixel size
     mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
-                                        source_ID = source_ID_list[0],
-                                        sofia_dir_path = sofia_dir_list[0],
-                                        name_base = name_base_list[0],
-                                        masking = masking_list[0],
-                                        mask_sigma = mask_sigma_list[0],
-                                        b_maj = b_maj_list[0],
-                                        b_min = b_min_list[0],
-                                        col_den_sensitivity = col_den_sensitivity_lim_list[i])
+                                        source_ID = source_ID,
+                                        sofia_dir_path = sofia_dir_path,
+                                        name_base = name_base,
+                                        masking = masking,
+                                        mask_sigma = mask_sigma,
+                                        b_maj = b_maj,
+                                        b_min = b_min,
+                                        col_den_sensitivity = col_den_sensitivity_lim)
 
     #Initialise the background image
     data_array = np.zeros((N_optical_pixels,N_optical_pixels))
@@ -401,17 +424,274 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     #Remove for good
     os.remove(temp_fits_path)
 
-    del mom_map, map_wcs, map_sen_lim
+    del mom_map, map_wcs, map_sen_lim, optical_fits
+
+    return data_array, w
+
+def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, name_base, optical_wcs, optical_data_array, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, sensitivity=False):
+    """This function converts a given SoFiA source moment map cubelet to a pre-
+    defined reference background image. The background image and its wcs should
+    vbe created via `get_common_frame_for_sofia_sources()`
+
+    This function project the given moment (or sensitivity) map onto this backround
+    image.
+
+    NOTE that the projection is currently sub-optimal. It is because the moment
+    maps [0,0] corner pixel is projected only so a flip is necessary. This also
+    results in that the background image has to be large enough for the flip
+    to happen....
+
+    TO DO: get a better but similarly quick projection.
+
+    See the comments of the code for more details
+
+    Parameters
+    ==========
+    moment: int
+        The moment map that ndarray is returned (0,1 or 2) 
+    
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+    
+    optical_wcs: `astropy.WCS`
+        The World Coordinate System information of the background image. 
+
+    optical_data array: `numpy.ndarray.ndarray`
+        Background image data cube (should contain zeros only)
+
+    masking: bool, optional
+        If True, pixel values below a certain sensitivity threshold will be masked out.
+
+    mask_sigma: int, optional
+        The masking threshold value. The masking is performed based on the moment0 map.
+        The threshold is given in terms of column density sensitivity values (similarly to contour lines)
+
+    b_maj: float, optional
+        Angular major axis of the beam [arcsec]
+    
+    b_min: float, optional
+        Angular minor axis of the beam [arcsec]
+    
+    col_den_sensitivity_lim: float
+        The column density sensitivity if the user wants to use a different value than
+        from what computed from the SoFiA RMS value. None by default, and so the 
+        SoFiA RMS value is used. Useful if e.g. the user wants to use an RMS of the cube
+        computed differently from SoFiA. In the units of 10^20 HI / cm^2
+ 
+    sensitivity: bool, optional
+        If true, a triangle plot for the sensitivity is generated. Automatically
+        change moment to 0 and normalises the moment0 map with the column density
+        sensitivity value for each source (either given, or computed form SoFiA RMs)
+
+    Return
+    ======
+    transformed_map: `numpy.ndarray.ndarray`
+        The projected moment map with new size, equal of the background image
+
+    map_sen: float
+        The column density snesitivity limit of the source (inherited from functions
+        called and I need to rerturn this for some plotting)
+    
+    """
+    #Get the moment map as a SoFiA output
+    mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
+                                        source_ID = source_ID,
+                                        sofia_dir_path = sofia_dir_path,
+                                        name_base = name_base,
+                                        masking = masking,
+                                        mask_sigma = mask_sigma,
+                                        b_maj = b_maj,
+                                        b_min = b_min,
+                                        col_den_sensitivity = col_den_sensitivity_lim)
+
+    #Transform mom0 map to sensitivity if sensitivity set to True:
+    if sensitivity:
+        mom_map = np.divide(mom_map, map_sen_lim)
+
+    #Add the moment maps to the background image, however
+    #NOTE that the moment maps can be different sizes and the projection to
+    # the backround image is non-trivial. I put together a quick routine to
+    # transform the moment maps onto the right place and orientation, but
+    # it uses the corner pixel (numpy) of each moment map as a reference pixel.
+    # As a result, I can easily loop through the moment map pixels and transform
+    # to the background image. However, I am not sure why (maybe because I
+    # used sources on the southern sky), but the moment maps are rotated in
+    # the wrong direction in the Dec (x) axis.
+    #
+    #NOTE that because of this method the background image has to be large
+    # enough for the moment map to be (wrongly) mapped onto.
+
+    #Define the data array wich the moment map will be transformed
+    transformed_map = copy.deepcopy(optical_data_array)
+
+    #Get the referenc epixels
+    x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
+            astropy.wcs.utils.pixel_to_skycoord(0, 0, map_wcs, origin=0),
+            optical_wcs, origin=0)
+
+    x_ref_index = int(x_ref)
+    y_ref_index = int(y_ref)
+
+    #Add the moment map to the background image
+    for j in range(0,np.shape(mom_map)[0]):
+        for k in range(0,np.shape(mom_map)[1]):
+
+            #This is a slower pixel-to-pixel tranformation
+            #x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
+            #astropy.wcs.utils.pixel_to_skycoord(k,j, map_wcs, origin=0), w, origin=0)
+            #x_ref_index = int(x_ref)
+            #y_ref_index = int(y_ref)
+            #transformed_map[y_ref_index, x_ref_index] = mom_map[j,k]
+
+            transformed_map[y_ref_index + j, x_ref_index - k] = mom_map[j,k]
+
+    #Flip the result image along the Dec axis
+    transformed_map = np.flip(transformed_map,axis=1)
+
+    #Mask zero values as the input moment maps are masked as well.
+    mask = (transformed_map == 0.)
+    transformed_map = np.ma.array(transformed_map, mask=mask)
+
+    #Mask out Nan values as well (if present)
+    transformed_map = np.ma.array(transformed_map, mask=np.isnan(transformed_map))
+
+    del mom_map, mask, map_wcs
+
+    return transformed_map, map_sen_lim
+
+def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], temp_fits_path=str(os.getcwd() + '/temp.fits'), ident_list=['?'], col_den_sensitivity_lim_list=[None], sensitivity=False):
+    """This is a big and complex (poorly written) function to generate a triangle
+    matrix showing the SoFiA stamps in the diagonal elements and the pixel-by-pixel
+    difference in the lower triangle.
+
+    This is a one-fit for all function.
+    And so, it is poorly written with waay too many arguments.
+
+    TO DO: modularise
+
+
+    Parameters
+    ==========
+    moment: int
+        The moment for wich the triangle plot is generated.
+
+    source_ID_list: list of int
+        The SoFiA ID of the sources
+
+    sofia_dir_list: list str
+        List of the SoFiA directories to compare
+
+    name_base_list: list of str
+        List of the name `output.filename` variable defined in the SoFiA template 
+        .par. Basically the base of all file names in the rspective SoFiA dir.
+
+    output_name: str
+        The name and full path to the output tiangle plot generated.
+
+    N_optical_pixels: int, optional
+        Number of pixels for the optical background image.
+
+    masking_list: list of bool, optional
+        If True, the respective mom0 maps will be msked
+
+    mask_sigma_list: list of float, optional
+        If the mom0 map is masked, pixels below this threshold will be masked.
+        The values are given in units of column density sensitivity.
+
+    b_maj_list: list of float, optional
+        The major axis of the synthesised beam in arcseconds.
+
+    b_min_list: list of float, optional
+        The minor axis of the synthesised beam in arcseconds.
+
+    b_pa_list: list of float, optional
+        The position angle of the synthesised beam.
+
+    color_list: list of colors, optional
+        A list defining each sources color. If None is given a random color is
+        generated.
+
+    label_list: list of str, optional
+        The name/titile used for each source.
+    
+    temp_fits_path: str, optional
+        Full path and name for a temprorary .fits file created while generating
+        the HDU for the backround (empty) image.
+    
+    ident_list: list of str, optional
+        A list containing only a single character. This will be used in the top
+        panel to indicate which spectra is subtracted from which. It also used to
+        append the label list with this string in parentheses.
+    
+    col_den_sensitivity_lim_list: list of float, optional
+        A list containing the column density sensitivity for each SoFiA output provided by
+        the user, rather than using the by default value computed from the SoFiA RMS value.
+        Given in units of 10^20 HI /cm^2
+    
+    sensitivity: bool, optional
+        If true, a triangle plot for the sensitivity is generated. Automatically
+        change moment to 0 and normalises the moment0 map with the column density
+        sensitivity value for each source (either given, or computed form SoFiA RMs)
+
+    Return
+    ======
+    output_image: file
+        The image created
+ 
+    """
+    #Initialise arguments by recursively appending them
+    N_sources = len(source_ID_list)
+    assert len(sofia_dir_list) == N_sources, 'More or less sources are given than SoFiA directory paths!'
+
+    masking_list = initialise_argument_list(N_sources,masking_list)
+    mask_sigma_list = initialise_argument_list(N_sources, mask_sigma_list)
+    b_maj_list = initialise_argument_list(N_sources, b_maj_list)
+    b_min_list = initialise_argument_list(N_sources, b_min_list)
+    b_pa_list = initialise_argument_list(N_sources, b_pa_list)
+    label_list = initialise_argument_list(N_sources,label_list)
+    ident_list = initialise_argument_list(N_sources, ident_list)
+
+    col_den_sensitivity_lim_list = initialise_argument_list(N_sources, col_den_sensitivity_lim_list)
+
+    #The name bases might be the same
+    if len(name_base_list) != N_sources:
+        name_base_list = initialise_argument_list(N_sources, name_base_list)
+
+    #Generate random colors if needed
+    for i in range(0,N_sources):
+        if color_list[i] == None:
+            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+    
+    #If the sensitivity maps are returned, then the moment is set to 0!
+    if sensitivity:
+        if moment != 0:
+            raise Warning('Moment selected: {0:d}, but currently, only the moment0 sensitivity maps are supported!'.format(moment))
+            moment = 0
+
+    #=== Create background image
+    data_array, w = get_common_frame_for_sofia_sources(moment = moment,
+                                        source_ID = source_ID_list[0],
+                                        sofia_dir_path = sofia_dir_list[0],
+                                        name_base = name_base_list[0],
+                                        masking = masking_list[0],
+                                        mask_sigma = mask_sigma_list[0],
+                                        b_maj = b_maj_list[0],
+                                        b_min = b_min_list[0],
+                                        col_den_sensitivity_lim = col_den_sensitivity_lim_list[i],
+                                        N_optical_pixels = N_optical_pixels)
 
     #Now we have the background image that has the same pixel size as the moment maps
 
     #NOTE that all mom map has to have the same pixel size!
     
     #Get the moment maps and sensitivities
-    mom_map_list = []
-    mom_wcs_list = []
-    mom_sen_lim_list = []
-
     transformed_map_list = []
 
     #Get max min values for setting up the colorbars
@@ -420,80 +700,26 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
 
     #Get all the moment maps and transform them into the background image coordinate frame
     for i in range(0,N_sources):
-
-        mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
+        transformed_map, tmap_sen_lim = convert_source_mom_map_to_common_frame(moment = moment,
                                         source_ID = source_ID_list[i],
                                         sofia_dir_path = sofia_dir_list[i],
                                         name_base = name_base_list[i],
+                                        optical_wcs = w,
+                                        optical_data_array = data_array,
                                         masking = masking_list[i],
                                         mask_sigma = mask_sigma_list[i],
                                         b_maj = b_maj_list[i],
                                         b_min = b_min_list[i],
-                                        col_den_sensitivity = col_den_sensitivity_lim_list[i])
+                                        col_den_sensitivity_lim = col_den_sensitivity_lim_list[i],
+                                        sensitivity = sensitivity)
 
-        if np.any(w.wcs.cdelt) != np.any(astropy.wcs.utils.proj_plane_pixel_scales(map_wcs)):
-            raise ValueError('Different pixel size of the input moment map from {0:s}'.format(sofia_dir_list[i]))
+        if np.amax(transformed_map) > c_max:
+            c_max = np.amax(transformed_map)
 
-        #Transform mom0 map to sensitivity if sensitivity set to True:
-        if sensitivity:
-            mom_map = np.divide(mom_map, map_sen_lim)
-
-        if np.amax(mom_map) > c_max:
-            c_max = np.amax(mom_map)
-
-        if np.amin(mom_map) < c_min:
-            c_min = np.amin(mom_map)
-
-        mom_map_list.append(mom_map)
-        mom_wcs_list.append(map_wcs)
-        mom_sen_lim_list.append(map_sen_lim)
-
-        #Add the moment maps to the background image, however
-        #NOTE that the moment maps can be different sizes and the projection to
-        # the backround image is non-trivial. I put together a quick routine to
-        # transform the moment maps onto the right place and orientation, but
-        # it uses the corner pixel (numpy) of each moment map as a reference pixel.
-        # As a result, I can easily loop through the moment map pixels and transform
-        # to the background image. However, I am not sure why (maybe because I
-        # used sources on the southern sky), but the moment maps are rotated in
-        # the wrong direction in the Dec (x) axis.
-        #
-        #NOTE that because of this method the background image has to be large
-        # enough for the moment map to be (wrongly) mapped onto.
-
-        #Define the data array wich the moment map will be transformed
-        transformed_map = np.zeros((N_optical_pixels,N_optical_pixels))
-
-        #Get the referenc epixels
-        x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
-                astropy.wcs.utils.pixel_to_skycoord(0, 0, map_wcs, origin=0), w, origin=0)
-    
-        x_ref_index = int(x_ref)
-        y_ref_index = int(y_ref)
-
-        #Add the moment map to the background image
-        for j in range(0,np.shape(mom_map)[0]):
-            for k in range(0,np.shape(mom_map)[1]):
-
-                #This is a slower pixel-to-pixel tranformation
-                #x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
-                #astropy.wcs.utils.pixel_to_skycoord(k,j, map_wcs, origin=0), w, origin=0)
-                #x_ref_index = int(x_ref)
-                #y_ref_index = int(y_ref)
-                #transformed_map[y_ref_index, x_ref_index] = mom_map[j,k]
-
-                transformed_map[y_ref_index + j, x_ref_index - k] = mom_map[j,k]
-
-        #Flip the result image along the Dec axis
-        transformed_map = np.flip(transformed_map,axis=1)
-
-        #Mask zero values as the input moment maps are masked as well.
-        mask = (transformed_map == 0.)
-        transformed_map = np.ma.array(transformed_map, mask=mask)
-
+        if np.amin(transformed_map) < c_min:
+            c_min = np.amin(transformed_map)
+        
         transformed_map_list.append(transformed_map)
-
-    del mom_map, map_wcs, mom_sen_lim_list, transformed_map
 
     #=== Get the min max values for the difference maps
     c_diff_min = np.inf
@@ -501,11 +727,11 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
 
     for i in range(0,N_sources):
         for j in range(0,N_sources):
-            if i > j:
+            if j>i:
                 #mask NaN values
-                diff_map = np.subtract(transformed_map_list[j],transformed_map_list[i]) 
+                diff_map = np.subtract(transformed_map_list[i],transformed_map_list[j]) 
                 diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))
-                
+        
                 if c_diff_min > np.amin(diff_map):
                     c_diff_min = np.amin(diff_map)
                 if c_diff_max < diff_map.max():
@@ -590,7 +816,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                             str(label_list[i] + ' ({0:s})'.format(ident_list[i])),
                             loc=2, prop=dict(size=16,color=color_list[i]))
                     t.patch.set_ec("none")
-                    t.patch.set_alpha(0.5)
+                    t.patch.set_alpha(1.)
 
                     #Add beam ellipse centre is defined as a fraction of the background image size
                     beam_loc_ra = w.array_index_to_world(int(0.05 * N_optical_pixels), int(0.05 * N_optical_pixels)).ra.value
@@ -636,7 +862,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                             str(r'({0:s} - {1:s})'.format(ident_list[j],ident_list[i])),
                             loc=2, prop=dict(size=16,color='black'))
                     t.patch.set_ec("none")
-                    t.patch.set_alpha(0.5)
+                    t.patch.set_alpha(1.)
 
             if i == (N_sources - 1):
                 ra.set_ticklabel_visible(True)
@@ -651,6 +877,139 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
 
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
+
+def plot_sensitivity_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?'):
+    """
+
+    """
+    #Initialise arguments by recursively appending them
+    N_sources = len(source_ID_list)
+    assert len(sofia_dir_list) == N_sources, 'More or less sources are given than SoFiA directory paths!'
+
+    masking_list = initialise_argument_list(N_sources,masking_list)
+    mask_sigma_list = initialise_argument_list(N_sources, mask_sigma_list)
+    b_maj_list = initialise_argument_list(N_sources, b_maj_list)
+    b_min_list = initialise_argument_list(N_sources, b_min_list)
+    b_pa_list = initialise_argument_list(N_sources, b_pa_list)
+    col_den_sensitivity_lim_list = initialise_argument_list(N_sources, col_den_sensitivity_lim_list)
+
+    #The name bases might be the same
+    if len(name_base_list) != N_sources:
+        name_base_list = initialise_argument_list(N_sources, name_base_list)
+
+    #=== Create background image
+    data_array, w = get_common_frame_for_sofia_sources(moment = 0,
+                                        source_ID = source_ID_list[0],
+                                        sofia_dir_path = sofia_dir_list[0],
+                                        name_base = name_base_list[0],
+                                        masking = masking_list[0],
+                                        mask_sigma = mask_sigma_list[0],
+                                        b_maj = b_maj_list[0],
+                                        b_min = b_min_list[0],
+                                        col_den_sensitivity_lim = col_den_sensitivity_lim_list[0],
+                                        N_optical_pixels = N_optical_pixels)
+
+    #Now we have the background image that has the same pixel size as the moment maps
+
+    #NOTE that all mom map has to have the same pixel size!
+    
+    #Get the moment maps and sensitivities
+    transformed_map_list = []
+    transformed_map_sensitivity_limit_list = []
+
+    #Get all the moment maps and transform them into the background image coordinate frame
+    for i in range(0,N_sources):
+        transformed_map, tmap_sen_lim = convert_source_mom_map_to_common_frame(moment = 0,
+                                        source_ID = source_ID_list[i],
+                                        sofia_dir_path = sofia_dir_list[i],
+                                        name_base = name_base_list[i],
+                                        optical_wcs = w,
+                                        optical_data_array = data_array,
+                                        masking = masking_list[i],
+                                        mask_sigma = mask_sigma_list[i],
+                                        b_maj = b_maj_list[i],
+                                        b_min = b_min_list[i],
+                                        col_den_sensitivity_lim = col_den_sensitivity_lim_list[i],
+                                        sensitivity = False)
+        
+        transformed_map_list.append(transformed_map)
+        transformed_map_sensitivity_limit_list.append(tmap_sen_lim)
+
+    #=== Normalise the density maps and get the difference
+    sensitivity_map1 = np.divide(transformed_map_list[0], transformed_map_sensitivity_limit_list[0])
+    sensitivity_map2 = np.divide(transformed_map_list[1], transformed_map_sensitivity_limit_list[1])
+
+    diff_map = np.subtract(sensitivity_map1,sensitivity_map2) 
+    diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))
+
+
+    #=== Get the average and std of the measured column densities of the two input map
+    column_density_mean = np.mean(np.array([transformed_map_list[0], transformed_map_list[1]]), axis=0)
+    column_density_std = np.std(transformed_map_list, axis=0)
+
+    #Masking Nan values
+    column_density_mean = np.ma.array(column_density_mean, mask=np.isnan(column_density_mean))
+    column_density_std = np.ma.array(column_density_std, mask=np.isnan(column_density_std))
+
+    #Set an upper limint in column density
+    #col_den_upper_lim = np.amax(column_density_mean)
+    col_den_upper_lim = 2.
+
+    #Create the arrays to plot
+    p_col_den = column_density_mean.flatten()[column_density_mean.flatten() < col_den_upper_lim]
+    p_diff_map = diff_map.flatten()[column_density_mean.flatten() < col_den_upper_lim] 
+
+    #Get the positive deficit (i have more flux than j)
+    pos_def_col_den = p_col_den[((p_diff_map > 0) & (p_col_den > 0)) | ((p_diff_map < 0) & (p_col_den < 0))]
+    pos_def_diff_map = p_diff_map[((p_diff_map > 0) & (p_col_den > 0)) | ((p_diff_map < 0) & (p_col_den < 0))]
+
+    #Get the negative deficit (j have more flux than i)
+    neg_def_col_den = p_col_den[((p_diff_map < 0) & (p_col_den > 0)) | ((p_diff_map > 0) & (p_col_den < 0))]
+    neg_def_diff_map = p_diff_map[((p_diff_map < 0) & (p_col_den > 0)) | ((p_diff_map > 0) & (p_col_den < 0))]
+
+    #=== Create the plot
+    fig = plt.figure(1, figsize=(8,6))
+    ax = fig.add_subplot(111)
+
+
+    
+    #Plot the 'positive end' green and the negative 'blue' 
+    #Positive_end
+    ax.scatter(pos_def_col_den, pos_def_diff_map, marker='o', s=5, c=c2, alpha=0.75)
+    ax.scatter(neg_def_col_den, neg_def_diff_map, marker='o', s=5, c=c1, alpha=0.75)
+    
+    #ax.set_xlim((-1.,10))
+    #ax.set_ylim((-0.1,5))
+    #ax.set_xscale('log')
+    #plt.xscale('symlog', lintreshy=0.001)
+
+    #ax.set_yscale('symlog', lintreshy=0.01)
+
+    #Try some 2d histograms
+    #plt.hexbin(column_density_mean.flatten(), diff_map.flatten(), gridsize=[100,50], mincnt=3)
+    #Not working cause masked arrays and hist 2d are not compatible somehow, only with filled view, but weird result are returned
+    #plt.hist2d(column_density_mean.flatten().filled(fill_value=0), diff_map.flatten().filled(fill_value=0), bins=50)
+
+    #Draw x=0 y=0 lines
+    ax.axvline(x=0, ls='--', lw=2., color=outlier_color)
+    ax.axhline(y=0, ls='--', lw=2., color=outlier_color)
+
+    #Set labels
+    ax.set_xlabel(r'N$_{HI}$ [10$^{20}$cm$^2$]', fontsize=18)
+    ax.set_ylabel(r'$\Delta$ SNR', fontsize=18)
+ 
+
+
+    #Add inner title
+    t = ds.sdiagnostics.add_inner_title(ax, ident_string, loc=2, prop=dict(size=16))
+    t.patch.set_ec("none")
+    t.patch.set_alpha(0.5)
+
+    plt.savefig(output_fname,bbox_inches='tight')
+    plt.close()
+
+
+
 
 def plot_spectra_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list, output_name, beam_correction_list=[True], b_maj_px_list=[5.], b_min_px_list=[5.0], v_frame_list=['optical'], color_list=[None], label_list=[''], ident_list=['?']):
     """Plot a triangle matrix of the spectra from different SoFiA runs. The diagonal
@@ -680,27 +1039,27 @@ def plot_spectra_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list,
         List containing the column density contours to drawn in units of 10^(20)
         HI atoms / cm^2.
 
-    beam_correction_list: list of bool
+    beam_correction_list: list of bool, optional
         If True, the spectra is converted from Jy/beam to Jy by normalising with
         the synthesiesd beam area
 
-    b_maj_px_list: list of float
+    b_maj_px_list: list of float, optional
         The major axis of the synthesised beam in pixels.
 
-    b_min_px_list: list of float
+    b_min_px_list: list of float, optional
         The minor axis of the synthesised beam in pixels.
 
-    v_frame_list: list of str
+    v_frame_list: list of str, optional
         The velocity frame used for each spectra. Has to be the same for all.
 
-    color_list: list of colors
+    color_list: list of colors, optional
         A list defining each sources color. If None is given a random color is
         generated.
 
-    label_list: list of str
+    label_list: list of str, optional
         The name/titile used for each source.
     
-    ident_list: list of str
+    ident_list: list of str, optional
         A list containing only a single character. This will be used in the top
         panel to indicate which spectra is subtracted from which. It also used to
         append the label list with this string in parentheses.
@@ -849,7 +1208,7 @@ def plot_spectra_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list,
                             subtraction_ident_list[panel_index],loc=2,
                             prop=dict(size=16, color='red'))
                     t.patch.set_ec("none")
-                    t.patch.set_alpha(0.5)
+                    t.patch.set_alpha(1)
 
                    
                     #set ticks
@@ -905,6 +1264,45 @@ if __name__ == "__main__":
     log.setLevel(logging.INFO)
     log.addHandler(logging.StreamHandler(sys.stdout))
 
+    #"""
+    #2km baselines
+    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
+
+    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
+        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
+
+    ID_list = [1, 1, 1, 2]
+    ident_list = ['V', 'G', 'I', 'C']
+
+    for i in range(0,4):
+        for j in range(0,4):
+            if j>i:
+                diff_ident = '({0:s} - {1:s})'.format(ident_list[i],
+                        ident_list[j])
+
+                log.info('Creating sensitivity diff against column density plots for {}...'.format(
+                    diff_ident))
+
+
+                plot_sensitivity_diff_dependience_on_column_density(source_ID_list=[ID_list[i],ID_list[j]],
+                    sofia_dir_list = [sofia_dir_path_list[i], sofia_dir_path_list[j]],
+                    name_base_list = ['beam17_all_'],
+                    output_fname = working_dir + 'validation/sensitivity_column_density_{0:s}{1:s}_map.pdf'.format(
+                        ident_list[i], ident_list[j]),
+                    N_optical_pixels = 170,
+                    masking_list = [True],
+                    mask_sigma_list = [3.0],
+                    b_maj_list = [30, 30],
+                    b_min_list = [30, 30],
+                    b_pa_list = [0, 0],
+                    ident_string = diff_ident)
+
+        
+                log.info('..done')
+
+    exit()
+    #"""
+
     """
     #2km baselines
     working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
@@ -942,7 +1340,7 @@ if __name__ == "__main__":
     #"""
 
 
-    #"""
+    """
     #2km baselines
     working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
 
@@ -1007,7 +1405,7 @@ if __name__ == "__main__":
         
             log.info('...done')
 
-            exit()
+            #exit()
 
     exit()
     #"""
@@ -1039,6 +1437,41 @@ if __name__ == "__main__":
                 b_pa_list = [0, 0, 0])
 
         log.info('..done')
+        
+        #Also create the sensitivity map
+        if mom == 0:
+            log.info('Creating the sensitivity triangle plot...')
+
+
+            #Use the column densizty sensitivity of the co-added visibility combination
+            # for all the sensitivity maps
+            mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+                source_ID = 1,
+                sofia_dir_path = sofia_dir_path_list[0],
+                name_base = 'beam17_all_',
+                b_maj = 12,
+                b_min = 12)
+
+
+            plot_momN_triangle_matrix(moment = mom,
+                source_ID_list=[1, 1, 1],
+                sofia_dir_list = sofia_dir_path_list,
+                name_base_list = ['beam17_all_'],
+                output_name = working_dir + 'validation/sensitivity_map.pdf'.format(mom),
+                N_optical_pixels = 400,
+                masking_list = [True],
+                mask_sigma_list = [3.0],
+                color_list = [c0, c2, c1, outlier_color],
+                label_list = ['co-added visibilities', 'stacked grids', 'stacked images'],
+                ident_list = ['V', 'G', 'I'],
+                b_maj_list = [12, 12, 12],
+                b_min_list = [12, 12, 12],
+                b_pa_list = [0, 0, 0],
+                col_den_sensitivity_lim_list = [sen_lim],
+                sensitivity = True)
+        
+            log.info('...done')
+
 
     exit()
     #"""
