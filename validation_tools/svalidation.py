@@ -428,7 +428,7 @@ def get_common_frame_for_sofia_sources(moment, source_ID, sofia_dir_path, name_b
 
     return data_array, w
 
-def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, name_base, optical_wcs, optical_data_array, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, sensitivity=False):
+def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, name_base, optical_wcs, optical_data_array, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, sensitivity=False, flux_density=False, flux_rms=None, beam_correction=False, b_maj_px=5, b_min_px=5):
     """This function converts a given SoFiA source moment map cubelet to a pre-
     defined reference background image. The background image and its wcs should
     vbe created via `get_common_frame_for_sofia_sources()`
@@ -509,7 +509,12 @@ def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, na
                                         mask_sigma = mask_sigma,
                                         b_maj = b_maj,
                                         b_min = b_min,
-                                        col_den_sensitivity = col_den_sensitivity_lim)
+                                        col_den_sensitivity = col_den_sensitivity_lim,
+                                        flux_density = flux_density,
+                                        flux_rms = flux_rms,
+                                        beam_correction = beam_correction,
+                                        b_maj_px =b_maj_px,
+                                        b_min_px = b_min_px)
 
     #Transform mom0 map to sensitivity if sensitivity set to True:
     if sensitivity:
@@ -878,7 +883,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
 
-def plot_sensitivity_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?'):
+def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?'):
     """
 
     """
@@ -935,13 +940,47 @@ def plot_sensitivity_diff_dependience_on_column_density(source_ID_list, sofia_di
         transformed_map_list.append(transformed_map)
         transformed_map_sensitivity_limit_list.append(tmap_sen_lim)
 
+    #Get the flux density maps
+    transformed_flux_density_map_list = []
+    transformed_flux_density_map_sensitivity_limit_list = []
+
+    for i in range(0,N_sources):
+        transformed_map, tmap_sen_lim = convert_source_mom_map_to_common_frame(moment = 0,
+                                        source_ID = source_ID_list[i],
+                                        sofia_dir_path = sofia_dir_list[i],
+                                        name_base = name_base_list[i],
+                                        optical_wcs = w,
+                                        optical_data_array = data_array,
+                                        masking = masking_list[i],
+                                        mask_sigma = mask_sigma_list[i],
+                                        b_maj = b_maj_list[i],
+                                        b_min = b_min_list[i],
+                                        col_den_sensitivity_lim = col_den_sensitivity_lim_list[i],
+                                        sensitivity = False,
+                                        flux_density = True,
+                                        beam_correction = True)
+        
+        transformed_flux_density_map_list.append(transformed_map)
+        transformed_flux_density_map_sensitivity_limit_list.append(tmap_sen_lim)
+
+
     #=== Normalise the density maps and get the difference
+    #transformed_map_list[0] = copy.deepcopy(np.ma.filled(transformed_map_list[0], 0.))
+    #transformed_map_list[1] = copy.deepcopy(np.ma.filled(transformed_map_list[1], 0.))
+ 
     sensitivity_map1 = np.divide(transformed_map_list[0], transformed_map_sensitivity_limit_list[0])
     sensitivity_map2 = np.divide(transformed_map_list[1], transformed_map_sensitivity_limit_list[1])
 
-    diff_map = np.subtract(sensitivity_map1,sensitivity_map2) 
+    diff_map = np.subtract(transformed_flux_density_map_list[0],
+                            transformed_flux_density_map_list[1]) 
+    
     diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))
 
+    #Similar vbut in SNR difference
+    snr_sen_lim = 3
+
+    #Get the average snr_sen_lim * sigma column density sensitivity
+    #mean_col_den_sen_lim = np.multiply(np.mean(transformed_map_sensitivity_limit_list, axis=0), snr_sen_lim)
 
     #=== Get the average and std of the measured column densities of the two input map
     column_density_mean = np.mean(np.array([transformed_map_list[0], transformed_map_list[1]]), axis=0)
@@ -953,31 +992,25 @@ def plot_sensitivity_diff_dependience_on_column_density(source_ID_list, sofia_di
 
     #Set an upper limint in column density
     #col_den_upper_lim = np.amax(column_density_mean)
-    col_den_upper_lim = 2.
+    col_den_upper_lim = 5.
 
     #Create the arrays to plot
     p_col_den = column_density_mean.flatten()[column_density_mean.flatten() < col_den_upper_lim]
     p_diff_map = diff_map.flatten()[column_density_mean.flatten() < col_den_upper_lim] 
 
-    #Get the positive deficit (i have more flux than j)
-    pos_def_col_den = p_col_den[((p_diff_map > 0) & (p_col_den > 0)) | ((p_diff_map < 0) & (p_col_den < 0))]
-    pos_def_diff_map = p_diff_map[((p_diff_map > 0) & (p_col_den > 0)) | ((p_diff_map < 0) & (p_col_den < 0))]
-
-    #Get the negative deficit (j have more flux than i)
-    neg_def_col_den = p_col_den[((p_diff_map < 0) & (p_col_den > 0)) | ((p_diff_map > 0) & (p_col_den < 0))]
-    neg_def_diff_map = p_diff_map[((p_diff_map < 0) & (p_col_den > 0)) | ((p_diff_map > 0) & (p_col_den < 0))]
-
     #=== Create the plot
     fig = plt.figure(1, figsize=(8,6))
     ax = fig.add_subplot(111)
-
-
     
+    ax.scatter(p_col_den, p_diff_map, marker='o', s=5, c=c2)
+
     #Plot the 'positive end' green and the negative 'blue' 
     #Positive_end
-    ax.scatter(pos_def_col_den, pos_def_diff_map, marker='o', s=5, c=c2, alpha=0.75)
-    ax.scatter(neg_def_col_den, neg_def_diff_map, marker='o', s=5, c=c1, alpha=0.75)
-    
+    #ax.scatter(pos_def_col_den, pos_def_diff_map, marker='o', s=5, c=c2, alpha=0.75)
+    #ax.scatter(neg_def_col_den, neg_def_diff_map, marker='o', s=5, c=c1, alpha=0.75)
+
+    #ax.scatter(uncertain_col_den, uncertain_diff_map, marker='o', s=5, c=outlier_color, alpha=0.75)
+
     #ax.set_xlim((-1.,10))
     #ax.set_ylim((-0.1,5))
     #ax.set_xscale('log')
@@ -991,12 +1024,21 @@ def plot_sensitivity_diff_dependience_on_column_density(source_ID_list, sofia_di
     #plt.hist2d(column_density_mean.flatten().filled(fill_value=0), diff_map.flatten().filled(fill_value=0), bins=50)
 
     #Draw x=0 y=0 lines
-    ax.axvline(x=0, ls='--', lw=2., color=outlier_color)
+    #ax.axvline(x=0, ls='--', lw=2., color=outlier_color)
     ax.axhline(y=0, ls='--', lw=2., color=outlier_color)
 
+    #Set the +/- 3sigma detection in
+    #ax.axvline(x=-mean_col_den_sen_lim, lw=2, ls='--', color=c0)
+    #ax.axvline(x=mean_col_den_sen_lim, lw=2, ls='--', color=c0)
+
+    #Set the +/- xsigma SNR difference
+    #ax.axhline(y=-snr_sen_lim, lw=2, ls='--', color=c0)
+    #ax.axhline(y=snr_sen_lim, lw=2, ls='--', color=c0)
+
+
     #Set labels
-    ax.set_xlabel(r'N$_{HI}$ [10$^{20}$cm$^2$]', fontsize=18)
-    ax.set_ylabel(r'$\Delta$ SNR', fontsize=18)
+    ax.set_xlabel(r'N$_{HI}$ [10$^{20}$cm$^{-2}$]', fontsize=18)
+    ax.set_ylabel(r'$\Delta$S [mJy/pixel]', fontsize=18)
  
 
 
@@ -1271,6 +1313,16 @@ if __name__ == "__main__":
     sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
         'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
 
+    #Use the column densizty sensitivity of the co-added visibility combination
+    # for all the sensitivity maps
+    mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+        source_ID = 1,
+        sofia_dir_path = sofia_dir_path_list[0],
+        name_base = 'beam17_all_',
+        b_maj = 30,
+        b_min = 30)
+
+
     ID_list = [1, 1, 1, 2]
     ident_list = ['V', 'G', 'I', 'C']
 
@@ -1284,7 +1336,7 @@ if __name__ == "__main__":
                     diff_ident))
 
 
-                plot_sensitivity_diff_dependience_on_column_density(source_ID_list=[ID_list[i],ID_list[j]],
+                plot_flux_density_diff_dependience_on_column_density(source_ID_list=[ID_list[i],ID_list[j]],
                     sofia_dir_list = [sofia_dir_path_list[i], sofia_dir_path_list[j]],
                     name_base_list = ['beam17_all_'],
                     output_fname = working_dir + 'validation/sensitivity_column_density_{0:s}{1:s}_map.pdf'.format(
@@ -1295,7 +1347,8 @@ if __name__ == "__main__":
                     b_maj_list = [30, 30],
                     b_min_list = [30, 30],
                     b_pa_list = [0, 0],
-                    ident_string = diff_ident)
+                    ident_string = diff_ident,
+                    col_den_sensitivity_lim_list = [sen_lim])
 
         
                 log.info('..done')

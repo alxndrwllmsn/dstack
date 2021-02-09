@@ -230,7 +230,7 @@ def get_velocity_from_freq(obs_freq, v_frame='optical'):
 
     Parameters
     ==========
-    0obs_freq: float
+    obs_freq: float
         Observation frequency in [Hz]
 
     v_frame: str, optional
@@ -687,7 +687,7 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, survey='DSS2
 
     return optical_im, optical_im_wcs, survey_used
 
-def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True, mask_sigma=3, b_maj=30, b_min=30, col_den_sensitivity=None):
+def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True, mask_sigma=3, b_maj=30, b_min=30, col_den_sensitivity=None, flux_density=False, flux_rms=None, beam_correction=False, b_maj_px=5, b_min_px=5):
     """Return the mom map defined by the arguments as a numpy array. It is an useful modularisation for ploting
     Furthermore, this can be imported to external code for more complex analysis.
 
@@ -733,7 +733,25 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
         from what computed from the SoFiA RMS value. None by default, and so the 
         SoFiA RMS value is used. Useful if e.g. the user wants to use an RMS of the cube
         computed differently from SoFiA. In the units of 10^20 HI / cm^2
+
+    flux_density: bool, optional
+        If true, not a moment map, but a flux density map is returned. The units
+        are in [mJy/beam]
+
+    flux_rms: float, optional
+        Similar to the `col_den_sensitivity` parameter, but an RMS can be provided
+        in [mJy/flux] for the masking.
     
+    beam_correction: bool, optional
+        If True, the flux cdensity is corrected for the beam size, and so the
+        output map uints will be [mJy/pixel]
+
+    b_maj_px: float, optional
+        The major axis of the beam in pixels
+
+    b_min_px: float, optional
+        The minor axis of the beam in pixels
+
     Return
     ======
     col_den_map: `numpy.ndarray`
@@ -756,6 +774,36 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
     #Get WCS (all mom ma have the same wcs)
     mom_wcs = fget_wcs(cubelet_path_dict['mom0'])
 
+    if flux_density:
+        #Source parameters from catalog and cubelet
+        freq, z = get_freq_and_redshift_from_catalog(catalog_path,source_index)
+        #dnu = fget_channel_width(cubelet_path_dict['cube'])
+        rms = get_RMS_from_catalog(catalog_path,source_index)
+
+        #Get moment0 (column density) map sensitivity and wcs 
+        flux_den_map = fits.getdata(cubelet_path_dict['mom0'])
+        #col_den_map = get_column_density(mom0_map, z, b_maj, b_min)
+
+        if beam_correction:
+            flux_den_map = np.divide(flux_den_map, (np.pi * b_maj_px * b_min_px / (4 * np.log(2))))
+
+        if flux_rms != None:
+            flux_rms_lim = flux_rms
+        else:
+            flux_rms_lim = rms
+
+        #Mask out the pixels with 0 values
+        mask = (flux_den_map == 0.)
+        flux_den_map = np.ma.array(flux_den_map, mask=mask)
+
+        #Column density sensitivity masking
+        if masking:
+            flux_den_mask = (flux_den_map <= flux_rms_lim * mask_sigma)
+            flux_den_map = np.ma.array(flux_den_map, mask=flux_den_mask)
+
+        if moment == 0:
+            return flux_den_map, mom_wcs, flux_rms_lim
+
     if moment == 0 or masking == True:
         #Source parameters from catalog and cubelet
         freq, z = get_freq_and_redshift_from_catalog(catalog_path,source_index)
@@ -774,6 +822,11 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
         #Mask out the pixels with 0 values
         mask = (col_den_map == 0.)
         col_den_map = np.ma.array(col_den_map, mask=mask)
+
+        #Column density sensitivity masking
+        if masking:
+            col_den_mask = (col_den_map <= col_den_sen_lim * mask_sigma)
+            col_den_map = np.ma.array(col_den_map, mask=col_den_mask)
 
         if moment == 0:
             return col_den_map, mom_wcs, col_den_sen_lim
