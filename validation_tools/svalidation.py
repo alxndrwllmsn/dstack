@@ -285,7 +285,7 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
 
                 
                 else:
-                                        #Add inner title
+                    #Add inner title
                     t = ds.sdiagnostics.add_inner_title(axes[i,j], label_list[i], loc=2, 
                             prop=dict(size=16,color=color_list[i]))
                     t.patch.set_ec("none")
@@ -428,7 +428,7 @@ def get_common_frame_for_sofia_sources(moment, source_ID, sofia_dir_path, name_b
 
     return data_array, w
 
-def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, name_base, optical_wcs, optical_data_array, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, sensitivity=False, flux_density=False, flux_rms=None, beam_correction=False, b_maj_px=5, b_min_px=5):
+def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, name_base, optical_wcs, optical_data_array, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, sensitivity=False, flux_density=False, beam_correction=False, b_maj_px=5, b_min_px=5):
     """This function converts a given SoFiA source moment map cubelet to a pre-
     defined reference background image. The background image and its wcs should
     vbe created via `get_common_frame_for_sofia_sources()`
@@ -511,7 +511,6 @@ def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, na
                                         b_min = b_min,
                                         col_den_sensitivity = col_den_sensitivity_lim,
                                         flux_density = flux_density,
-                                        flux_rms = flux_rms,
                                         beam_correction = beam_correction,
                                         b_maj_px =b_maj_px,
                                         b_min_px = b_min_px)
@@ -883,7 +882,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
 
-def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?'):
+def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?', beam_correction=False, b_maj_px_list=[5], b_min_px_list=[5]):
     """
 
     """
@@ -897,6 +896,8 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
     b_min_list = initialise_argument_list(N_sources, b_min_list)
     b_pa_list = initialise_argument_list(N_sources, b_pa_list)
     col_den_sensitivity_lim_list = initialise_argument_list(N_sources, col_den_sensitivity_lim_list)
+    b_maj_px_list = initialise_argument_list(N_sources, b_maj_px_list)
+    b_min_px_list = initialise_argument_list(N_sources, b_min_px_list)
 
     #The name bases might be the same
     if len(name_base_list) != N_sources:
@@ -915,7 +916,6 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
                                         N_optical_pixels = N_optical_pixels)
 
     #Now we have the background image that has the same pixel size as the moment maps
-
     #NOTE that all mom map has to have the same pixel size!
     
     #Get the moment maps and sensitivities
@@ -935,7 +935,7 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
                                         b_maj = b_maj_list[i],
                                         b_min = b_min_list[i],
                                         col_den_sensitivity_lim = col_den_sensitivity_lim_list[i],
-                                        sensitivity = False)
+                                        sensitivity = sensitivity)
         
         transformed_map_list.append(transformed_map)
         transformed_map_sensitivity_limit_list.append(tmap_sen_lim)
@@ -958,99 +958,183 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
                                         col_den_sensitivity_lim = col_den_sensitivity_lim_list[i],
                                         sensitivity = False,
                                         flux_density = True,
-                                        beam_correction = True)
+                                        beam_correction = beam_correction,
+                                        b_maj_px = b_maj_px_list[i],
+                                        b_min_px = b_min_px_list[i])
         
         transformed_flux_density_map_list.append(transformed_map)
         transformed_flux_density_map_sensitivity_limit_list.append(tmap_sen_lim)
-
-
+    
     #=== Normalise the density maps and get the difference
-    #transformed_map_list[0] = copy.deepcopy(np.ma.filled(transformed_map_list[0], 0.))
-    #transformed_map_list[1] = copy.deepcopy(np.ma.filled(transformed_map_list[1], 0.))
- 
-    sensitivity_map1 = np.divide(transformed_map_list[0], transformed_map_sensitivity_limit_list[0])
-    sensitivity_map2 = np.divide(transformed_map_list[1], transformed_map_sensitivity_limit_list[1])
-
     diff_map = np.subtract(transformed_flux_density_map_list[0],
                             transformed_flux_density_map_list[1]) 
-    
+   
     diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))
 
     #Similar vbut in SNR difference
     snr_sen_lim = 3
 
-    #Get the average snr_sen_lim * sigma column density sensitivity
-    #mean_col_den_sen_lim = np.multiply(np.mean(transformed_map_sensitivity_limit_list, axis=0), snr_sen_lim)
-
     #=== Get the average and std of the measured column densities of the two input map
-    column_density_mean = np.mean(np.array([transformed_map_list[0], transformed_map_list[1]]), axis=0)
-    column_density_std = np.std(transformed_map_list, axis=0)
-
+    column_density_mean = np.divide(np.add(transformed_map_list[0],
+                                    transformed_map_list[1]), 2)
+    
     #Masking Nan values
     column_density_mean = np.ma.array(column_density_mean, mask=np.isnan(column_density_mean))
-    column_density_std = np.ma.array(column_density_std, mask=np.isnan(column_density_std))
 
+    #Only for moment 2 maps
+    #diff_map = np.ma.array(diff_map, mask=np.ma.getmask(column_density_mean))
+
+    #explicitly cut the masked values
+    # NOTE now I am working with numpy arrays not masked arrays!
+    #
+    p_col_den = copy.deepcopy(np.ma.compressed(column_density_mean))
+    p_diff_map = copy.deepcopy(np.ma.compressed(diff_map))
+
+    #=== Set parameters for histograms and plot limits
+    #Binwidth
+    col_den_binwidth = 0.05
+   
     #Set an upper limint in column density
-    #col_den_upper_lim = np.amax(column_density_mean)
-    col_den_upper_lim = 5.
+    #col_den_upper_lim = np.amax(column_density_mean) + col_den_binwidth
+    col_den_upper_lim = 1.
+    
+    col_den_lower_lim = np.amin(column_density_mean)
+    #col_den_lower_lim = 0.
+    
+    #binwidth
+    diff_binwidth = 0.0025
 
-    #Create the arrays to plot
-    p_col_den = column_density_mean.flatten()[column_density_mean.flatten() < col_den_upper_lim]
-    p_diff_map = diff_map.flatten()[column_density_mean.flatten() < col_den_upper_lim] 
+    #Limit in flux difference
+    diff_upper_lim = np.ceil(np.amax(p_diff_map))
+    diff_lower_lim = -1 * np.ceil(np.abs(np.amin(p_diff_map)))
+    #I know that the lower lim will be negative...
+
+    #Make a cut in the data (in column density not just in the plot range)
+    p_diff_map = p_diff_map[p_col_den <= col_den_upper_lim]
+    p_col_den = p_col_den[p_col_den <= col_den_upper_lim]
+    
+    #Get the positive and negative column densities
+    pos_def_col_den = p_col_den[p_diff_map >= 0]
+    pos_def_diff_map = p_diff_map[p_diff_map >= 0]
+
+    neg_def_col_den = p_col_den[p_diff_map < 0]
+    neg_def_diff_map = p_diff_map[p_diff_map < 0]
 
     #=== Create the plot
-    fig = plt.figure(1, figsize=(8,6))
-    ax = fig.add_subplot(111)
+    #Following Matplotlibs example:
+    # https://matplotlib.org/3.1.0/gallery/lines_bars_and_markers/scatter_hist.html
     
-    ax.scatter(p_col_den, p_diff_map, marker='o', s=5, c=c2)
+    #setting up spacing and define axes
+    # main plot x, y; histogram plots width; spacing for axis; distance between
+    # main plot and histograms
+    # Use fig_width to determine the x axis size, and the tight_layout() will
+    # automatically re-scale the plot so the main plot rato is what I defined,
+    # and the spacing and histogram plot widths are equal sizes
+    #
+    fig_x, fig_y, subfig, figspace, figskip = 9, 5, 1.5, 0.4, 0.1 
+    figsum = fig_x + fig_y + subfig + figspace + figskip
+    fig_width = 10
+    
+    rect_scatter = np.divide(np.array([figspace, figspace, fig_x, fig_y]), figsum)
+    rect_histx = np.divide(np.array([figspace, figspace + fig_y + figskip, fig_x, subfig]), figsum)
+    rect_histy = np.divide(np.array([figspace + fig_x + figskip, figspace, subfig, fig_y]), figsum)
+
+
+    #create the plot with the axes
+    fig = plt.figure(figsize=(fig_width,fig_width))
+    
+    ax_scatter = plt.axes(rect_scatter)
+    ax_scatter.tick_params(direction='in', top=True, right=True)
+    ax_histx = plt.axes(rect_histx)
+    ax_histx.tick_params(direction='in', labelbottom=False)
+    ax_histy = plt.axes(rect_histy)
+    ax_histy.tick_params(direction='in', labelleft=False) 
+     
+    #The plots
+    #ax_scatter.scatter(p_col_den, p_diff_map, marker='o', s=5, c=c2)
 
     #Plot the 'positive end' green and the negative 'blue' 
-    #Positive_end
-    #ax.scatter(pos_def_col_den, pos_def_diff_map, marker='o', s=5, c=c2, alpha=0.75)
-    #ax.scatter(neg_def_col_den, neg_def_diff_map, marker='o', s=5, c=c1, alpha=0.75)
+    ax_scatter.scatter(pos_def_col_den, pos_def_diff_map, marker='o', s=5, c=c2, alpha=1.)
+    ax_scatter.scatter(neg_def_col_den, neg_def_diff_map, marker='o', s=5, c=c1, alpha=1.)
+ 
+    #Set scatter plot limits
+    ax_scatter.set_xlim((col_den_lower_lim - col_den_binwidth,
+        col_den_upper_lim + col_den_binwidth))
+    
+    #ax_scatter.set_ylim((diff_lower_lim - diff_binwidth,
+    #    diff_upper_lim + diff_binwidth))
+   
+    #= Histograms
+    #Top
+    col_den_bins = np.arange(col_den_lower_lim, col_den_upper_lim + col_den_binwidth,
+            col_den_binwidth)
 
-    #ax.scatter(uncertain_col_den, uncertain_diff_map, marker='o', s=5, c=outlier_color, alpha=0.75)
+    print(col_den_bins)
 
-    #ax.set_xlim((-1.,10))
-    #ax.set_ylim((-0.1,5))
-    #ax.set_xscale('log')
-    #plt.xscale('symlog', lintreshy=0.001)
+    ax_histx.hist(p_col_den, bins=col_den_bins, histtype='step',
+            linewidth=2, color=outlier_color)
+    
+    ax_histx.hist(pos_def_col_den, bins=col_den_bins, histtype='stepfilled',
+            color=c2, alpha=0.75)
+    ax_histx.hist(neg_def_col_den, bins=col_den_bins, histtype='stepfilled',
+            color=c1, alpha=0.75)
+ 
+    ax_histx.set_xlim(ax_scatter.get_xlim())
 
-    #ax.set_yscale('symlog', lintreshy=0.01)
+    #Right
+    diff_map_bins = np.arange(diff_lower_lim, diff_upper_lim + diff_binwidth,
+            diff_binwidth)
 
-    #Try some 2d histograms
-    #plt.hexbin(column_density_mean.flatten(), diff_map.flatten(), gridsize=[100,50], mincnt=3)
-    #Not working cause masked arrays and hist 2d are not compatible somehow, only with filled view, but weird result are returned
-    #plt.hist2d(column_density_mean.flatten().filled(fill_value=0), diff_map.flatten().filled(fill_value=0), bins=50)
+    #Compute the mean of the scatterplot
+    mean_diff = np.mean(p_diff_map)
 
+    ax_histy.hist(pos_def_diff_map, bins=diff_map_bins, orientation='horizontal',
+            histtype='stepfilled', color=c2)
+    
+    ax_histy.hist(neg_def_diff_map, bins=diff_map_bins, orientation='horizontal',
+            histtype='stepfilled', color=c1)
+
+    ax_histy.axhline(y=mean_diff, ls='--', lw=2, color=c0)
+
+    ax_histy.set_ylim(ax_scatter.get_ylim())
+
+    #= Binned statistics
+    from scipy import stats
+
+    bin_average, bin_edges, binnumber = stats.binned_statistic(p_col_den, p_diff_map,
+            statistic='mean', bins=np.size(col_den_bins-2),
+            range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
+
+    bin_std, bin_edges, binnumber = stats.binned_statistic(p_col_den, p_diff_map,
+            statistic='std', bins=np.size(col_den_bins-2),
+            range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
+
+    print(bin_edges)
+
+    bin_centres = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    ax_scatter.errorbar(bin_centres, bin_average, yerr=bin_std, alpha=1.,
+            fmt='D', capsize=2, elinewidth=1.5, markersize=5, color=c0)
+
+
+    #= Draw lines
     #Draw x=0 y=0 lines
-    #ax.axvline(x=0, ls='--', lw=2., color=outlier_color)
-    ax.axhline(y=0, ls='--', lw=2., color=outlier_color)
-
-    #Set the +/- 3sigma detection in
-    #ax.axvline(x=-mean_col_den_sen_lim, lw=2, ls='--', color=c0)
-    #ax.axvline(x=mean_col_den_sen_lim, lw=2, ls='--', color=c0)
-
-    #Set the +/- xsigma SNR difference
-    #ax.axhline(y=-snr_sen_lim, lw=2, ls='--', color=c0)
-    #ax.axhline(y=snr_sen_lim, lw=2, ls='--', color=c0)
-
+    ax_scatter.axhline(y=0, ls='--', lw=2., color=outlier_color)
+    #ax_scatter.axhline(y=mean_diff, ls='--', lw=2, color=c0)
 
     #Set labels
-    ax.set_xlabel(r'N$_{HI}$ [10$^{20}$cm$^{-2}$]', fontsize=18)
-    ax.set_ylabel(r'$\Delta$S [mJy/pixel]', fontsize=18)
- 
-
+    ax_scatter.set_xlabel(r'N$_{HI}$ [10$^{20}$cm$^{-2}$]', fontsize=18)
+    ax_scatter.set_ylabel(r'$\Delta$S [mJy/pixel]', fontsize=18)
+    ax_histx.set_ylabel('N', fontsize=18)
+    ax_histy.set_xlabel('N', fontsize=18)
 
     #Add inner title
-    t = ds.sdiagnostics.add_inner_title(ax, ident_string, loc=2, prop=dict(size=16))
+    t = ds.sdiagnostics.add_inner_title(ax_scatter, ident_string, loc=2, prop=dict(size=16))
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
-
-
 
 
 def plot_spectra_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list, output_name, beam_correction_list=[True], b_maj_px_list=[5.], b_min_px_list=[5.0], v_frame_list=['optical'], color_list=[None], label_list=[''], ident_list=['?']):
@@ -1343,12 +1427,15 @@ if __name__ == "__main__":
                         ident_list[i], ident_list[j]),
                     N_optical_pixels = 170,
                     masking_list = [True],
-                    mask_sigma_list = [3.0],
+                    mask_sigma_list = [3.5],
                     b_maj_list = [30, 30],
                     b_min_list = [30, 30],
                     b_pa_list = [0, 0],
                     ident_string = diff_ident,
-                    col_den_sensitivity_lim_list = [sen_lim])
+                    col_den_sensitivity_lim_list = [sen_lim],
+                    beam_correction = True,
+                    b_maj_px_list = [5.],
+                    b_min_px_list = [5.])
 
         
                 log.info('..done')

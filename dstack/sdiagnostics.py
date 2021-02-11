@@ -26,6 +26,7 @@ import shutil
 import numpy as np
 import logging
 import warnings
+import copy
 
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -85,7 +86,7 @@ warnings.filterwarnings('ignore', category=Warning, append=True)
 
 #=== Functions ===
 #For improved 
-def add_inner_title(ax, title, loc, prop=None, **kwargs):
+def add_inner_title(ax, title, loc, prop=None, white_border=True, **kwargs):
     """Create a fancy inner title for plots
 
     Parameters
@@ -103,6 +104,9 @@ def add_inner_title(ax, title, loc, prop=None, **kwargs):
         A dictionary containing the properties of the title
         eg. dict(size=18, color='green')
     
+    white_border: bool, optional
+        If True, no white borders are drawn around the text
+
     Return
     ======
     at: artist
@@ -112,10 +116,12 @@ def add_inner_title(ax, title, loc, prop=None, **kwargs):
         prop = dict(size=plt.rcParams['legend.fontsize'])
     
     at = AnchoredText(title, loc=loc, prop=prop,
-                      pad=0., borderpad=0.5,
+                      pad=0., borderpad=0.75,
                       frameon=False, **kwargs)
     ax.add_artist(at)
-    at.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
+    
+    if white_border:
+        at.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
     
     return at
 
@@ -687,7 +693,7 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, survey='DSS2
 
     return optical_im, optical_im_wcs, survey_used
 
-def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True, mask_sigma=3, b_maj=30, b_min=30, col_den_sensitivity=None, flux_density=False, flux_rms=None, beam_correction=False, b_maj_px=5, b_min_px=5):
+def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True, mask_sigma=3, b_maj=30, b_min=30, col_den_sensitivity=None, flux_density=False, beam_correction=False, b_maj_px=5, b_min_px=5):
     """Return the mom map defined by the arguments as a numpy array. It is an useful modularisation for ploting
     Furthermore, this can be imported to external code for more complex analysis.
 
@@ -699,6 +705,11 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
     Except if the masking is set to True, because then the column density sensitivity limit also returned
 
     For the moment0 maps the units are automatically converted to units of 10^20 particles / cm^2 !
+
+    There used to be an option to mask based on flux RMS rather than column density
+    sensitivity limit, but it produced different masks.
+
+    NOTE now all masking is based on the colun density sensitivity!
 
     Parameters
     ==========
@@ -738,9 +749,9 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
         If true, not a moment map, but a flux density map is returned. The units
         are in [mJy/beam]
 
-    flux_rms: float, optional
-        Similar to the `col_den_sensitivity` parameter, but an RMS can be provided
-        in [mJy/flux] for the masking.
+    #flux_rms: float, optional
+    #    Similar to the `col_den_sensitivity` parameter, but an RMS can be provided
+    #    in [mJy/flux] for the masking.
     
     beam_correction: bool, optional
         If True, the flux cdensity is corrected for the beam size, and so the
@@ -773,59 +784,54 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
 
     #Get WCS (all mom ma have the same wcs)
     mom_wcs = fget_wcs(cubelet_path_dict['mom0'])
+    
+    #Source parameters from catalog and cubelet
+    freq, z = get_freq_and_redshift_from_catalog(catalog_path,source_index)
+    dnu = fget_channel_width(cubelet_path_dict['cube'])
+    rms = get_RMS_from_catalog(catalog_path,source_index)
+
+    #Get moment0 (column density) map sensitivity and wcs 
+    mom0_map = fits.getdata(cubelet_path_dict['mom0'])
+    col_den_map = get_column_density(mom0_map, z, b_maj, b_min)
+
+    if col_den_sensitivity != None:
+        col_den_sen_lim = col_den_sensitivity
+    else:
+        col_den_sen_lim = get_column_density_sensitivity(rms, z, b_maj, b_min, dnu, 1)
+
+    #Get the mask applied
+    if masking:
+        col_den_mask = (col_den_map <= col_den_sen_lim * mask_sigma)
 
     if flux_density:
-        #Source parameters from catalog and cubelet
-        freq, z = get_freq_and_redshift_from_catalog(catalog_path,source_index)
-        #dnu = fget_channel_width(cubelet_path_dict['cube'])
-        rms = get_RMS_from_catalog(catalog_path,source_index)
-
         #Get moment0 (column density) map sensitivity and wcs 
-        flux_den_map = fits.getdata(cubelet_path_dict['mom0'])
-        #col_den_map = get_column_density(mom0_map, z, b_maj, b_min)
+        flux_den_map = copy.deepcopy(col_den_map)
 
         if beam_correction:
             flux_den_map = np.divide(flux_den_map, (np.pi * b_maj_px * b_min_px / (4 * np.log(2))))
-
-        if flux_rms != None:
-            flux_rms_lim = flux_rms
-        else:
-            flux_rms_lim = rms
-
+        
         #Mask out the pixels with 0 values
         mask = (flux_den_map == 0.)
         flux_den_map = np.ma.array(flux_den_map, mask=mask)
 
-        #Column density sensitivity masking
+        #if flux_rms != None:
+        #    flux_rms_lim = flux_rms
+        #else:
+        #    flux_rms_lim = rms
+
+        #Column density sensitivity masking if no rms limit is given
         if masking:
-            flux_den_mask = (flux_den_map <= flux_rms_lim * mask_sigma)
-            flux_den_map = np.ma.array(flux_den_map, mask=flux_den_mask)
+            flux_den_map = np.ma.array(flux_den_map, mask=col_den_mask)
+    
+        return flux_den_map, mom_wcs, col_den_sen_lim
 
-        if moment == 0:
-            return flux_den_map, mom_wcs, flux_rms_lim
-
-    if moment == 0 or masking == True:
-        #Source parameters from catalog and cubelet
-        freq, z = get_freq_and_redshift_from_catalog(catalog_path,source_index)
-        dnu = fget_channel_width(cubelet_path_dict['cube'])
-        rms = get_RMS_from_catalog(catalog_path,source_index)
-
-        #Get moment0 (column density) map sensitivity and wcs 
-        mom0_map = fits.getdata(cubelet_path_dict['mom0'])
-        col_den_map = get_column_density(mom0_map, z, b_maj, b_min)
-
-        if col_den_sensitivity != None:
-            col_den_sen_lim = col_den_sensitivity
-        else:
-            col_den_sen_lim = get_column_density_sensitivity(rms, z, b_maj, b_min, dnu, 1)
-
+    if moment == 0:
         #Mask out the pixels with 0 values
-        mask = (col_den_map == 0.)
-        col_den_map = np.ma.array(col_den_map, mask=mask)
+        #mask = (col_den_map == 0.)
+        #col_den_map = np.ma.array(col_den_map, mask=mask)
 
         #Column density sensitivity masking
         if masking:
-            col_den_mask = (col_den_map <= col_den_sen_lim * mask_sigma)
             col_den_map = np.ma.array(col_den_map, mask=col_den_mask)
 
         if moment == 0:
@@ -837,8 +843,7 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
 
         # Mask out low column density data (< `mask_sigma' sigma)
         if masking:
-            mask = (col_den_map <= col_den_sen_lim * mask_sigma)
-            velocity_map = np.ma.array(velocity_map, mask=mask)
+            velocity_map = np.ma.array(velocity_map, mask=col_den_mask)
     
             return velocity_map, mom_wcs, col_den_sen_lim
 
@@ -855,9 +860,8 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
 
         # Mask out low column density data (< `mask_sigma' sigma)
         if masking:
-            mask = (col_den_map <= col_den_sen_lim * mask_sigma)
-            velocity_dispersion_map = np.ma.array(velocity_dispersion_map, mask=mask)
-    
+            velocity_dispersion_map = np.ma.array(velocity_dispersion_map, mask=col_den_mask)
+
             return velocity_dispersion_map, mom_wcs, col_den_sen_lim
 
         else:
