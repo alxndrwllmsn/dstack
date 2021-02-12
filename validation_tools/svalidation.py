@@ -17,6 +17,7 @@ import logging
 import warnings
 import random
 import copy
+from scipy import stats
 
 import astropy #Some functions I call explicitly from astropy
 from astropy.io import fits
@@ -882,7 +883,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
 
-def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?', beam_correction=False, b_maj_px_list=[5], b_min_px_list=[5]):
+def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?', beam_correction=False, b_maj_px_list=[5], b_min_px_list=[5], col_den_binwidth=0.1, diff_binwidth=0.001, col_den_lim=None):
     """
 
     """
@@ -991,18 +992,23 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
     p_diff_map = copy.deepcopy(np.ma.compressed(diff_map))
 
     #=== Set parameters for histograms and plot limits
-    #Binwidth
-    col_den_binwidth = 0.05
-   
     #Set an upper limint in column density
-    #col_den_upper_lim = np.amax(column_density_mean) + col_den_binwidth
-    col_den_upper_lim = 1.
+    if col_den_lim != None:
+        if col_den_lim[0] != None:
+            col_den_lower_lim = col_den_lim[0]
+        else:
+            col_den_lower_lim = np.amin(column_density_mean)
+        
+        if col_den_lim[1] != None:
+            col_den_upper_lim = col_den_lim[1]
+        else:
+            col_den_upper_lim = np.amax(column_density_mean) + col_den_binwidth
+
+    else:
+        col_den_upper_lim = np.amax(column_density_mean) + col_den_binwidth
+        #col_den_upper_lim = 1.
     
-    col_den_lower_lim = np.amin(column_density_mean)
-    #col_den_lower_lim = 0.
-    
-    #binwidth
-    diff_binwidth = 0.0025
+        col_den_lower_lim = np.amin(column_density_mean)
 
     #Limit in flux difference
     diff_upper_lim = np.ceil(np.amax(p_diff_map))
@@ -1012,7 +1018,11 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
     #Make a cut in the data (in column density not just in the plot range)
     p_diff_map = p_diff_map[p_col_den <= col_den_upper_lim]
     p_col_den = p_col_den[p_col_den <= col_den_upper_lim]
-    
+
+    #Get rid of the lower limit points if relevant
+    p_diff_map = p_diff_map[p_col_den >= col_den_lower_lim]
+    p_col_den = p_col_den[p_col_den >= col_den_lower_lim]
+
     #Get the positive and negative column densities
     pos_def_col_den = p_col_den[p_diff_map >= 0]
     pos_def_diff_map = p_diff_map[p_diff_map >= 0]
@@ -1060,7 +1070,7 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
     #Set scatter plot limits
     ax_scatter.set_xlim((col_den_lower_lim - col_den_binwidth,
         col_den_upper_lim + col_den_binwidth))
-    
+   
     #ax_scatter.set_ylim((diff_lower_lim - diff_binwidth,
     #    diff_upper_lim + diff_binwidth))
    
@@ -1069,10 +1079,8 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
     col_den_bins = np.arange(col_den_lower_lim, col_den_upper_lim + col_den_binwidth,
             col_den_binwidth)
 
-    print(col_den_bins)
-
     ax_histx.hist(p_col_den, bins=col_den_bins, histtype='step',
-            linewidth=2, color=outlier_color)
+            linewidth=2, color=c0)
     
     ax_histx.hist(pos_def_col_den, bins=col_den_bins, histtype='stepfilled',
             color=c2, alpha=0.75)
@@ -1094,33 +1102,31 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
     ax_histy.hist(neg_def_diff_map, bins=diff_map_bins, orientation='horizontal',
             histtype='stepfilled', color=c1)
 
-    ax_histy.axhline(y=mean_diff, ls='--', lw=2, color=c0)
-
     ax_histy.set_ylim(ax_scatter.get_ylim())
 
     #= Binned statistics
-    from scipy import stats
-
     bin_average, bin_edges, binnumber = stats.binned_statistic(p_col_den, p_diff_map,
-            statistic='mean', bins=np.size(col_den_bins-2),
-            range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
+            statistic='mean', bins=col_den_bins)
+            #statistic='mean', bins=np.size(col_den_bins-2),
+            #range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
 
     bin_std, bin_edges, binnumber = stats.binned_statistic(p_col_den, p_diff_map,
-            statistic='std', bins=np.size(col_den_bins-2),
-            range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
-
-    print(bin_edges)
+            statistic='std', bins=col_den_bins)
+            #statistic='std', bins=np.size(col_den_bins-2),
+            #range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
 
     bin_centres = (bin_edges[:-1] + bin_edges[1:]) / 2
 
     ax_scatter.errorbar(bin_centres, bin_average, yerr=bin_std, alpha=1.,
             fmt='D', capsize=2, elinewidth=1.5, markersize=5, color=c0)
 
-
     #= Draw lines
     #Draw x=0 y=0 lines
     ax_scatter.axhline(y=0, ls='--', lw=2., color=outlier_color)
     #ax_scatter.axhline(y=mean_diff, ls='--', lw=2, color=c0)
+
+    #ax_histy.axhline(y=mean_diff, ls='--', lw=2, color=c0)
+
 
     #Set labels
     ax_scatter.set_xlabel(r'N$_{HI}$ [10$^{20}$cm$^{-2}$]', fontsize=18)
@@ -1419,23 +1425,26 @@ if __name__ == "__main__":
                 log.info('Creating sensitivity diff against column density plots for {}...'.format(
                     diff_ident))
 
-
-                plot_flux_density_diff_dependience_on_column_density(source_ID_list=[ID_list[i],ID_list[j]],
-                    sofia_dir_list = [sofia_dir_path_list[i], sofia_dir_path_list[j]],
-                    name_base_list = ['beam17_all_'],
-                    output_fname = working_dir + 'validation/sensitivity_column_density_{0:s}{1:s}_map.pdf'.format(
-                        ident_list[i], ident_list[j]),
-                    N_optical_pixels = 170,
-                    masking_list = [True],
-                    mask_sigma_list = [3.5],
-                    b_maj_list = [30, 30],
-                    b_min_list = [30, 30],
-                    b_pa_list = [0, 0],
-                    ident_string = diff_ident,
-                    col_den_sensitivity_lim_list = [sen_lim],
-                    beam_correction = True,
-                    b_maj_px_list = [5.],
-                    b_min_px_list = [5.])
+                for zoom_name, col_den_binwidth, col_den_lim in zip(['high', 'low'], [1., 0.25], [None, (0., 5)]):
+                    plot_flux_density_diff_dependience_on_column_density(source_ID_list=[ID_list[i],ID_list[j]],
+                        sofia_dir_list = [sofia_dir_path_list[i], sofia_dir_path_list[j]],
+                        name_base_list = ['beam17_all_'],
+                        output_fname = working_dir + 'validation/sensitivity_column_density_{0:s}_{1:s}{2:s}_map.pdf'.format(
+                            zoom_name, ident_list[i], ident_list[j]),
+                        N_optical_pixels = 170,
+                        masking_list = [True],
+                        mask_sigma_list = [3.5],
+                        b_maj_list = [30, 30],
+                        b_min_list = [30, 30],
+                        b_pa_list = [0, 0],
+                        ident_string = diff_ident,
+                        col_den_sensitivity_lim_list = [sen_lim],
+                        beam_correction = True,
+                        b_maj_px_list = [5.],
+                        b_min_px_list = [5.],
+                        col_den_binwidth = col_den_binwidth,
+                        diff_binwidth = 0.005,
+                        col_den_lim = col_den_lim)
 
         
                 log.info('..done')
