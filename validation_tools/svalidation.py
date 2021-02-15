@@ -108,10 +108,15 @@ def initialise_argument_list(required_list_length,argument_list):
     """
     while len(argument_list) != required_list_length:
         argument_list.append(argument_list[-1])
+        
+        #Lazy error handeling (does not matter if input list is longer)
+        if len(argument_list) > required_list_length:
+            warnings.warn('Argument list {} is longer than the number of sources provided!'.format(argument_list))
+            return argument_list
 
     return argument_list
 
-def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, contour_levels=[1.6,2.7,5.3,8,13,21], masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], col_den_sensitivity_lim_list=[None]):
+def plot_momN_contour_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, contour_levels=[1.6,2.7,5.3,8,13,21], contour_step=None, N_steps=10, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], col_den_sensitivity_lim_list=[None]):
     """Create a triangle plot from the input SoFiA sources. In the plot diagonal
     the contour plot of each source is shown. The upper triangle is empty,
     while in the lower triangle panels both the i and j panel conbtour plots are
@@ -125,8 +130,15 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
 
     The background optical image is generated based on the first source given!
 
+    The plot also can create the moment1 map contours on top of the optical
+    background image.
+
     Parameters
     ==========
+    moment: int
+        The moment map, which contours will be shown. Currently moment0 and
+        moment 1 contour maps are supported.
+
     source_ID_list: list of int
         The SoFiA ID of the sources
 
@@ -146,6 +158,18 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
     contour_levels: list of float, optional
         List containing the column density contours to drawn in units of 10^(20)
         HI atoms / cm^2.
+
+    contour_step: float, optional
+        If not None, this step value wiéll be used to determine the contours for
+        the moment 1 map. NOTE that only works for the moment 1 map! If given,
+        it replaces the contours provided. The central contour is the average
+        central velocity of the sources as given by SoFiA.
+
+    N_steps: int, optional
+        Only used if the `contour_step` is set. The number of contour levels
+        used is 2*N_step + 1 in the range of:
+        
+        average optical velocity +/- N_step*contour_step
 
     masking_list: list of bool, optional
         If True, the respective mom0 maps will be msked
@@ -184,6 +208,8 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
     N_sources = len(source_ID_list)
     assert len(sofia_dir_list) == N_sources, 'More or less sources are given than SoFiA directory paths!'
 
+    assert moment in [0,1], 'Invalid moment index is given!'
+
     masking_list = initialise_argument_list(N_sources,masking_list)
     mask_sigma_list = initialise_argument_list(N_sources, mask_sigma_list)
     b_maj_list = initialise_argument_list(N_sources, b_maj_list)
@@ -209,13 +235,29 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
                 sofia_dir_list[0], name_base_list[0], N_optical_pixels=N_optical_pixels)
 
     #Get the moment maps and sensitivities
-    mom0_map_list = []
-    mom0_wcs_list = []
-    mom0_sen_lim_list = []
+    mom_map_list = []
+    mom_wcs_list = []
+    mom_sen_lim_list = []
+
+    if moment == 1 and contour_step != None:
+        velocity_list = []
 
     for i in range(0,N_sources):
+        #get the central velocity for each source if the moment map is set to 1
+        if moment == 1 and contour_step != None:
+            source_index, catalog_path, cubelet_path_dict, spectra_path = \
+                    ds.sdiagnostics.get_source_files(source_ID_list[i],
+                    sofia_dir_path_list[i], name_base_list[i])
 
-        mom0_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+            #Get the central freq and central velocity
+            freq, z = ds.sdiagnostics.get_freq_and_redshift_from_catalog(catalog_path,
+                    source_index)
+ 
+            v_opt = ds.sdiagnostics.get_velocity_from_freq(freq)
+
+            velocity_list.append(v_opt)
+
+        mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
                                         source_ID = source_ID_list[i],
                                         sofia_dir_path = sofia_dir_list[i],
                                         name_base = name_base_list[i],
@@ -225,9 +267,19 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
                                         b_min = b_min_list[i],
                                         col_den_sensitivity = col_den_sensitivity_lim_list[i])
 
-        mom0_map_list.append(mom0_map)
-        mom0_wcs_list.append(map_wcs)
-        mom0_sen_lim_list.append(map_sen_lim)
+        mom_map_list.append(mom_map)
+        mom_wcs_list.append(map_wcs)
+        mom_sen_lim_list.append(map_sen_lim)
+
+    #Set the contour levels if the contour step is given
+    if moment == 1 and contour_step != None:
+        v_average = np.mean(np.array(velocity_list))
+        
+        contour_levels = np.array([v_average + (i * contour_step) for i in range(-N_steps, N_steps + 1)])
+
+
+        log.info('The central velocity for the contours: {0:f}'.format(v_average))
+
 
     #=== Create the figure
     fig, axes = plt.subplots(figsize=(2 + 4 * N_sources, 2 + 4 * N_sources),
@@ -260,8 +312,8 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
                 axes[i,j].imshow(optical_background, origin='lower', cmap='Greys')
                 
                 #Plot the contours as function of 10^20 particle / cm^2
-                axes[i,j].contour(mom0_map_list[i], levels=contour_levels,
-                        transform=axes[i,j].get_transform(mom0_wcs_list[i]),
+                axes[i,j].contour(mom_map_list[i], levels=contour_levels,
+                        transform=axes[i,j].get_transform(mom_wcs_list[i]),
                         colors=color_list[i], linewidths=1.5, alpha=0.8)
 
                 #Grid
@@ -275,13 +327,13 @@ def plot_mom0_contour_triangle_matrix(source_ID_list, sofia_dir_list, name_base_
 
                 if i == j:
                     #Plot the 3sigma sensitivity limit with red in the bottome
-                    axes[i,j].contour(mom0_map_list[i], levels=np.multiply(np.array([3]), mom0_sen_lim_list[i]),
-                            transform=axes[i,j].get_transform(mom0_wcs_list[i]),
+                    axes[i,j].contour(mom_map_list[i], levels=np.multiply(np.array([3]), mom_sen_lim_list[i]),
+                            transform=axes[i,j].get_transform(mom_wcs_list[i]),
                             colors='red', linewidths=1.5, alpha=1.)
 
                 if i != j:
-                    axes[i,j].contour(mom0_map_list[j], levels=contour_levels,
-                            transform=axes[i,j].get_transform(mom0_wcs_list[j]),
+                    axes[i,j].contour(mom_map_list[j], levels=contour_levels,
+                            transform=axes[i,j].get_transform(mom_wcs_list[j]),
                             colors=color_list[j], linewidths=1.5, alpha=0.8)
 
                 
@@ -1263,6 +1315,87 @@ if __name__ == "__main__":
     log.setLevel(logging.INFO)
     log.addHandler(logging.StreamHandler(sys.stdout))
 
+
+    #=== momN contour triangle matrix
+    """
+    #2km baselines
+    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
+
+    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
+        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
+
+    #Use the column densizty sensitivity of the co-added visibility combination
+    # for all the sensitivity maps
+    mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+        source_ID = 1,
+        sofia_dir_path = sofia_dir_path_list[0],
+        name_base = 'beam17_all_',
+        b_maj = 30,
+        b_min = 30)
+
+    for mom in [0,1]:
+        log.info('Creating mom{0:d} contour triangle plot for 2km baselie results...'.format(mom))
+    
+        plot_momN_contour_triangle_matrix(moment=mom,
+                source_ID_list=[1, 1, 1, 2],
+                sofia_dir_list = sofia_dir_path_list,
+                name_base_list = ['beam17_all_'],
+                output_name = working_dir + 'validation/mom{0:d}_with_uniform_sensitivity_contours.pdf'.format(mom),
+                N_optical_pixels = 800,
+                contour_levels = [1150, 1200, 1250, 1300, 1350],
+                contour_step = 12,
+                N_steps = 20,
+                color_list = [c0, c2, c1, outlier_color],
+                label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
+                b_maj_list = [30, 30, 30, 30],
+                b_min_list = [30, 30, 30, 30],
+                b_pa_list = [0, 0, 0, 0],
+                col_den_sensitivity_lim_list = [sen_lim])
+
+        log.info('..done')
+
+    #exit()
+    #"""
+
+    #"""
+    #6km baselines
+    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/'
+
+    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
+        'stacked_grids/', 'stacked_images/']))
+
+    #Use the column densizty sensitivity of the co-added visibility combination
+    # for all the sensitivity maps
+    mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+        source_ID = 1,
+        sofia_dir_path = sofia_dir_path_list[0],
+        name_base = 'beam17_all_',
+        b_maj = 12,
+        b_min = 12)
+
+    for mom in [0,1]:
+        log.info('Creating mom{0:d} contour triangle plot for 6km baselie results...'.format(mom))
+
+        plot_momN_contour_triangle_matrix(moment=mom,
+            source_ID_list=[1, 1, 1],
+            sofia_dir_list = sofia_dir_path_list,
+            name_base_list = ['beam17_all_'],
+            output_name = working_dir + 'validation/mom{0:d}_with_contours.pdf'.format(mom),
+            N_optical_pixels = 800,
+            contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
+            contour_step = 25,
+            N_steps=20,
+            color_list = [c0, c2, c1],
+            label_list=['co-added visibilities', 'stacked grids', 'stacked images'],
+            b_maj_list = [12],
+            b_min_list = [12],
+            b_pa_list = [0])
+
+        log.info('...done')
+
+    exit()
+    #"""
+
     #"""
     #=== Flux density-difference -- column density
     
@@ -1397,7 +1530,8 @@ if __name__ == "__main__":
         b_maj = 30,
         b_min = 30)
 
-    plot_mom0_contour_triangle_matrix(source_ID_list=[1, 1, 1, 2],
+    plot_momN_contour_triangle_matrix(moment=0,
+            source_ID_list=[1, 1, 1, 2],
             sofia_dir_list = sofia_dir_path_list,
             name_base_list = ['beam17_all_'],
             output_name = working_dir + 'validation/mom0_with_uniform_sensitivity_contours.pdf',
