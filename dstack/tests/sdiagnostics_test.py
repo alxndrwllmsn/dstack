@@ -187,7 +187,6 @@ class TestSdiagnostics(unittest.TestCase):
         dnu = ds.sdiagnostics.fget_channel_width(cubelet_path_dict['cube'])
         assert dnu == self.dnu, 'The channelwidth provided differs from the channel width gained from the fits cube!' 
 
-
     def test_get_optical_image_ndarray(self):
         #This function tests the creation of the optical background image. However, it only tests if the requested size
         #background image is returned regardless of the values, the phase centre and the survey used.
@@ -222,6 +221,46 @@ class TestSdiagnostics(unittest.TestCase):
         #Test if same lenght numpy arrays are returned
         f, v = ds.sdiagnostics.get_spectra_array(self.source_ID,self.sofia_dir_path,self.name_base)
         assert np.shape(f) == np.shape(v), 'Not matching flux and velocity arrays are returned!'
+
+    def test_common_map_transform(self):
+        #Test that moment maps can be transformed to a common background frame
+        #Iedally two data sets would needed for thist test, but for simplicity,
+        #I will use the same SoFiA output but different moment maps.
+
+        mom0_common_frame, frame_wcs = ds.sdiagnostics. get_common_frame_for_sofia_sources(moment=0,
+               source_ID = self.source_ID, sofia_dir_path = self.sofia_dir_path,
+               name_base = self.name_base, N_optical_pixels=1000)
+
+        mom1_common_frame, frame_wcs = ds.sdiagnostics. get_common_frame_for_sofia_sources(moment=1,
+               source_ID = self.source_ID, sofia_dir_path = self.sofia_dir_path,
+               name_base = self.name_base, N_optical_pixels=1000)
+
+        assert np.shape(mom0_common_frame) == np.shape(mom1_common_frame), \
+                'Different size common frames are created for different moment map inputs!'
+
+        del mom1_common_frame
+
+        #Now project the moment maps onto the same background and compare them
+        mom0_transformed_map, map_sen = ds.sdiagnostics.convert_source_mom_map_to_common_frame(moment=0,
+                source_ID = self.source_ID, sofia_dir_path = self.sofia_dir_path,
+                name_base = self.name_base, optical_wcs = frame_wcs,
+                optical_data_array = mom0_common_frame)
+                
+        mom1_transformed_map, map_sen = ds.sdiagnostics.convert_source_mom_map_to_common_frame(moment=1,
+                source_ID = self.source_ID, sofia_dir_path = self.sofia_dir_path,
+                name_base = self.name_base, optical_wcs = frame_wcs,
+                optical_data_array = mom0_common_frame)
+        
+        #Test if maskig is working correctly, also if the two moment maps are in
+        #the same position with a quasi okay test
+        assert np.ma.count_masked(mom0_transformed_map) == np.ma.count_masked(mom1_transformed_map), \
+                'Different masks are inherited by the different transformed moment maps!'
+
+        #this diff map will have equal masked elements than the input maps
+        diff_map = np.subtract(mom0_transformed_map, mom1_transformed_map)
+
+        assert np.ma.count_masked(diff_map) == np.ma.count_masked(mom0_transformed_map), \
+                'The different moment maps are projected differently for the same source!'
 
 if __name__ == "__main__":
     unittest.main()

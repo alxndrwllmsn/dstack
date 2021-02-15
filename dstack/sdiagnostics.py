@@ -17,7 +17,8 @@ __all__ = ['add_inner_title', 'get_source_files', 'get_N_sources', 'get_z_from_f
         'get_velocity_from_freq', 'get_velocity_dispersion_from_freq', 'get_column_density',
         'get_column_density_sensitivity', 'get_freq_and_redshift_from_catalog', 'get_RMS_from_catalog',
         'fget_wcs', 'fget_beam', 'fget_channel_width', 'get_optical_image', 'get_optical_image_ndarray',
-        'get_momN_ndarray', 'get_spectra_array', 'plot_optical_background_with_mom0_conturs',
+        'get_momN_ndarray', 'get_spectra_array', 'get_common_frame_for_sofia_sources',
+        'convert_source_mom_map_to_common_frame', 'plot_optical_background_with_mom0_conturs',
         'plot_momN_map', 'plot_spectra', 'source_analytics_plot',
         'create_complementary_figures_to_sofia_output']
 
@@ -28,6 +29,7 @@ import logging
 import warnings
 import copy
 
+import astropy
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.table import Table, Column
@@ -944,7 +946,266 @@ def get_spectra_array(source_ID, sofia_dir_path, name_base, v_frame='optical', b
     else:
         velocity_array = get_velocity_from_freq(freq_array, v_frame=v_frame)
         return flux_array, velocity_array
-       
+
+def get_common_frame_for_sofia_sources(moment, source_ID, sofia_dir_path, name_base, N_optical_pixels=600, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, temp_fits_path=str(os.getcwd() + '/temp.fits')):
+    """This function creates an empty sky image based on a SoFiA source.
+    The image centre is defined by the SoFiA cataloge RA and Dec of the source,
+    while the image size is given by the user. This function is really similar to
+    the function `get_optical_image_ndarray()`, however, the pixel size of the
+    image is defined by the pixel size of the SoFiA source cubelet.
+
+    Thus, this function can be used as a frame (background image) to wich the
+    SoFiA cubelet moment maps can be projected.
+
+    This is the basis of comparing SoFiA source cubelets of the same sky position,
+    but with different cubelet size.
+
+    For more details of the projection see `convert_source_mom_map_to_common_frame()`
+
+    Parameters
+    ==========
+    moment: int
+        The moment map that ndarray is returned (0,1 or 2) 
+    
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+    
+    N_optical_pixels: int, optional
+        Number of pixels for the optical background image created. The pixel size
+        is derived from the SoFiA cubelet provided.
+
+    masking: bool, optional
+        If True, pixel values below a certain sensitivity threshold will be masked out.
+
+    mask_sigma: int, optional
+        The masking threshold value. The masking is performed based on the moment0 map.
+        The threshold is given in terms of column density sensitivity values (similarly to contour lines)
+
+    b_maj: float, optional
+        Angular major axis of the beam [arcsec]
+    
+    b_min: float, optional
+        Angular minor axis of the beam [arcsec]
+    
+    col_den_sensitivity_lim: float, optional
+        The column density sensitivity if the user wants to use a different value than
+        from what computed from the SoFiA RMS value. None by default, and so the 
+        SoFiA RMS value is used. Useful if e.g. the user wants to use an RMS of the cube
+        computed differently from SoFiA. In the units of 10^20 HI / cm^2
+ 
+    temp_fits_path: string, optional
+        Full path and name for a temprorary .fits file created while generating
+        the HDU for the backround (empty) image.
+    
+    Return
+    ======
+    data_array: `numpy.ndarray.ndarray`
+        2D array of zeros with N_optical_pixels x N_optical_pixels size
+    x: astropy.WCS
+        World coordinate system info for the background image
+    """
+    #Create the backround image from scratch => Use the first source
+    source_index, catalog_path, cubelet_path_dict, spectra_path = ds.sdiagnostics.get_source_files(source_ID, sofia_dir_path, name_base)
+    catalog = ds.sdiagnostics.parse_single_table(catalog_path).to_table(use_names_over_ids=True)
+
+    #Get the background image centre from the SoFiA RA, Dec coordinates of the selected source
+    ra = catalog['ra'][source_index]
+    dec = catalog['dec'][source_index]
+    pos = SkyCoord(ra=ra, dec=dec, unit='deg',equinox='J2000')
+
+    #Get the source's moment map for the pixel size
+    mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
+                                        source_ID = source_ID,
+                                        sofia_dir_path = sofia_dir_path,
+                                        name_base = name_base,
+                                        masking = masking,
+                                        mask_sigma = mask_sigma,
+                                        b_maj = b_maj,
+                                        b_min = b_min,
+                                        col_den_sensitivity = col_den_sensitivity_lim)
+
+    #Initialise the background image
+    data_array = np.zeros((N_optical_pixels,N_optical_pixels))
+
+    #Create the WCS using the first dources moment map projected pixel size
+    w = WCS(naxis=2)
+    # The negation in the longitude is needed by definition of RA, DEC
+    w.wcs.cdelt = astropy.wcs.utils.proj_plane_pixel_scales(map_wcs) #pixels in arcseconds
+    w.wcs.crpix = [N_optical_pixels // 2 + 1, N_optical_pixels // 2 + 1]
+    w.wcs.ctype = ["RA---SIN", "DEC--SIN"]
+    w.wcs.crval = [pos.ra.deg, pos.dec.deg]
+    w.naxis = 2
+    w.wcs.radesys = 'ICRS'
+    w.wcs.equinox = 2000.0
+
+    #Create file and read in and then delete it....
+    #Remove file if exists
+    if os.path.exists(temp_fits_path):
+        os.remove(temp_fits_path)
+    
+    fits.writeto(filename=temp_fits_path, data=data_array, header=w.to_header(), 
+            checksum=True, output_verify='ignore', overwrite=False)
+    
+    #To properly close the created fits and avoid ResourceWarning: unclosed file
+    with fits.open(temp_fits_path) as hdlu:
+        optical_fits = copy.deepcopy(hdlu)  
+
+    #Remove for good
+    os.remove(temp_fits_path)
+
+    del mom_map, map_wcs, map_sen_lim, optical_fits
+
+    return data_array, w
+
+def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, name_base, optical_wcs, optical_data_array, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, sensitivity=False, flux_density=False, beam_correction=False, b_maj_px=5, b_min_px=5):
+    """This function converts a given SoFiA source moment map cubelet to a pre-
+    defined reference background image. The background image and its wcs should
+    vbe created via `get_common_frame_for_sofia_sources()`
+
+    This function project the given moment (or sensitivity) map onto this backround
+    image.
+
+    NOTE that the projection is currently sub-optimal. It is because the moment
+    maps [0,0] corner pixel is projected only so a flip is necessary. This also
+    results in that the background image has to be large enough for the flip
+    to happen....
+
+    TO DO: get a better but similarly quick projection.
+
+    See the comments of the code for more details
+
+    Parameters
+    ==========
+    moment: int
+        The moment map that ndarray is returned (0,1 or 2) 
+    
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+    
+    optical_wcs: `astropy.WCS`
+        The World Coordinate System information of the background image. 
+
+    optical_data array: `numpy.ndarray.ndarray`
+        Background image data cube (should contain zeros only)
+
+    masking: bool, optional
+        If True, pixel values below a certain sensitivity threshold will be masked out.
+
+    mask_sigma: int, optional
+        The masking threshold value. The masking is performed based on the moment0 map.
+        The threshold is given in terms of column density sensitivity values (similarly to contour lines)
+
+    b_maj: float, optional
+        Angular major axis of the beam [arcsec]
+    
+    b_min: float, optional
+        Angular minor axis of the beam [arcsec]
+    
+    col_den_sensitivity_lim: float
+        The column density sensitivity if the user wants to use a different value than
+        from what computed from the SoFiA RMS value. None by default, and so the 
+        SoFiA RMS value is used. Useful if e.g. the user wants to use an RMS of the cube
+        computed differently from SoFiA. In the units of 10^20 HI / cm^2
+ 
+    sensitivity: bool, optional
+        If true, a triangle plot for the sensitivity is generated. Automatically
+        change moment to 0 and normalises the moment0 map with the column density
+        sensitivity value for each source (either given, or computed form SoFiA RMs)
+
+    Return
+    ======
+    transformed_map: `numpy.ndarray.ndarray`
+        The projected moment map with new size, equal of the background image
+
+    map_sen: float
+        The column density snesitivity limit of the source (inherited from functions
+        called and I need to rerturn this for some plotting)
+    
+    """
+    #Get the moment map as a SoFiA output
+    mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
+                                        source_ID = source_ID,
+                                        sofia_dir_path = sofia_dir_path,
+                                        name_base = name_base,
+                                        masking = masking,
+                                        mask_sigma = mask_sigma,
+                                        b_maj = b_maj,
+                                        b_min = b_min,
+                                        col_den_sensitivity = col_den_sensitivity_lim,
+                                        flux_density = flux_density,
+                                        beam_correction = beam_correction,
+                                        b_maj_px =b_maj_px,
+                                        b_min_px = b_min_px)
+
+    #Transform mom0 map to sensitivity if sensitivity set to True:
+    if sensitivity:
+        mom_map = np.divide(mom_map, map_sen_lim)
+
+    #Add the moment maps to the background image, however
+    #NOTE that the moment maps can be different sizes and the projection to
+    # the backround image is non-trivial. I put together a quick routine to
+    # transform the moment maps onto the right place and orientation, but
+    # it uses the corner pixel (numpy) of each moment map as a reference pixel.
+    # As a result, I can easily loop through the moment map pixels and transform
+    # to the background image. However, I am not sure why (maybe because I
+    # used sources on the southern sky), but the moment maps are rotated in
+    # the wrong direction in the Dec (x) axis.
+    #
+    #NOTE that because of this method the background image has to be large
+    # enough for the moment map to be (wrongly) mapped onto.
+
+    #Define the data array wich the moment map will be transformed
+    transformed_map = copy.deepcopy(optical_data_array)
+
+    #Get the referenc epixels
+    x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
+            astropy.wcs.utils.pixel_to_skycoord(0, 0, map_wcs, origin=0),
+            optical_wcs, origin=0)
+
+    x_ref_index = int(x_ref)
+    y_ref_index = int(y_ref)
+
+    #Add the moment map to the background image
+    for j in range(0,np.shape(mom_map)[0]):
+        for k in range(0,np.shape(mom_map)[1]):
+
+            #This is a slower pixel-to-pixel tranformation
+            #x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
+            #astropy.wcs.utils.pixel_to_skycoord(k,j, map_wcs, origin=0), w, origin=0)
+            #x_ref_index = int(x_ref)
+            #y_ref_index = int(y_ref)
+            #transformed_map[y_ref_index, x_ref_index] = mom_map[j,k]
+
+            transformed_map[y_ref_index + j, x_ref_index - k] = mom_map[j,k]
+
+    #Flip the result image along the Dec axis
+    transformed_map = np.flip(transformed_map,axis=1)
+
+    #Mask zero values as the input moment maps are masked as well.
+    mask = (transformed_map == 0.)
+    transformed_map = np.ma.array(transformed_map, mask=mask)
+
+    #Mask out Nan values as well (if present)
+    transformed_map = np.ma.array(transformed_map, mask=np.isnan(transformed_map))
+
+    del mom_map, mask, map_wcs
+
+    return transformed_map, map_sen_lim
+
 #= Plot functions
 def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_base, output_fname, contour_levels=[1.6,2.7,5.3,8,13,21], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, **kwargs):
     """Create a map with the `DSS2 Red` image in the background and the mom0 map fitted contours in the foreground.
