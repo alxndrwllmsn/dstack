@@ -1315,7 +1315,6 @@ if __name__ == "__main__":
     log.setLevel(logging.INFO)
     log.addHandler(logging.StreamHandler(sys.stdout))
 
-
     #=== momN contour triangle matrix
     """
     #2km baselines
