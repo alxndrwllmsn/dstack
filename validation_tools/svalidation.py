@@ -41,6 +41,9 @@ import cmocean
 import dstack as ds
 
 
+#Import fancy triangle plots from svalidation
+import svalidation
+
 #=== Setup logging ===
 log = logging.getLogger(__name__)
 
