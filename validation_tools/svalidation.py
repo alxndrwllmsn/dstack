@@ -532,13 +532,13 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
         for j in range(0,N_sources):
             if j>i:
                 #mask NaN values
-                #diff_map = np.subtract(transformed_map_list[i],transformed_map_list[j]) 
+                diff_map = np.subtract(transformed_map_list[i],transformed_map_list[j]) 
                 
                 #Uncomment for saturated map
-                diff_map = np.subtract(np.ma.array(transformed_map_list[i],
-                    mask=np.array([transformed_map_list[i] > saturation_level])),
-                    np.ma.array(transformed_map_list[j],
-                    mask=np.array([transformed_map_list[j] > saturation_level])))  
+                #diff_map = np.subtract(np.ma.array(transformed_map_list[i],
+                #    mask=np.array([transformed_map_list[i] > saturation_level])),
+                #    np.ma.array(transformed_map_list[j],
+                #    mask=np.array([transformed_map_list[j] > saturation_level])))  
                 
                 #Remove NaNs
                 diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))
@@ -616,7 +616,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                     cb.ax.tick_params(colors='white')
                    
                     if sensitivity:
-                        cb.ax.set_ylabel(r'SNR', color='black',
+                        cb.ax.set_ylabel(r'Dynamic range', color='black',
                             fontsize = 18, labelpad=10)
                     else:
                         if moment == 0:
@@ -699,13 +699,14 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
 
-def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?', beam_correction=False, b_maj_px_list=[5], b_min_px_list=[5], col_den_binwidth=0.1, diff_binwidth=0.001, col_den_lim=None):
+
+def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?', beam_correction=False, b_maj_px_list=[5], b_min_px_list=[5], col_den_binwidth=0.1, diff_binwidth=0.001, col_den_lim=None, logbins=False):
     """This is a quite complicated function, despite I tried to modularise it.
-    So after providing all the many arfguments a nice plot is created from two
+    So after providing all the many arguments a nice plot is created from two
     input SoFiA sources of the same object but different imaging runs.
 
-    The y axis shows the pixel-by-pixel measured (absolute) flux density difference
-    in [mJy/pixel]. For this the beam parameters in pixels needed.
+    The y axis shows the pixel-by-pixel measured (integrated) flux density difference
+    in [mJy km s^₋1/pixel]. For this the beam parameters in pixels needed.
 
     The x axis is the pixel-by-pixel average HI column density sensitivity in
     units of [atoms cm^-1]. Each of this measurements have an 'error' in the x axis,
@@ -803,6 +804,9 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
         limits can be None, in whic case the min/max value in column density is
         used.
 
+    logbins: bool, optional
+        Sets the x axis and binning to logarithmic.
+
     Return
     ======
     output_image: file
@@ -894,7 +898,7 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
    
     diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))
 
-    #Similar vbut in SNR difference
+    #Similar but in SNR difference
     snr_sen_lim = 3
 
     #=== Get the average and std of the measured column densities of the two input map
@@ -989,17 +993,29 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
     ax_scatter.scatter(pos_def_col_den, pos_def_diff_map, marker='o', s=5, c=c2, alpha=1.)
     ax_scatter.scatter(neg_def_col_den, neg_def_diff_map, marker='o', s=5, c=c1, alpha=1.)
  
-    #Set scatter plot limits
-    ax_scatter.set_xlim((col_den_lower_lim - col_den_binwidth,
+    #Set scatter plot limits for the non logarithmic case
+    if not logbins:
+        ax_scatter.set_xlim((col_den_lower_lim - col_den_binwidth,
         col_den_upper_lim + col_den_binwidth))
-   
+  
+    #if logbins:
+    #    ax_scatter.set_xlim((col_den_lower_lim, col_den_upper_lim))
+
     #ax_scatter.set_ylim((diff_lower_lim - diff_binwidth,
     #    diff_upper_lim + diff_binwidth))
-   
+  
+    #Set logarithmic x axis
+    if logbins:
+        ax_scatter.set_xscale('log')
+
     #= Histograms
     #Top
     col_den_bins = np.arange(col_den_lower_lim, col_den_upper_lim + col_den_binwidth,
             col_den_binwidth)
+
+    if logbins:
+        col_den_bins = np.logspace(np.log10(col_den_bins[0]),
+                np.log10(col_den_bins[-1]),len(col_den_bins))
 
     ax_histx.hist(p_col_den, bins=col_den_bins, histtype='step',
             linewidth=2, color=c0)
@@ -1010,6 +1026,9 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
             color=c1, alpha=0.75)
  
     ax_histx.set_xlim(ax_scatter.get_xlim())
+
+    if logbins:
+        ax_histx.set_xscale('log')
 
     #Right
     diff_map_bins = np.arange(diff_lower_lim, diff_upper_lim + diff_binwidth,
@@ -1051,8 +1070,11 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
 
 
     #Set labels
-    ax_scatter.set_xlabel(r'N$_{HI}$ [10$^{20}$cm$^{-2}$]', fontsize=18)
-    ax_scatter.set_ylabel(r'$\Delta$S [mJy/pixel]', fontsize=18)
+    if sensitivity:
+        ax_scatter.set_xlabel(r'Dynamic range', fontsize=18)
+    else:
+        ax_scatter.set_xlabel(r'N$_{HI}$ [10$^{20}$cm$^{-2}$]', fontsize=18)
+    ax_scatter.set_ylabel(r'$\Delta$S$_{int}$ [mJy km s$^{-1}$/pixel]', fontsize=18)
     ax_histx.set_ylabel('N', fontsize=18)
     ax_histy.set_xlabel('N', fontsize=18)
 
@@ -1174,7 +1196,7 @@ def plot_spectra_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list,
     diff_array_list = []
     v_index_list = []
     subtraction_ident_list = []
-    
+
     #for the common diff y-axis
     diff_max = -np.inf
     diff_min = np.inf
@@ -1288,7 +1310,13 @@ def plot_spectra_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list,
 
                         axes[i,j].grid(lw=1.5, alpha=0.5)
                         axes[i,j].tick_params(length=0.) #Remove ticks
-                
+               
+                        t = ds.sdiagnostics.add_inner_title(axes[i,j],
+                            '({0:s} & {1:s})'.format(ident_list[j],ident_list[i]),
+                            loc=2, prop=dict(size=16, color='black'))
+                        #t.patch.set_ec("none")
+                        t.patch.set_alpha(1)
+
                 else:
                     #Add inner title
                     t = ds.sdiagnostics.add_inner_title(axes[i,j], label_list[i] \

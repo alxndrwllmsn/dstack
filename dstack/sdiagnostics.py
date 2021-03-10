@@ -479,7 +479,7 @@ def fget_channel_width(fitsfile_path):
 
     Return
     ======
-    dnu: float
+    dnu: floatmom0_map = fits.getdata(cubelet_path_dict['mom0'])
         The channel width in [Hz]
     """
     dnu = fits.getheader(fitsfile_path)['CDELT3'] #[Hz]
@@ -675,7 +675,7 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, survey='DSS2
 
     N_optical_pixels: int, optional
          Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
-
+    
     Return
     ======
     optical_image: `numpy.ndarray`
@@ -695,7 +695,7 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, survey='DSS2
 
     return optical_im, optical_im_wcs, survey_used
 
-def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True, mask_sigma=3, b_maj=30, b_min=30, col_den_sensitivity=None, flux_density=False, beam_correction=False, b_maj_px=5, b_min_px=5):
+def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True, mask_sigma=3, b_maj=30, b_min=30, col_den_sensitivity=None, flux_density=False, beam_correction=False, b_maj_px=5, b_min_px=5, sensitivity=False):
     """Return the mom map defined by the arguments as a numpy array. It is an useful modularisation for ploting
     Furthermore, this can be imported to external code for more complex analysis.
 
@@ -765,6 +765,10 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
     b_min_px: float, optional
         The minor axis of the beam in pixels
 
+    sensitivity: bool, optional
+        If sets to True, it returns the intergrated sensitivity map. Ergo,
+        the mom0 map normalised with the column density sensitivity
+
     Return
     ======
     col_den_map: `numpy.ndarray`
@@ -787,7 +791,7 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
     #Get WCS (all mom ma have the same wcs)
     mom_wcs = fget_wcs(cubelet_path_dict['mom0'])
     
-    #Source parameters from catalog and cubelet
+    #Source pamom0_map = fits.getdata(cubelet_path_dict['mom0'])rameters from catalog and cubelet
     freq, z = get_freq_and_redshift_from_catalog(catalog_path,source_index)
     dnu = fget_channel_width(cubelet_path_dict['cube'])
     rms = get_RMS_from_catalog(catalog_path,source_index)
@@ -805,13 +809,24 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
     if masking:
         col_den_mask = (col_den_map <= col_den_sen_lim * mask_sigma)
 
+
+    #If the column density sensitivity maps are required
+    if sensitivity:
+        if masking:
+            col_den_map = np.ma.array(col_den_map, mask=col_den_mask)
+
+        col_den_map /= col_den_sen_lim
+
+        return col_den_map, mom_wcs, col_den_sen_lim
+
     if flux_density:
+        #This is actually some integrated flux density
         #Get moment0 (column density) map sensitivity and wcs 
         flux_den_map = copy.deepcopy(col_den_map)
 
         if beam_correction:
             flux_den_map = np.divide(flux_den_map, (np.pi * b_maj_px * b_min_px / (4 * np.log(2))))
-        
+
         #Mask out the pixels with 0 values
         mask = (flux_den_map == 0.)
         flux_den_map = np.ma.array(flux_den_map, mask=mask)
@@ -824,7 +839,7 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
         #Column density sensitivity masking if no rms limit is given
         if masking:
             flux_den_map = np.ma.array(flux_den_map, mask=col_den_mask)
-    
+
         return flux_den_map, mom_wcs, col_den_sen_lim
 
     if moment == 0:
@@ -846,7 +861,7 @@ def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True,
         # Mask out low column density data (< `mask_sigma' sigma)
         if masking:
             velocity_map = np.ma.array(velocity_map, mask=col_den_mask)
-    
+
             return velocity_map, mom_wcs, col_den_sen_lim
 
         else:
@@ -1012,8 +1027,8 @@ def get_common_frame_for_sofia_sources(moment, source_ID, sofia_dir_path, name_b
         World coordinate system info for the background image
     """
     #Create the backround image from scratch => Use the first source
-    source_index, catalog_path, cubelet_path_dict, spectra_path = ds.sdiagnostics.get_source_files(source_ID, sofia_dir_path, name_base)
-    catalog = ds.sdiagnostics.parse_single_table(catalog_path).to_table(use_names_over_ids=True)
+    source_index, catalog_path, cubelet_path_dict, spectra_path = get_source_files(source_ID, sofia_dir_path, name_base)
+    catalog = parse_single_table(catalog_path).to_table(use_names_over_ids=True)
 
     #Get the background image centre from the SoFiA RA, Dec coordinates of the selected source
     ra = catalog['ra'][source_index]
@@ -1021,7 +1036,7 @@ def get_common_frame_for_sofia_sources(moment, source_ID, sofia_dir_path, name_b
     pos = SkyCoord(ra=ra, dec=dec, unit='deg',equinox='J2000')
 
     #Get the source's moment map for the pixel size
-    mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
+    mom_map, map_wcs, map_sen_lim = get_momN_ndarray(moment = moment,
                                         source_ID = source_ID,
                                         sofia_dir_path = sofia_dir_path,
                                         name_base = name_base,
@@ -1137,7 +1152,7 @@ def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, na
     
     """
     #Get the moment map as a SoFiA output
-    mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = moment,
+    mom_map, map_wcs, map_sen_lim = get_momN_ndarray(moment = moment,
                                         source_ID = source_ID,
                                         sofia_dir_path = sofia_dir_path,
                                         name_base = name_base,
@@ -1149,11 +1164,12 @@ def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, na
                                         flux_density = flux_density,
                                         beam_correction = beam_correction,
                                         b_maj_px =b_maj_px,
-                                        b_min_px = b_min_px)
+                                        b_min_px = b_min_px,
+                                        sensitivity = sensitivity)
 
     #Transform mom0 map to sensitivity if sensitivity set to True:
-    if sensitivity:
-        mom_map = np.divide(mom_map, map_sen_lim)
+    #if sensitivity:
+    #    mom_map = np.divide(mom_map, map_sen_lim)
 
     #Add the moment maps to the background image, however
     #NOTE that the moment maps can be different sizes and the projection to
