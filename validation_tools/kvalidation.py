@@ -503,7 +503,7 @@ if __name__ == "__main__":
             pv_fits_name_base_list = ['DINGO_J224218.10-300330.0', 'DINGO_J224218.09-300329.7', 'DINGO_J224218.04-300329.9'],
             color_list = [c0, c2, c1],
             label_list = ['co_added_visibilities', 'stacked_grids', 'stacked_images'],
-            ident_list = ['G', 'V', 'I'],
+            ident_list = ['V', 'G', 'I'],
             output_fname = working_dir + 'validation/pv_diagram_triangle_plot.pdf')
 
 
