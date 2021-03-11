@@ -17,6 +17,8 @@ import logging
 import warnings
 import random
 
+import copy
+
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
@@ -245,7 +247,7 @@ def plot_profile_curves(gipsy_dir_list, profile_file_name_list, output_fname, pr
     plt.close()
 
 
-def plot_pv_diagram_triangle_plot(gipsy_dir_list, pv_fits_name_base_list, profile_file_name_list, output_fname, color_list=[None], label_list=['?'] ):
+def plot_pv_diagram_triangle_plot(gipsy_dir_list, pv_fits_name_base_list, profile_file_name_list, output_fname, color_list=[None], label_list=['?'], ident_list=['?'] ):
     """
 
     """
@@ -253,6 +255,7 @@ def plot_pv_diagram_triangle_plot(gipsy_dir_list, pv_fits_name_base_list, profil
 
     profile_file_name_list = initialise_argument_list(N_sources, profile_file_name_list)
     label_list = initialise_argument_list(N_sources, label_list)
+    ident_list = initialise_argument_list(N_sources, ident_list)
 
     #Generate random colors if needed
     color_list = initialise_argument_list(N_sources, color_list)
@@ -260,78 +263,135 @@ def plot_pv_diagram_triangle_plot(gipsy_dir_list, pv_fits_name_base_list, profil
         if color_list[i] == None:
             color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
  
-    #NOTE only creating the plot along the major axis of the galaxy!i
+    #NOTE only creating the plot along the major axis of the galaxy!
 
-    #Get the data arrays and crop them to the same size 
-    xy_min = [np.inf, np.inf]
-    edge_size = 10
-
+    #=== Get the common smallest size for all p-v diagrams
+    max_size = np.inf
     for i in range(0,N_sources):
-        model_fits = gipsy_dir_list[i] + 'pvs/' + pv_fits_name_base_list[i] + 'mod_pv_a_local.fits'
+        pv_fits = gipsy_dir_list[i] + 'pvs/' + pv_fits_name_base_list[i] + '_pv_a.fits'
+        #pv_fits = gipsy_dir_list[i] + 'pvs/' + pv_fits_name_base_list[i] + 'mod_pv_a_local.fits'
+                    
+        pv_data_min_size = np.amin(np.shape(fits.open(pv_fits)[0].data))
 
-        image_maj = fits.open(model_fits)[0].data
-    
-        for j, length in zip(range(0,2), np.shape(image_maj)):
-            if length < xy_min[j]:
-                xy_min[j] = length
+        if pv_data_min_size < max_size:
+            max_size = pv_data_min_size
 
-    common_size = np.subtract(np.array(xy_min),edge_size)
+    #Define the width of the sub-square imaged
+    edge_crop = 11
 
-    #Get the PV diagram axis settings
-    vsys_list = []
+    #Make max_size to an even number so the sub-squares can be odd sized
+    if max_size & 1:
+        max_size -= 1 #Odd
+    else:
+        pass #even
 
+    width = int((max_size - (2 * edge_crop)) / 2)
+
+    #The expected size is
+    expected_size = 1 + 2 * width
+
+    #To get the reference pixel for the x axis
+    fref = 0
+    centre_index = 53 #The reference pixel for the systematic velocity
+
+    #Systematics velocity
+    vsys=1245
+    channelwidth = 4.
+
+
+    #=== Creates the model list
+    model_list = []
     for i in range(0,N_sources):
-        profilefit_file_path = gipsy_dir_list[i] + profile_file_name_list[i]
+        pv_model_fits = gipsy_dir_list[i] + 'pvs/' + pv_fits_name_base_list[i] \
+                + '_pv_a.fits'
+     
+        #Find CRPIX1 & CRPIX2 and crop the image around them into a square with
+        # odd number of pixels both side
+        pv_model_header = fits.open(pv_model_fits)[0].header
 
-        sys_vel = np.genfromtxt(profilefit_file_path,skip_header=1,usecols=(11),unpack=True)
+        crpix1 = np.int(pv_model_header['CRPIX1'])
+        crpix2 = np.int(pv_model_header['CRPIX2'])
 
-        for vs in sys_vel:
-            vsys_list.append(vs)
+        #Check the values
+        crval1 = pv_model_header['CRVAL1']
+        crval2 = pv_model_header['CRVAL2']
+
+        cdelt1 = pv_model_header['CDELT1']
+        cdelt2 = pv_model_header['CDELT2']
+
+        
+        #Get the reference pixel from a reference frequency 
+        # I think it is actually the x axis...
+        if crpix2 < 0:
+            if fref == 0:
+                data_shape2 = np.shape(fits.open(pv_model_fits)[0].data)[1]
+
+                if centre_index == None:
+                    if data_shape2 & 1:
+                        centre_index = int((data_shape2 - 1) / 2) - 3
+                        print(centre_index)
+                    
+                    else:
+                        centre_index = int(data_shape2 / 2)
+
+                fref = crval2 + ((centre_index + np.fabs(crpix2)) * cdelt2)
+
+            #Now get the reference pixels
+            while fref > crval2:
+                crpix2 += 1
+                crval2 += cdelt2
+
+        #python indexing to get the reference pixels to the centre
+        model_list.append(fits.open(pv_model_fits)[0].data[int(crpix2 - width): \
+                int(crpix2 + 1 + width), int(crpix1 - width):int(crpix1 + 1 + width)])
 
 
-    #Get the mean systemnatics velocity
-    # NOTE this is computed across rthe different input images, and so
-    # the systematics velocity of the different methods should not differ mutch!
-
-    vsys = np.nanmean(np.array(vsys_list))
-
-    print(vsys)
+        if np.shape(model_list[i])[0] != np.shape(model_list[i])[1] or np.shape(model_list[i])[0] != expected_size:
+            raise ValueError('Some p-v shapes are smaller than expected, pleas increase the edge_crop parameter!')
 
 
-    #Get the coordinates based on the GIPSY code, butask Tristan for why some
-    #parameters are hardcoded...
+        #=== Set the image frame using the first plot
+        #NOTE that the coordiantes used should be okay for all pot, but really only for
+        # the first plot...
+        if i == 0:
+            xmin_wcs = ((int(crpix1 - width) - crpix1) * cdelt1 + crval1) * 3600
+            xmax_wcs = ((int(crpix1 + 1 + width) - crpix1) * cdelt1 + crval1) * 3600
+
+            zmin_wcs = vsys - (channelwidth * width)
+            zmax_wcs = vsys + (channelwidth * (width + 1))
+
+            ext = [xmin_wcs, xmax_wcs, zmin_wcs, zmax_wcs]
+
+            #Need to be able to plot the p-v diagram data with imshow as
+            # square images (it is an NxN image anyway)
+            imshow_aspect = (xmax_wcs - xmin_wcs) / (zmax_wcs - zmin_wcs)
 
 
-    exit()
+    #=== get the common color map for the difference maps
+    c_max = -np.inf
+    c_min = np.inf
+    for i in range(0,N_sources):
+        for j in range(0,N_sources):
+            if i>j:
+                diffmap = np.subtract(model_list[j], model_list[i])
+                c_max_diff = np.amax(diffmap)
+                c_min_diff = np.amin(diffmap)
 
-
-
-
-
-    #head = [image_maj[0].header]
-
-    #Get pixel values
-    #crpixpv = head[0]['CRPIX1']
-    #cdeltpv = head[0]['CDELT1']
-    #crvalpv = head[0]['CRVAL1']
-    #xminpv, xmaxpv = np.floor(crpixpv - 1 - 50), np.ceil(crpixpv - 1 + 50)
+                if c_max_diff > c_max:
+                    c_max = c_max_diff
     
-    #if xminpv < 0: xminpv = 0
-    #if xmaxpv >= head[0]['NAXIS1']: xmaxpv = head[0]['NAXIS1']-1
+                if c_min_diff < c_min:
+                    c_min = c_min_diff
 
 
-    #Get the data array
-    #data_maj = image_maj[0].data[17:85,int(xminpv):int(xmaxpv)+1]
-    #data_maj = image_maj[0].data
-
+    #Set the contour levels
     cont = 0.00392164
     v = np.array([1,2,4,8,16,32,64])*cont
 
-    #=== Create the figure
+    #=== Create the plot
     fig, axes = plt.subplots(figsize=(2 + 4 * N_sources, 2 + 4 * N_sources),
-                sharex=True, sharey=True, ncols=N_sources, nrows=N_sources)
-
-
+          sharex=True, sharey=True, ncols=N_sources, nrows=N_sources)
+    
     for i in range(0,N_sources):
         for j in range(0,N_sources):
             if i<j:
@@ -339,37 +399,83 @@ def plot_pv_diagram_triangle_plot(gipsy_dir_list, pv_fits_name_base_list, profil
                
             else:
                 if i == j:
-                    data_fits = gipsy_dir_list[i] + 'pvs/' + pv_fits_name_base_list[i] + '_pv_a.fits'
-                    model_fits = gipsy_dir_list[i] + 'pvs/' + pv_fits_name_base_list[i] + 'mod_pv_a_local.fits'
-                    uncut_model_maj = fits.open(model_fits)[0].data
+                    #Background data in black and white
+                    axes[i,j].imshow(model_list[i], origin='lower',
+                            cmap='Greys', extent=ext, aspect=imshow_aspect)
 
-                    dsize = np.shape(uncut_model_maj)
-                    x_lim = (dsize[0] - common_size[0]) / 2
-                    y_lim = (dsize[1] - common_size[1]) / 2
+                    #The vsys and 0 dashed lines
+                    axes[i,j].axhline(vsys, ls='--', lw=2, color=outlier_color, alpha=1.)
+                    axes[i,j].axvline(0, ls='--', lw=2, color=outlier_color, alpha=1.)
 
-                    model_maj = uncut_model_maj[int(np.floor(x_lim)):int(-np.ceil(x_lim)),
-                                            int(np.floor(y_lim)):int(-np.ceil(y_lim))]
+                    axes[i,j].contour(model_list[i],v,origin='lower', alpha=1.,
+                                linewidths=1.5,colors=color_list[i], extent=ext)
+                   
+
+                    ax2 = axes[i,j].secondary_yaxis('right',
+                            functions=(lambda x: x - vsys, lambda x: x -vsys)) 
+
+                    ax2.set_ylabel(r'$\Delta$v$_{opt}}$ [km/s]', fontsize=18)
+
+                    #Plot the fitted model rotation curve values
+                    profilefit_file_path = gipsy_dir_list[i] + profile_file_name_list[i]
+
+                    rad, vrot, srot = np.genfromtxt(profilefit_file_path, skip_header=1,
+                                    usecols=(1,2,3), unpack=True)
+
+                   
+                    radius = np.concatenate((-rad,rad))
+                    vrot1 = vsys + vrot
+                    vrot2 = vsys - vrot
+                    vlos = np.concatenate((vrot1,vrot2))
+
+                    axes[i,j].plot(radius, vlos, 'o', color=c3,markersize=5)
 
 
-                    data_maj = fits.open(data_fits)[0].data[int(np.floor(x_lim)):int(-np.ceil(x_lim)),
-                                            int(np.floor(y_lim)):int(-np.ceil(y_lim))]
 
-                    axes[i,j].contour(data_maj,v,origin='lower',
-                                linewidths=1.5, colors=outlier_color)
-                    
-                    axes[i,j].contour(model_maj,v,origin='lower', alpha=0.75,
-                                linewidths=1.5,colors=color_list[i])
+                    #Add inner title
+                    t = ds.sdiagnostics.add_inner_title(axes[i,j], 
+                            str(label_list[i] + ' ({0:s})'.format(ident_list[i])),
+                            loc=2, prop=dict(size=16,color=color_list[i]))
+                    t.patch.set_ec("none")
+                    t.patch.set_alpha(1.)
 
                 if i != j:
                     #Difference maps
-                    pass
-            
+                    mom_ax = axes[i,j].imshow(np.subtract(model_list[j],model_list[i]),
+                            origin='lower', extent=ext, aspect=imshow_aspect,
+                            vmin=c_min, vmax=c_max, cmap='plasma')
+
+                    #The vsys and 0 dashed lines
+                    axes[i,j].axhline(vsys, ls='--', lw=2, color=outlier_color, alpha=1.)
+                    axes[i,j].axvline(0, ls='--', lw=2, color=outlier_color, alpha=1.)
+
+
+                    #Add colorbar
+                    cbaxes = inset_axes(axes[i,j], width="65%", height="6.%", 
+                            loc='upper right') 
+                    cb = plt.colorbar(mom_ax, cax=cbaxes, orientation='horizontal')
+
+                    #set ticks and label left side
+                    cbaxes.yaxis.set_ticks_position('left')
+                    
+                    cb.ax.tick_params(colors='white')
+                  
+                    cb.ax.set_ylabel(r'$\Delta$S', color='white',
+                            fontsize = 18, labelpad=10)
+
+                    #Add inner title
+                    t = ds.sdiagnostics.add_inner_title(axes[i,j], 
+                            str(r'({0:s} - {1:s})'.format(ident_list[j],ident_list[i])),
+                            loc=3, prop=dict(size=16,color='black'))
+                    t.patch.set_ec("none")
+                    t.patch.set_alpha(1.)
+
             if i == (N_sources - 1):
                 axes[i,j].set_xlabel('Offset [arcsec]', fontsize=18)
                 axes[i,j].tick_params(axis='x', length=matplotlib.rcParams['xtick.major.size'])
 
             if j == 0:
-                axes[i,j].set_ylabel(r'$\Delta v_{los}}$ [km/s]', fontsize=18)
+                axes[i,j].set_ylabel(r'v$_{opt}}$ [km/s]', fontsize=18)
                 axes[i,j].tick_params(axis='y', length=matplotlib.rcParams['xtick.major.size'])
 
     #Some style settings
@@ -377,8 +483,7 @@ def plot_pv_diagram_triangle_plot(gipsy_dir_list, pv_fits_name_base_list, profil
 
     plt.savefig(output_fname, bbox_inches='tight')
     plt.close()
-
-
+    
 
 
 #=== MAIN ===
@@ -397,6 +502,8 @@ if __name__ == "__main__":
             profile_file_name_list = ['ringlog2.txt'],
             pv_fits_name_base_list = ['DINGO_J224218.10-300330.0', 'DINGO_J224218.09-300329.7', 'DINGO_J224218.04-300329.9'],
             color_list = [c0, c2, c1],
+            label_list = ['co_added_visibilities', 'stacked_grids', 'stacked_images'],
+            ident_list = ['G', 'V', 'I'],
             output_fname = working_dir + 'validation/pv_diagram_triangle_plot.pdf')
 
 
