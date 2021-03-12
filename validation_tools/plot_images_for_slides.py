@@ -51,14 +51,14 @@ log = logging.getLogger(__name__)
 #=== MAIN ===
 
 #Decide what to plot
-nice_contour_plots = False
+nice_contour_plots = True
 singe_flux_plot = False
 spectra_triangle_plot = False
 moment_map_triangle_plots = False
 diff_scaling_plots = False
 high_res_moment_maps = False
 high_resolution_spectra = False
-moment_maps_for_daily_minor_vs_major_cycles = True
+moment_maps_for_daily_minor_vs_major_cycles = False
 
 #=== Contour plots
 if nice_contour_plots:
@@ -75,7 +75,7 @@ if nice_contour_plots:
     b_min = 30.
     b_pa = 0.
     
-    central_vel = 1245 #central velocity in mom1 map
+    central_vel = 1246 #central velocity in mom1 map
     delta_vel = 20.
     
     mom0_contour_levels = [0.5, 1.6, 2.7, 5.3, 13]
