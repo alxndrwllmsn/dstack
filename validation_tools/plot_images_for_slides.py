@@ -488,4 +488,3 @@ if moment_maps_for_daily_minor_vs_major_cycles:
         
         log.info('..done')
      
- 

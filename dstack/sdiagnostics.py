@@ -14,7 +14,8 @@ these scripts are designed to handle the SoFiA output of HI sources.
 """
 
 __all__ = ['add_inner_title', 'get_source_files', 'get_N_sources', 'get_z_from_freq',
-        'get_velocity_from_freq', 'get_velocity_dispersion_from_freq', 'get_column_density',
+        'get_velocity_from_freq',  'get_freq_from_velocity',
+        'get_velocity_dispersion_from_freq', 'get_column_density',
         'get_column_density_sensitivity', 'get_freq_and_redshift_from_catalog', 'get_RMS_from_catalog',
         'fget_wcs', 'fget_beam', 'fget_channel_width', 'get_optical_image', 'get_optical_image_ndarray',
         'get_momN_ndarray', 'get_spectra_array', 'get_common_frame_for_sofia_sources',
@@ -258,6 +259,31 @@ def get_velocity_from_freq(obs_freq, v_frame='optical'):
     
     return vel
 
+def get_freq_from_velocity(vel, v_frame='optical'):
+    """ Convert velocity value in a given frame to (observed) frequency
+
+    Parameters
+    ==========
+    vel: float
+        The velocity frame velocity value in [km/s]
+
+    v_frame: str, optional
+        Velocity frame to transform into. Can be `optical` or `radio`
+
+    Return
+    ======
+    freq: float
+        The equivalent frequency [Hz]
+    """
+    if v_frame == 'optical':
+        freq = (_HI_RESTFREQ / ((vel / _C) + 1.)  )
+    elif v_frame == 'radio':
+        freq = ((1. - (vel / _C)) * _HI_RESTFREQ)
+    else:
+        raise ValueError('Not supported velocity frame!')
+    
+    return freq
+
 def get_velocity_dispersion_from_freq(obs_freq_disp, obs_freq):
     """Convert the measured frequency dispersion values to velocity dispersion values
 
@@ -385,8 +411,20 @@ def get_freq_and_redshift_from_catalog(catalog_path, source_index, rest_frame='f
   
     catalog = parse_single_table(catalog_path).to_table(use_names_over_ids=True)
 
-    freq = catalog['freq'][source_index]
-    z = get_z_from_freq(catalog['freq'][source_index])
+    #TODO this is a quick hack but the rest frames should be hangeled properly
+
+    #SoFia just changed the output catalog to have the optical velocity instead
+    # of frequency. So I use a conversion to fix tis and return frequency anyway
+
+    try:
+        freq = catalog['freq'][source_index]
+    except:
+        v_opt = catalog['v_opt'][source_index]
+
+        freq = get_freq_from_velocity(v_opt)
+
+    #z = get_z_from_freq(catalog['freq'][source_index])
+    z = get_z_from_freq(freq)
 
     return freq, z
 
