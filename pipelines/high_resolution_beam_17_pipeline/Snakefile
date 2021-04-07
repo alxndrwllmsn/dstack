@@ -82,7 +82,11 @@ rule all:
         '{0:s}'.format(LOGDIR), #Make sure that the log dir exist before running => can not create this with a rule as snakemake wants to log the rule to the same folder through slurm!
         'test/stacked_grids/image.deep.restored', 
         'test/co_added_visibilities/image.deep.restored',
-        'test/stacked_images/image.restored.deep'
+        'test/stacked_images/image.restored.deep',
+        'test/stacked_images/psf.image.deep',
+        'test/stacked_images/psf.deep',
+        'test/stacked_images/residual.deep',
+        'test/stacked_images/model.deep'
 
 #=== Co-added visibilities
 #Old solution, that used a list of input grids, but the gridding functionality in imager is broken so I am not using this rule...
@@ -156,7 +160,7 @@ rule create_co_added_visibility_deep_parset:
         grid = 'test/co_added_visibilities/grid.dumpgrid',
         psfgrid = 'test/co_added_visibilities/psfgrid.wr.1.dumpgrid',
         pcf = 'test/co_added_visibilities/pcf.dumpgrid',
-        template_parset = 'second_pass_template_parset.in'
+        template_parset = 'deep_template_parset.in'
     output:
         'test/co_added_visibilities/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
     params:
@@ -263,7 +267,7 @@ rule create_deep_parset:
         grid = 'test/stacked_grids/grid.deep',
         psfgrid = 'test/stacked_grids/psfgrid.deep',
         pcf = 'test/stacked_grids/pcf.deep',
-        template_parset = 'second_pass_template_parset.in'
+        template_parset = 'deep_template_parset.in'
     output:
         'test/stacked_grids/cdeconvolver_{image_names}.in' #Need to have a wildcard in the output so I can pass it to a variable
     params:
@@ -344,6 +348,8 @@ rule cdeconvolver_daily_imaging:
         ENV_SETUP + \
         'cd test/night_{wildcards.night_index}/ ' + '&& mpirun -np {0:d}'.format(N_TASKS) + ' cdeconvolver-mpi -c {params.parset_name} > ./{params.yanda_logfile}'
 
+"""
+#NOTE: This rule is too resource-heavy and so I am breaking down to pieces
 rule image_stacking:
     #Stacking all the output images even the model and the weights file just for testing purposes
     input:
@@ -371,7 +377,7 @@ rule image_stacking:
         stack_indices_logfile_residual = '{0:s}/test/stacked_images/psf_weighting_residual.log'.format(WORKING_DIR),
         stack_indices_logfile_psf = '{0:s}/test/stacked_images/psf_weighting_psf.log'.format(WORKING_DIR)
     resources:
-        walltime=900,
+        walltime=1500,
         mem_mb=64000,
     shell:
         #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
@@ -384,3 +390,115 @@ rule image_stacking:
         'dstacking -cl {input.psf_for_weighting} -cp {params.cp} -cn {params.cn_psf_for_weighting} -o -c ; ' + \
         'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.weighting} -l {params.stack_indices_logfile_residual} -o -c ; ' + \
         'dstacking -cl {input.model} -cp {params.cp} -cn {params.cn_model} -o -n -c ; '
+"""
+
+#=== Stacking all the output images even the model and the weights file just for testing purposes
+rule image_restored_image_stacking:
+    input:
+        restored_image = ['test/night_{0:s}/image.daily.restored'.format(night_index) for night_index in MS_MAPPING.keys()],
+        weighting = ['test/night_{0:s}/weights.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()] #For weighting
+    output:
+        directory('test/stacked_images/image.restored.deep')
+    params:
+        #Need to use abspath here I think
+        cp = '{0:s}/test/stacked_images/'.format(WORKING_DIR),
+        cn_restored_image = 'image.restored.deep',
+        stack_indices_logfile_restored = '{0:s}/test/stacked_images/psf_weighting_restored.log'.format(WORKING_DIR)
+    resources:
+        walltime=1500,
+        mem_mb=64000,
+    shell:
+        #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
+        #The normalised psf needs to be averaged as well as the weights
+        #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
+        #NOW I use the weights file for normalisation!
+        ENV_SETUP + \
+        'dstacking -cl {input.restored_image} -cp {params.cp} -cn {params.cn_restored_image} -psf -pl {input.weighting} -l {params.stack_indices_logfile_restored} -o -c ;'
+
+rule image_psf_image_stacking:
+    #The normalised PSF
+    input:
+        weighting = ['test/night_{0:s}/weights.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()], #For weighting
+        psf = ['test/night_{0:s}/psf.daily'.format(night_index) for night_index in MS_MAPPING.keys()]
+    output:
+        directory('test/stacked_images/psf.image.deep')
+    params:
+        #Need to use abspath here I think
+        cp = '{0:s}/test/stacked_images/'.format(WORKING_DIR),
+        cn_psf = 'psf.image.deep',
+        stack_indices_logfile_psf = '{0:s}/test/stacked_images/psf_weighting_psf.log'.format(WORKING_DIR)
+    resources:
+        walltime=1500,
+        mem_mb=64000,
+    shell:
+        #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
+        #The normalised psf needs to be averaged as well as the weights
+        #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
+        #NOW I use the weights file for normalisation!
+        ENV_SETUP + \
+        'dstacking -cl {input.psf} -cp {params.cp} -cn {params.cn_psf} -psf -pl {input.weighting} -l {params.stack_indices_logfile_psf} -o -c ;'
+        
+rule image_psf_stacking:
+    #The non-normalised PSF
+    input:
+        psf_for_weighting = ['test/night_{0:s}/psf.image.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()] #For weighting
+    output:
+        directory('test/stacked_images/psf.deep')
+    params:
+        #Need to use abspath here I think
+        cp = '{0:s}/test/stacked_images/'.format(WORKING_DIR),
+        cn_psf_for_weighting = 'psf.deep'
+    resources:
+        walltime=1500,
+        mem_mb=64000,
+    shell:
+        #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
+        #The normalised psf needs to be averaged as well as the weights
+        #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
+        #NOW I use the weights file for normalisation!
+        ENV_SETUP + \
+        'dstacking -cl {input.psf_for_weighting} -cp {params.cp} -cn {params.cn_psf_for_weighting} -o -c ;'
+
+rule image_residual_stacking:
+    #Stacking all the output images even the model and the weights file just for testing purposes
+    input:
+        residual = ['test/night_{0:s}/residual.daily'.format(night_index) for night_index in MS_MAPPING.keys()],
+        weighting = ['test/night_{0:s}/weights.dumpgrid'.format(night_index) for night_index in MS_MAPPING.keys()] #For weighting
+    output:
+        directory('test/stacked_images/residual.deep')
+    params:
+        #Need to use abspath here I think
+        cp = '{0:s}/test/stacked_images/'.format(WORKING_DIR),
+        cn_residual = 'residual.deep',
+        stack_indices_logfile_residual = '{0:s}/test/stacked_images/psf_weighting_residual.log'.format(WORKING_DIR),
+    resources:
+        walltime=1500,
+        mem_mb=64000,
+    shell:
+        #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
+        #The normalised psf needs to be averaged as well as the weights
+        #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
+        #NOW I use the weights file for normalisation!
+        ENV_SETUP + \
+        'dstacking -cl {input.residual} -cp {params.cp} -cn {params.cn_residual} -psf -pl {input.weighting} -l {params.stack_indices_logfile_residual} -o -c ;'
+
+rule image_model_stacking:
+    #Stacking all the output images even the model and the weights file just for testing purposes
+    input:
+        model = ['test/night_{0:s}/model.daily'.format(night_index) for night_index in MS_MAPPING.keys()]
+    output:
+        directory('test/stacked_images/model.deep')
+    params:
+        #Need to use abspath here I think
+        cp = '{0:s}/test/stacked_images/'.format(WORKING_DIR),
+        cn_model = 'model.deep'
+    resources:
+        walltime=1500,
+        mem_mb=64000,
+    shell:
+        #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
+        #The normalised psf needs to be averaged as well as the weights
+        #The non-normalised ps needs to be summed onyl so proper normalisation can happen after stacking
+        #NOW I use the weights file for normalisation!
+        ENV_SETUP + \
+        'dstacking -cl {input.model} -cp {params.cp} -cn {params.cn_model} -o -n -c ;'
