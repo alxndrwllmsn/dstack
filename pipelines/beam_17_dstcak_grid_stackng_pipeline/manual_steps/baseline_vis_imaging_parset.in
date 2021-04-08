@@ -1,0 +1,63 @@
+Cimager.dataset                                 	= /scratch/rdodson/ForKristof/Pilot/Bary/scienceData_All_bary_exact.ms
+Cimager.Frequencies 					= [216,1412518316,18520.0]
+Cimager.freqframe 					= bary
+Cimager.imagetype                               	= casa
+# Apply a maximum UV cutoff
+Cimager.MaxUV                                   	= 2000
+# Apply a minimum UV cutoff
+Cimager.MinUV                                   	= 12
+#
+Cimager.Images.Names                           		= ['image.deep']
+Cimager.Images.shape                            	= [1024, 1024]
+Cimager.Images.cellsize                         	= [6arcsec, 6arcsec]
+Cimager.Images.direction                       		= [22h42m21.852, -30.24.58.46, J2000]
+Cimager.Images.writeAtMajorCycle 			= false
+Cimager.Images.image.deep.polarisation 			= ["I"]
+Cimager.Images.restFrequency                    	= HI
+
+# barycentre and multiple solver mode not supported in continuum imaging (yet)
+#Cimager.freqframe                              	= bary
+Cimager.solverpercore                           	= true
+Cimager.nwriters                            	   	= 1
+Cimager.nchanpercore                           		= 9
+Cimager.singleoutputfile                        	= true
+Cimager.memorybuffers 					= true
+Cimager.restore 					= true
+Cimager.nUVWMachines 					= 1
+Cimager.uvwMachineDirTolerance 				= -1.2arcsec
+Cimager.channeltolerance 				= 10.0
+#
+
+# This defines the parameters for the gridding.
+Cimager.gridder 					= WProject
+Cimager.gridder.WProject.wmax 				= 35000
+Cimager.gridder.WProject.nwplanes 			= 1
+Cimager.gridder.WProject.oversample 			= 4
+Cimager.gridder.WProject.maxsupport			= 1024
+Cimager.gridder.WProject.variablesupport 		= true
+Cimager.gridder.WProject.offsetsupport 			= true
+#
+# These parameters define the clean algorithm
+Cimager.solver 						= Clean
+Cimager.solver.Clean.algorithm 				= Basisfunction
+Cimager.solver.Clean.scales 				= [0,6,15]
+Cimager.solver.Clean.solutiontype 			= MAXBASE
+Cimager.solver.Clean.niter 				= 1000
+Cimager.solver.Clean.gain 				= 0.2
+Cimager.solver.Clean.beam 				= [5, 5, 0.]
+Cimager.threshold.minorcycle                    	= [5%,5.1mJy,0.8mJy]
+Cimager.threshold.majorcycle                    	= [0.8mJy]
+Cimager.ncycles                                 	= 8
+Cimager.Images.writeAtMajorCycle                	= false
+
+#
+Cimager.preconditioner.Names 				= [Wiener,GaussianTaper]
+Cimager.preconditioner.GaussianTaper 			= [30arcsec, 30arcsec, 0deg] 
+Cimager.preconditioner.GaussianTaper.isPsfSize  	= true
+Cimager.preconditioner.GaussianTaper.tolerance  	= 0.005
+Cimager.preconditioner.preservecf 			= true
+Cimager.preconditioner.Wiener.robustness 		= 0.5
+#
+# These parameter govern the restoring of the image and the recording of the beam
+Cimager.restore                                 	= true
+Cimager.restore.beam                            	= fit

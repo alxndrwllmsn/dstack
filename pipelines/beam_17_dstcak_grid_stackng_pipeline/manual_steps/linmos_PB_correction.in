@@ -1,0 +1,6 @@
+linmos.weighttype       = FromPrimaryBeamModel
+linmos.names            = [image.deep.restored]
+linmos.weightstate      = Inherent
+linmos.outname          = PB.deep.restored
+linmos.outweight        = PB.deep.weight
+
