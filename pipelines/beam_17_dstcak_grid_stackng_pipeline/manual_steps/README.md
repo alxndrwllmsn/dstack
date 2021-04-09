@@ -6,8 +6,8 @@ For my Thesis, I had no time to properly implement (and test) several steps whic
 These steps are the following:
 	
 1. Run an imaging of the co-added visibilities by using Cotton-Schwaab style deconvolution 
-2. Perform primary beam correction on all deep images
-3. Convert the output images to fits format
+2. Convert the output images to fits format 
+3. Perform primary beam correction on all deep images
 4. Run SoFiA on all deep images transformed
 
 This folder contains all the specific scripts needed and the commands for execution. The order should be as defined above. The steps are:
@@ -22,23 +22,29 @@ For this we gonna create a directory called `baseline_vis_imaging` in the direct
 	
 ... and it is done. The baseline images are there!
 
-__II. Primary vbeam correction:__
-
-For all deep images the PB correction needs to be done. I use `linmos` from YandaSoft to do this. Just put the `linmos_PB_correction.in` file to each respective direcory and run via:
-
-	linmos -c linmos_PB_correction.in >./logfile_linmos_PB.log
-	
-
-Both the PB corrected deep images and the corresponding PB models (weight files) should be there!
-
 __III. Convert to fits:__
 
 Simply use the command-line app `cim2fits()` that I made in dstack. It is a wrapper around the same `casacore` task. That is simply run something like:
 
-	cim2fits -i ./PB.deep.restored/ -o ./PB_deep_restored.fits
-	cim2fits -i ./PB.deep.weight/ -o ./PB_deep_weight.fits
+	cim2fits -i ./image.deep.restored/ -o ./deep_image.fits
 
-Boom. All input needed for source-finding is ready!
+Boom. All input needed for PB correction is there: a simple fits file. Interestingly, `linmos` works on a fits file, but fails on `casaimage` input of the same data. Therefore, the conversion to fits needs to be done first. Furthermore, SoFiA works only on fits images as well. This step should create the fits image of the same name for each deep imaging methods, so the next steps can be universal across the different methods.
+
+This step should be straightforward to implement to the pipeline!
+
+_NOTE_ for the baseline imaging, the header of the deconvolved image is different, and `cim2fits()` dies. That is, we need to use casa for converting to fits. However, we need to open cas fits, and inside casa the following command will create the right fits file:
+
+	exportfits('image.restored.deep/','deep_image.fits', stokeslast=False)
+	
+Done. Also, delete the casa logfile crreated...
+
+__II. Primary bbeam correction:__
+
+For all deep images the PB correction needs to be done. I use `linmos` from YandaSoft to do this. Just put the `linmos_PB_correction.in` file to each respective direcory and run via:
+
+	linmos -c linmos_PB_correction.in >./logfile_linmos_PB.log
+
+Both the PB corrected deep images and the corresponding PB models (weight files) should be there! The cript work universaly on the input file named `deep_image.fits` for all different deep imaging methods.
 
 __IV. Source finding use SoFiA:__
 

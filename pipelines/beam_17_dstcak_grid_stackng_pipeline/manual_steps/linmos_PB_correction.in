@@ -1,6 +1,6 @@
+linmos.imagetype        = fits
 linmos.weighttype       = FromPrimaryBeamModel
-linmos.names            = [image.deep.restored]
+linmos.names            = [deep_image] #The .fits extension does not needed
 linmos.weightstate      = Inherent
 linmos.outname          = PB.deep.restored
 linmos.outweight        = PB.deep.weight
-
