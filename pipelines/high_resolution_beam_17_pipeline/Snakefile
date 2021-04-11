@@ -254,7 +254,7 @@ rule grid_stacking:
         cn_psfgrid = 'psfgrid.deep',
         cn_pcf = 'pcf.deep'
     resources:
-        walltime=900,
+        walltime=1200,
         mem_mb=64000,
     shell:
         ENV_SETUP + \
@@ -293,7 +293,7 @@ rule deep_imaging:
         yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
         parset_name = 'cdeconvolver_{image_names}.in'
     resources:
-        walltime=900,
+        walltime=1600,
         mem_mb=120000,
         ntasks=N_TASKS
     shell:
@@ -341,7 +341,7 @@ rule cdeconvolver_daily_imaging:
         yanda_logfile = 'logfile_cdeconvolver_daily.log',
         parset_name = 'cdeconvolver_daily_parset.in'
     resources:
-        walltime=900,
+        walltime=1200,
         mem_mb=120000,
         ntasks=N_TASKS
     shell:
@@ -405,7 +405,7 @@ rule image_restored_image_stacking:
         cn_restored_image = 'image.restored.deep',
         stack_indices_logfile_restored = '{0:s}/test/stacked_images/psf_weighting_restored.log'.format(WORKING_DIR)
     resources:
-        walltime=1500,
+        walltime=3000,
         mem_mb=64000,
     shell:
         #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
@@ -428,7 +428,7 @@ rule image_psf_image_stacking:
         cn_psf = 'psf.image.deep',
         stack_indices_logfile_psf = '{0:s}/test/stacked_images/psf_weighting_psf.log'.format(WORKING_DIR)
     resources:
-        walltime=1500,
+        walltime=3000,
         mem_mb=64000,
     shell:
         #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
@@ -449,7 +449,7 @@ rule image_psf_stacking:
         cp = '{0:s}/test/stacked_images/'.format(WORKING_DIR),
         cn_psf_for_weighting = 'psf.deep'
     resources:
-        walltime=1500,
+        walltime=3000,
         mem_mb=64000,
     shell:
         #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
@@ -472,7 +472,7 @@ rule image_residual_stacking:
         cn_residual = 'residual.deep',
         stack_indices_logfile_residual = '{0:s}/test/stacked_images/psf_weighting_residual.log'.format(WORKING_DIR),
     resources:
-        walltime=1500,
+        walltime=3000,
         mem_mb=64000,
     shell:
         #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 
@@ -493,7 +493,7 @@ rule image_model_stacking:
         cp = '{0:s}/test/stacked_images/'.format(WORKING_DIR),
         cn_model = 'model.deep'
     resources:
-        walltime=1500,
+        walltime=3000,
         mem_mb=64000,
     shell:
         #The images need to weight with the (non-normalised) psf, aslo the residuals should be weighted 

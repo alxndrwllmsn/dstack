@@ -48,4 +48,9 @@ Both the PB corrected deep images and the corresponding PB models (weight files)
 
 __IV. Source finding use SoFiA:__
 
-For this, use the parameter file given in this folder for each deep imaging method respectively.
+The SoFiA parameter file is given here, however, __the output directory has to be given as a full path, and so for each run it needs to be changed!__ The output directory should be where the PB corrected fits file lives, in the folder `./sofia_output/`. Nothe that this folder needs to be created before running SoFiA! The source-finding can be done by using SoFiA from Tobiases home directory:
+
+	/home/twestmeier/SoFiA-2-master/sofia runsofia.par
+
+This should create all necessary output files. The last step is to either copy the results to work with them locally, or run some `svalidation` scripts on Pleiades.
+
