@@ -733,7 +733,20 @@ def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, survey='DSS2
 
     return optical_im, optical_im_wcs, survey_used
 
-def get_momN_ndarray(moment, source_ID, sofia_dir_path, name_base, masking=True, mask_sigma=3, b_maj=30, b_min=30, col_den_sensitivity=None, flux_density=False, beam_correction=False, b_maj_px=5, b_min_px=5, sensitivity=False):
+def get_momN_ndarray(moment,
+                    source_ID,
+                    sofia_dir_path,
+                    name_base,
+                    masking=True,
+                    mask_sigma=3,
+                    b_maj=30,
+                    b_min=30,
+                    col_den_sensitivity=None,
+                    flux_density=False,
+                    beam_correction=False,
+                    b_maj_px=5,
+                    b_min_px=5,
+                    sensitivity=False):
     """Return the mom map defined by the arguments as a numpy array. It is an useful modularisation for ploting
     Furthermore, this can be imported to external code for more complex analysis.
 
@@ -1117,7 +1130,22 @@ def get_common_frame_for_sofia_sources(moment, source_ID, sofia_dir_path, name_b
 
     return data_array, w
 
-def convert_source_mom_map_to_common_frame(moment, source_ID, sofia_dir_path, name_base, optical_wcs, optical_data_array, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, sensitivity=False, flux_density=False, beam_correction=False, b_maj_px=5, b_min_px=5):
+def convert_source_mom_map_to_common_frame(moment,
+                                        source_ID,
+                                        sofia_dir_path,
+                                        name_base,
+                                        optical_wcs,
+                                        optical_data_array,
+                                        masking=True,
+                                        mask_sigma=3.0,
+                                        b_maj=5,
+                                        b_min=5,
+                                        col_den_sensitivity_lim=None,
+                                        sensitivity=False,
+                                        flux_density=False,
+                                        beam_correction=False,
+                                        b_maj_px=5,
+                                        b_min_px=5):
     """This function converts a given SoFiA source moment map cubelet to a pre-
     defined reference background image. The background image and its wcs should
     vbe created via `get_common_frame_for_sofia_sources()`

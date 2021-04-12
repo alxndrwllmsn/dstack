@@ -76,14 +76,20 @@ _CMAP = matplotlib.cm.viridis
 _CMAP.set_bad(color=outlier_color)
 
 #Set the secondary colormap
-#_DIV_CMAP = cmocean.cm.oxy
-_CMAP2 = matplotlib.cm.plasma
+_CMAP2 = matplotlib.cm.magma
 _CMAP2.set_bad(color=outlier_color)
 
 #Set diverging colormap default
 #_DIV_CMAP = cmocean.cm.balance
-_DIV_CMAP = cmocean.cm.delta
+#_DIV_CMAP = cmocean.cm.delta
+#_DIV_CMAP = cmocean.cm.curl
+_DIV_CMAP = matplotlib.cm.cividis
 _DIV_CMAP.set_bad(color=outlier_color)
+
+#Set secondary divergent colormap
+_DIV_CMAP2 = cmocean.cm.curl
+#_DIV_CMAP2 = matplotlib.cm.magma
+_DIV_CMAP2.set_bad(color=outlier_color)
 
 #=== Disable fits warnings ===
 #In fact this ignores all Warnings, so comment this line for debugging!
@@ -119,7 +125,23 @@ def initialise_argument_list(required_list_length,argument_list):
 
     return argument_list
 
-def plot_momN_contour_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, contour_levels=[1.6,2.7,5.3,8,13,21], contour_step=None, N_steps=10, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], col_den_sensitivity_lim_list=[None]):
+def plot_momN_contour_triangle_matrix(moment,
+                                    source_ID_list,
+                                    sofia_dir_list,
+                                    name_base_list,
+                                    output_name,
+                                    N_optical_pixels=600,
+                                    contour_levels=[1.6,2.7,5.3,8,13,21],
+                                    contour_step=None,
+                                    N_steps=10,
+                                    masking_list=[True],
+                                    mask_sigma_list=[3.0],
+                                    b_maj_list=[30.],
+                                    b_min_list=[30.],
+                                    b_pa_list=[0.],
+                                    color_list=[None],
+                                    label_list=[''],
+                                    col_den_sensitivity_lim_list=[None]):
     """Create a triangle plot from the input SoFiA sources. In the plot diagonal
     the contour plot of each source is shown. The upper triangle is empty,
     while in the lower triangle panels both the i and j panel conbtour plots are
@@ -369,7 +391,26 @@ def plot_momN_contour_triangle_matrix(moment, source_ID_list, sofia_dir_list, na
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
 
-def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_list, output_name, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], color_list=[None], label_list=[''], temp_fits_path=str(os.getcwd() + '/temp.fits'), ident_list=['?'], col_den_sensitivity_lim_list=[None], sensitivity=False):
+def plot_momN_triangle_matrix(moment,
+                            source_ID_list,
+                            sofia_dir_list,
+                            name_base_list,
+                            output_name,
+                            N_optical_pixels=600,
+                            masking_list=[True],
+                            mask_sigma_list=[3.0],
+                            b_maj_list=[30.],
+                            b_min_list=[30.],
+                            b_pa_list=[0.],
+                            color_list=[None],
+                            label_list=[''],
+                            temp_fits_path=str(os.getcwd() + '/temp.fits'),
+                            ident_list=['?'],
+                            col_den_sensitivity_lim_list=[None],
+                            sensitivity=False,
+                            contours=False,
+                            contour_levels=[5.],
+                            diff_saturation=None):
     """This is a big and complex (poorly written) function to generate a triangle
     matrix showing the SoFiA stamps in the diagonal elements and the pixel-by-pixel
     difference in the lower triangle.
@@ -399,7 +440,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
         Number of pixels for the optical background image.
 
     masking_list: list of bool, optional
-        If True, the respective mom0 maps will be msked
+        If True, the respective mom0 maps will be masked
 
     mask_sigma_list: list of float, optional
         If the mom0 map is masked, pixels below this threshold will be masked.
@@ -439,6 +480,19 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
         If true, a triangle plot for the sensitivity is generated. Automatically
         change moment to 0 and normalises the moment0 map with the column density
         sensitivity value for each source (either given, or computed form SoFiA RMs)
+    
+    contours: bool, optional
+        If True, the given countour lines will be drawn to the main diaginal plots.
+        This works for all moment maps, but uses the mom0 contours! Ergo, the moment1
+        maps are plotted with moment0 contours.
+
+    contour_levels: list of floats, optional
+        The contour levels to be drawn in terms of sigma.
+
+    diff_saturation: float, optional
+        If not None, the difference maps are saturated at the given +/- values.
+        This is particularly useful for moment 1 & 2 maps, for which the
+        difference map colorbars are centered to zero as well.
 
     Return
     ======
@@ -493,6 +547,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
     
     #Get the moment maps and sensitivities
     transformed_map_list = []
+    tmap_sen_lim_list = []
 
     #Get max min values for setting up the colorbars
     c_min = np.inf
@@ -520,6 +575,29 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
             c_min = np.amin(transformed_map)
         
         transformed_map_list.append(transformed_map)
+        tmap_sen_lim_list.append(tmap_sen_lim)
+
+
+    #To be able to plot the mom1 contours on top of mom1 and mom2 maps
+    if moment != 0 and contours == True:
+        transformed_map_list_for_contours = []
+
+        for i in range(0,N_sources):
+            transformed_map, tmap_sen_lim = ds.sdiagnostics.convert_source_mom_map_to_common_frame(moment = 0,
+                                            source_ID = source_ID_list[i],
+                                            sofia_dir_path = sofia_dir_list[i],
+                                            name_base = name_base_list[i],
+                                            optical_wcs = w,
+                                            optical_data_array = data_array,
+                                            masking = masking_list[i],
+                                            mask_sigma = mask_sigma_list[i],
+                                            b_maj = b_maj_list[i],
+                                            b_min = b_min_list[i],
+                                            col_den_sensitivity_lim = col_den_sensitivity_lim_list[i],
+                                            sensitivity = sensitivity)
+
+
+            transformed_map_list_for_contours.append(transformed_map)
 
     #=== Get the min max values for the difference maps
     c_diff_min = np.inf
@@ -595,6 +673,21 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                         #mom_ax = axes[i,j].imshow(transformed_map_list[i], alpha=1.,
                         #    origin='lower', vmin=c_min, vmax=saturation_level, cmap=_CMAP)
 
+
+                    if contours:
+                        #Plot the sensitivity contours in terms of sigmas
+                        if moment == 0:
+                            axes[i,j].contour(transformed_map_list[i],
+                                levels=np.multiply(np.array(contour_levels), tmap_sen_lim_list[i]),
+                                transform=axes[i,j].get_transform(w),
+                                colors='white', linewidths=1.5, alpha=1.)
+
+                        else:
+                            axes[i,j].contour(transformed_map_list_for_contours[i],
+                                levels=np.multiply(np.array(contour_levels), tmap_sen_lim_list[i]),
+                                transform=axes[i,j].get_transform(w),
+                                colors='white', linewidths=1.5, alpha=1.)
+
                     axes[i,j].coords.grid(color='white', linewidth=0.5, 
                             alpha=0.15, linestyle='dashed')
                     #axes[i,j].set_axisbelow(True)
@@ -625,7 +718,7 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                         else:
                             cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', color='black',
                                 fontsize = 18, labelpad=10)
- 
+
                     #Add inner title
                     t = ds.sdiagnostics.add_inner_title(axes[i,j], 
                             str(label_list[i] + ' ({0:s})'.format(ident_list[i])),
@@ -634,8 +727,8 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                     t.patch.set_alpha(1.)
 
                     #Add beam ellipse centre is defined as a fraction of the background image size
-                    beam_loc_ra = w.array_index_to_world(int(0.05 * N_optical_pixels), int(0.05 * N_optical_pixels)).ra.value
-                    beam_loc_dec = w.array_index_to_world(int(0.05 * N_optical_pixels), int(0.05 * N_optical_pixels)).dec.value
+                    beam_loc_ra = w.array_index_to_world(int(0.075 * N_optical_pixels), int(0.075 * N_optical_pixels)).ra.value
+                    beam_loc_dec = w.array_index_to_world(int(0.075 * N_optical_pixels), int(0.075 * N_optical_pixels)).dec.value
 
                     beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj_list[i]/3600, b_min_list[i]/3600,
                             b_pa_list[i], fc='white', ec='white', alpha=1., transform=axes[i,j].get_transform('fk5'))
@@ -651,11 +744,22 @@ def plot_momN_triangle_matrix(moment, source_ID_list, sofia_dir_list, name_base_
                     #    np.ma.array(transformed_map_list[j], mask=np.array([transformed_map_list[j] > saturation_level])))  
                     #diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))
         
-   
-                    mom_ax = axes[i,j].imshow(diff_map,
+                    if moment == 0:
+                        mom_ax = axes[i,j].imshow(diff_map,
                             vmin=c_diff_min, vmax=c_diff_max, alpha = 1., origin='lower',
                             cmap=_CMAP2)
-                    
+                    else:
+                        if diff_saturation == None:
+                            mom_ax = axes[i,j].imshow(diff_map,
+                                vmin=-np.amax(np.array([np.fabs(c_diff_min),np.fabs(c_diff_max)])),
+                                vmax=np.amax(np.array([np.fabs(c_diff_min),np.fabs(c_diff_max)])),
+                                alpha = 1., origin='lower',cmap=_DIV_CMAP2)
+                        else:
+                            mom_ax = axes[i,j].imshow(diff_map,
+                                vmin=-diff_saturation,
+                                vmax=diff_saturation,
+                                alpha = 1., origin='lower',cmap=_DIV_CMAP2)
+
                     axes[i,j].coords.grid(color='white', alpha=0.25,
                             linewidth=0.5, linestyle='dashed')
                 
@@ -1087,7 +1191,17 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_d
     plt.close()
 
 
-def plot_spectra_triangle_matrix(source_ID_list, sofia_dir_list, name_base_list, output_name, beam_correction_list=[True], b_maj_px_list=[5.], b_min_px_list=[5.0], v_frame_list=['optical'], color_list=[None], label_list=[''], ident_list=['?']):
+def plot_spectra_triangle_matrix(source_ID_list,
+                                sofia_dir_list,
+                                name_base_list,
+                                output_name,
+                                beam_correction_list=[True],
+                                b_maj_px_list=[5.],
+                                b_min_px_list=[5.0],
+                                v_frame_list=['optical'],
+                                color_list=[None],
+                                label_list=[''],
+                                ident_list=['?']):
     """Plot a triangle matrix of the spectra from different SoFiA runs. The diagonal
     panels shows the spectra of each source. The upper triangle shows the relative
     difference of the respectibe spectras (i,j). While the lower panel simply
