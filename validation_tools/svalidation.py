@@ -379,11 +379,11 @@ def plot_momN_contour_triangle_matrix(moment,
 
             if i == (N_sources - 1):
                 ra.set_ticklabel_visible(True)
-                ra.set_axislabel('RA -- sin', fontsize=18)
+                ra.set_axislabel('RA', fontsize=18)
             
             if j == 0:
                 dec.set_ticklabel_visible(True)
-                dec.set_axislabel('Dec --sin', fontsize=18)
+                dec.set_axislabel('Dec', fontsize=18)
 
     #Some style settings
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.0, hspace=0.0)
@@ -791,11 +791,11 @@ def plot_momN_triangle_matrix(moment,
 
             if i == (N_sources - 1):
                 ra.set_ticklabel_visible(True)
-                ra.set_axislabel('RA -- sin', fontsize=18)
+                ra.set_axislabel('RA', fontsize=18)
             
             if j == 0:
                 dec.set_ticklabel_visible(True)
-                dec.set_axislabel('Dec --sin', fontsize=18)
+                dec.set_axislabel('Dec', fontsize=18)
 
     #Some style settings
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.0, hspace=0.0)
@@ -804,7 +804,26 @@ def plot_momN_triangle_matrix(moment,
     plt.close()
 
 
-def plot_flux_density_diff_dependience_on_column_density(source_ID_list, sofia_dir_list, name_base_list, output_fname, N_optical_pixels=600, masking_list=[True], mask_sigma_list=[3.0], b_maj_list=[30.], b_min_list=[30.], b_pa_list=[0.], col_den_sensitivity_lim_list=[None], sensitivity=False, ident_string='?', beam_correction=False, b_maj_px_list=[5], b_min_px_list=[5], col_den_binwidth=0.1, diff_binwidth=0.001, col_den_lim=None, logbins=False):
+def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
+                                                        sofia_dir_list,
+                                                        name_base_list,
+                                                        output_fname,
+                                                        N_optical_pixels=600,
+                                                        masking_list=[True],
+                                                        mask_sigma_list=[3.0],
+                                                        b_maj_list=[30.],
+                                                        b_min_list=[30.],
+                                                        b_pa_list=[0.],
+                                                        col_den_sensitivity_lim_list=[None],
+                                                        sensitivity=False,
+                                                        ident_string='?',
+                                                        beam_correction=False,
+                                                        b_maj_px_list=[5],
+                                                        b_min_px_list=[5],
+                                                        col_den_binwidth=0.1,
+                                                        diff_binwidth=0.001,
+                                                        col_den_lim=None,
+                                                        logbins=False):
     """This is a quite complicated function, despite I tried to modularise it.
     So after providing all the many arguments a nice plot is created from two
     input SoFiA sources of the same object but different imaging runs.

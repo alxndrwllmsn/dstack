@@ -91,11 +91,12 @@ if __name__ == "__main__":
     #=== Define what to plot ===
 
     #Decide the resolution
-    full_res = False #If True the 6km baseline results are plotted
+    full_res = True #If True the 6km baseline results are plotted
 
-    spectra_triangle_plot = False
+    #Decide on individual figures to make
+    spectra_triangle_plot = True
     mom0_triangle_plot = True
-    mom1_triangle_plot = False
+    mom1_triangle_plot = True
 
     #=== Setup variables ===
 
@@ -109,7 +110,7 @@ if __name__ == "__main__":
 
         sofia_dir_path_list = list(map(working_dir.__add__,['baseline_vis_imaging/',
             'co_added_visibilities/', 'stacked_grids/', 'stacked_images/',
-            'old_conventional_imaging/']))    
+            'old_conventional_imaging/']))
 
         #Define source and imaging parameters
 
@@ -133,10 +134,41 @@ if __name__ == "__main__":
         contour_levels = [5., 20.]
 
         #Single valued parameters
-        N_opt_px = 130 #Number of optical background pixels in 1"
+        N_opt_px = 130 #Number of optical background pixels in pixels ???
         mom_triangle_contours = True
         diff_saturation = 24.
 
+    else:
+        baseline_length = int(6)
+        
+        #Define environment variables
+        working_dir = '/home/krozgonyi/Desktop/NGC7361_SoFiA_output/6km_baseline_results/'
+
+        output_dir = working_dir + 'validation/'
+
+        sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
+            'stacked_grids/', 'stacked_images/']))
+
+        #Define source and imaging parameters
+        source_ID_list = [5, 2, 10]
+        name_base_list = ['beam17_all_']
+        beam_correction_list = [True, True, True]
+        b_maj_px_list = [6.]
+        b_min_px_list = [6.]
+        b_maj_list = [12.]
+        b_min_list = [12.]
+        b_pa_list = [0.]
+        masking_list = [True]
+        mask_sigma_list = [1.]
+        color_list = [c0, c2, c1]
+        label_list = ['visibilities', 'stacked grids', 'stacked images']
+        ident_list = ['V', 'G', 'I']
+        contour_levels = [5., 20.]
+
+        #Single valued parameters
+        N_opt_px = 360 #Number of optical background pixels in pixels ???
+        mom_triangle_contours = True
+        diff_saturation = 24.
 
     #=== Imaging ===
     if spectra_triangle_plot:

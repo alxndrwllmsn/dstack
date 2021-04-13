@@ -645,7 +645,12 @@ def create_CIM_diff_array(cimpath_a, cimpath_b, rel_diff=False, all_dim=False, c
 
     return diff_array
 
-def process_CIM_chunk_RMS(image_slice, pol, robust, percentile_cut):
+def process_CIM_chunk_RMS(image_slice,
+                        pol,
+                        robust,
+                        percentile_cut,
+                        window_halfsize=None,
+                        window_centre=None):
     """Compute the RMS on a numpy ndarray with shape [N_chan,N_pol,N_x,N_y]
     It could be used to measure the RMS across all channels, but the input is 
     a numpy ndarray, and so it is used to compute the RMS on the subset of a
@@ -674,6 +679,15 @@ def process_CIM_chunk_RMS(image_slice, pol, robust, percentile_cut):
         If the RMS is computed via a robust method, this value gives the (upper) percentile value which below/above the data is being ignored.
         A small number <10% is recommended, as the code does not take scaling due to the cut into account
 
+    window_halfsize: int, optional
+        If not None, the RMS is only computed in a window defined in pixels, for all channels.
+        This parameter is the halfsize of the window, that is the winow is
+        2*window_halfsize + 1 in both x and y direction 
+
+    window_centre: list, optional
+        The [x,y] coordinates of the window centre.
+        If None, the centre coordinates of the image are used.
+
     Return
     ======
     slice_RMS: numpy.array
@@ -683,7 +697,17 @@ def process_CIM_chunk_RMS(image_slice, pol, robust, percentile_cut):
     slice_RMS = np.zeros((np.shape(image_slice)[0]))
 
     for i in range(0,len(slice_RMS)):
-        image_data = image_slice[i,pol,...].flatten()
+        if window_halfsize == None:
+            image_data = image_slice[i,pol,...].flatten()
+        else:
+            window_halfsize = int(window_halfsize)
+            if window_centre == None:
+                window_centre = [np.floor(np.shape(image_slice)[2]/2),
+                                np.floor(np.shape(image_slice)[3]/2)]
+
+            image_data = image_slice[i,pol,
+                int(window_centre[0]) - window_halfsize : int(window_centre[0]) + window_halfsize,
+                int(window_centre[1]) - window_halfsize : int(window_centre[1]) + window_halfsize].flatten()
 
         if robust == True:
             lower_cut = np.percentile(image_data,percentile_cut)
@@ -695,7 +719,17 @@ def process_CIM_chunk_RMS(image_slice, pol, robust, percentile_cut):
 
     return slice_RMS
 
-def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, robust=False, percentile_cut=1, return_dim=False, close=False):
+def measure_CIM_RMS(cimpath,
+                    all_dim=False,
+                    chan=0,
+                    chan_max=None,
+                    pol=0,
+                    robust=False,
+                    percentile_cut=1,
+                    window_halfsize=None,
+                    window_centre=None,
+                    return_dim=False,
+                    close=False):
     """Measure the RMS on a CASAImage either for a given channel and polarization,
     or for ALL channels and polarizations. This could be very slow though. Also, currently
     works only for a single polarisation, however that can be selected. Menaing that the
@@ -733,6 +767,15 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, robust
         If the RMS is computed via a robust method, this value gives the (upper) percentile value which below/above the data is being ignored.
         A small number <10% is recommended, as the code does not take scaling due to the cut into account
 
+    window_halfsize: int, optional
+        If not None, the RMS is only computed in a window defined in pixels, for all channels.
+        This parameter is the halfsize of the window, that is the winow is
+        2*window_halfsize + 1 in both x and y direction 
+
+    window_centre: list, optional
+        The [x,y] coordinates of the window centre.
+        If None, the centre coordinates of the image are used.
+
     return_dim: bool, optional
         If true, a second variable: a string defining the image pixel units, i.e. the RMS units is returned
 
@@ -756,7 +799,12 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, robust
 
     if chan_max == None and all_dim == False:
         #Single channel mode but using the same syntax (does not work for last channel I think)
-        rms = np.array([process_CIM_chunk_RMS(cim.getdata()[chan:chan+1,...],pol=pol,robust=robust,percentile_cut=percentile_cut)])
+        rms = np.array([process_CIM_chunk_RMS(cim.getdata()[chan:chan+1,...],
+                                            pol=pol,
+                                            robust=robust,
+                                            percentile_cut=percentile_cut,
+                                            window_halfsize = window_halfsize,
+                                            window_centre = window_centre)])
         if close:
             log.debug('Closing image: {0:s}'.format(cim.name()))
             del cim
@@ -829,7 +877,12 @@ def measure_CIM_RMS(cimpath, all_dim=False, chan=0, chan_max=None, pol=0, robust
 
         else:
             #Process channels serially
-            rms_array = process_CIM_chunk_RMS(cim_data[chan:chan_max,...],pol=pol,robust=robust,percentile_cut=percentile_cut)
+            rms_array = process_CIM_chunk_RMS(cim_data[chan:chan_max,...],
+                                            pol=pol,
+                                            robust=robust,
+                                            percentile_cut=percentile_cut,
+                                            window_halfsize = window_halfsize,
+                                            window_centre = window_centre)
 
     if close:
         log.debug('Closing image: {0:s}'.format(cim.name()))

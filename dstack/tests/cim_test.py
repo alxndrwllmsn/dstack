@@ -66,6 +66,10 @@ def setup_CIM_unittest(parset_path):
         N is up to the user bust should be enough to test parallel RMS computation.
         Format has to be: 'RMS_1,RMS_2,...,RMS_N' as a single string
 
+    RMS_CENTRE: float
+        The RMS measured on the central 101x101 pixels of the first spectral channel.
+        This is to test the capability of measure RMS on the given windows of the image.
+
     SPECTRAL_CHAN: float
         The frequency value of the first channel of Alice.
     """
@@ -83,12 +87,13 @@ def setup_CIM_unittest(parset_path):
     NChan = int(config.get('CImage','NChannels'))
     NPol = int(config.get('CImage','NPolarisations'))
     RMS = [float(i) for i in config.get('CImage','RMS').split(',')] #convert string to list of floats
+    RMS_CENTRE = float(config.get('CImage','RMS_centre'))
     SPCHAN = float(config.get('CImage','SPECTRAL_CHAN'))
 
-    return CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS, SPCHAN
+    return CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS, RMS_CENTRE, SPCHAN
 
 class TestCIM(unittest.TestCase):
-    CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS, SPCHAN = setup_CIM_unittest(_PARSET)
+    CIMPathA, CIMPathB, PSFPathA, PSFpeak, NumPrec, NChan, NPol, RMS, RMS_CENTRE, SPCHAN = setup_CIM_unittest(_PARSET)
 
     def test_check_CIM_axes(self):
         ds.cim.check_CIM_axes(self.CIMPathA)
@@ -128,6 +133,17 @@ class TestCIM(unittest.TestCase):
         #Parallel processing of the given first N channel RMS
         assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA,chan_max=len(self.RMS)).all(), np.array(self.RMS).all(), rtol=1e-7), \
         'The given RMS and the RMS measured on the first N channel of the image are not matching!'
+
+        #Measuring RMS using the window option but over the whole image
+        imagesize = np.floor((np.shape(ds.cim.create_CIM_object(self.CIMPathA).getdata())[-1]) / 2) #using the y dimension
+        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA,chan_max=len(self.RMS),window_halfsize=imagesize).all(),
+                np.array(self.RMS).all(), rtol=1e-7, equal_nan=False), \
+        'The given RMS and the RMS measured on the first N channel of the image \
+using a window sof the same size as the imageare not matching!'
+
+        #Measure the central RMS on the first channel (with index 0)
+        assert np.isclose(ds.cim.measure_CIM_RMS(self.CIMPathA, window_halfsize=50)[0], self.RMS_CENTRE, rtol=1e-7), \
+        'The given RMS and the RMS measured on the first channel of the central 101x101 pixel of the image are not matching!'
 
     def test_CIM_stacking_base(self):
         ds.cim.CIM_stacking_base([self.CIMPathA,self.CIMPathA],_TEST_DIR,'test_CIM_stacking_base', overwrite=True)

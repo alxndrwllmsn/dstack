@@ -525,7 +525,11 @@ def fget_channel_width(fitsfile_path):
     return dnu
 
 #= Get optical image
-def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_pixels=600, temp_fits_path=str(os.getcwd() + '/temp.fits')):
+def get_optical_image(catalog_path,
+                    source_index,
+                    survey='DSS2 Red',
+                    N_optical_pixels=600,
+                    temp_fits_path=str(os.getcwd() + '/temp.fits')):
     """ Download optical image cutsouts of sources from SkyVeiw via astroquery
     The optical image is by default from the 2nd Digitised sky survey (DSS2)
     red band: https://skyview.gsfc.nasa.gov/current/cgi/moreinfo.pl?survey=DSS2%20Red
@@ -692,7 +696,11 @@ def get_optical_image(catalog_path, source_index, survey='DSS2 Red', N_optical_p
     return optical_fits_first_element, survey
 
 #= Create data cube functions for plotting
-def get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, survey='DSS2 Red', N_optical_pixels=600):
+def get_optical_image_ndarray(source_ID,
+                        sofia_dir_path,
+                        name_base,
+                        survey='DSS2 Red',
+                        N_optical_pixels=600):
     """Return the background optical image as a numpy array. It is an useful modularisation for ploting
     Furthermore, this can be imported to external code for more complex analysis.
 
@@ -941,7 +949,13 @@ def get_momN_ndarray(moment,
     else:
         raise ValueError('Invalid moment value was given. Only moment 0,1 and 2 maps are supported!')
 
-def get_spectra_array(source_ID, sofia_dir_path, name_base, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+def get_spectra_array(source_ID,
+                sofia_dir_path,
+                name_base,
+                v_frame='optical',
+                beam_correction=True,
+                b_maj_px=5,
+                b_min_px=5):
     """Returns two arrays: Integrated Flux [Jy] and velocity [km/s] (optical by default) for spectral plots.
     Again, modularisation is the idea behind this function. However, there are some caveats with the SoFiA output and
     the ways the spectra is created.
@@ -1013,7 +1027,17 @@ def get_spectra_array(source_ID, sofia_dir_path, name_base, v_frame='optical', b
         velocity_array = get_velocity_from_freq(freq_array, v_frame=v_frame)
         return flux_array, velocity_array
 
-def get_common_frame_for_sofia_sources(moment, source_ID, sofia_dir_path, name_base, N_optical_pixels=600, masking=True, mask_sigma=3.0, b_maj=5, b_min=5, col_den_sensitivity_lim=None, temp_fits_path=str(os.getcwd() + '/temp.fits')):
+def get_common_frame_for_sofia_sources(moment,
+                                    source_ID,
+                                    sofia_dir_path,
+                                    name_base,
+                                    N_optical_pixels=600,
+                                    masking=True,
+                                    mask_sigma=3.0,
+                                    b_maj=5,
+                                    b_min=5,
+                                    col_den_sensitivity_lim=None,
+                                    temp_fits_path=str(os.getcwd() + '/temp.fits')):
     """This function creates an empty sky image based on a SoFiA source.
     The image centre is defined by the SoFiA cataloge RA and Dec of the source,
     while the image size is given by the user. This function is really similar to
@@ -1289,7 +1313,16 @@ def convert_source_mom_map_to_common_frame(moment,
     return transformed_map, map_sen_lim
 
 #= Plot functions
-def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_base, output_fname, contour_levels=[1.6,2.7,5.3,8,13,21], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, **kwargs):
+def plot_optical_background_with_mom0_conturs(source_ID,
+                                        sofia_dir_path,
+                                        name_base,
+                                        output_fname,
+                                        contour_levels=[1.6,2.7,5.3,8,13,21],
+                                        N_optical_pixels=600,
+                                        b_maj=30,
+                                        b_min=30,
+                                        b_pa=0,
+                                        **kwargs):
     """Create a map with the `DSS2 Red` image in the background and the mom0 map fitted contours in the foreground.
 
     Simple function for quick analysis of a single source.
@@ -1369,7 +1402,19 @@ def plot_optical_background_with_mom0_conturs(source_ID, sofia_dir_path, name_ba
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
 
-def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, masking=True, mask_sigma=3, contours=False, contour_levels=[1.6,2.7,5.3,8,13,21], b_maj=30, b_min=30, b_pa=0, **kwargs):
+def plot_momN_map(moment,
+                source_ID,
+                sofia_dir_path,
+                name_base,
+                output_fname,
+                masking=True,
+                mask_sigma=3,
+                contours=False,
+                contour_levels=[1.6,2.7,5.3,8,13,21],
+                b_maj=30,
+                b_min=30,
+                b_pa=0,
+                **kwargs):
     """Create the mom map with optionally the fitted contours in the foreground and masking of low
     column density sensitivity pixels (mom1 and mom2 only).
 
@@ -1482,7 +1527,14 @@ def plot_momN_map(moment, source_ID, sofia_dir_path, name_base, output_fname, ma
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
 
-def plot_spectra(source_ID, sofia_dir_path, name_base, output_fname, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+def plot_spectra(source_ID,
+            sofia_dir_path,
+            name_base,
+            output_fname,
+            v_frame='optical',
+            beam_correction=True,
+            b_maj_px=5,
+            b_min_px=5):
     """Plot the integrated spectra of the source.
 
     Parameters
@@ -1538,7 +1590,21 @@ def plot_spectra(source_ID, sofia_dir_path, name_base, output_fname, v_frame='op
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
 
-def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, masking=True, mask_sigma=3, contour_levels=[1.6,2.7,5.3,8,13,21], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+def source_analytics_plot(source_ID,
+                    sofia_dir_path,
+                    name_base,
+                    output_fname,
+                    masking=True,
+                    mask_sigma=3,
+                    contour_levels=[1.6,2.7,5.3,8,13,21],
+                    N_optical_pixels=600,
+                    b_maj=30,
+                    b_min=30,
+                    b_pa=0,
+                    v_frame='optical',
+                    beam_correction=True,
+                    b_maj_px=5,
+                    b_min_px=5):
     """Create all analytics plots on a fingle figure gor a given source. The plots created are:
 
         - mom0 contours on the optical background
@@ -1785,7 +1851,19 @@ def source_analytics_plot(source_ID, sofia_dir_path, name_base, output_fname, ma
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close('all')
 
-def create_complementary_figures_to_sofia_output(sofia_dir_path, name_base, masking=True, mask_sigma=3, contour_levels=[1.6,2.7,5.3,8,13,21], N_optical_pixels=600, b_maj=30, b_min=30, b_pa=0, v_frame='optical', beam_correction=True, b_maj_px=5, b_min_px=5):
+def create_complementary_figures_to_sofia_output(sofia_dir_path,
+                                                    name_base,
+                                                    masking=True,
+                                                    mask_sigma=3,
+                                                    contour_levels=[1.6,2.7,5.3,8,13,21],
+                                                    N_optical_pixels=600,
+                                                    b_maj=30,
+                                                    b_min=30,
+                                                    b_pa=0,
+                                                    v_frame='optical',
+                                                    beam_correction=True,
+                                                    b_maj_px=5,
+                                                    b_min_px=5):
     """The top-level function of this module. It creates a directory within the SoFiA output directory and
     generate the following plots for each source in that directory:
         

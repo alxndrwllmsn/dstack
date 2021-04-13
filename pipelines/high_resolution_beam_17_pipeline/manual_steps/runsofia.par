@@ -1,0 +1,105 @@
+#Parameterset file for SoFiA source finding, based on
+#the default DINGO source-finding parameters
+
+# Global settings
+
+pipeline.verbose           =  false
+pipeline.pedantic          =  true
+#pipeline.threads           =  99
+
+# Input
+
+input.data                 =  PB.deep.restored.fits
+input.weights              =  PB.deep.weight.fits
+input.invert               =  false
+
+# Flagging
+
+flag.auto                  =  true
+flag.threshold             =  7.0
+flag.log                   =  true
+
+# Continuum subtraction
+
+contsub.enable             =  false
+
+# Noise scaling
+
+scaleNoise.enable          =  true
+scaleNoise.mode            =  local
+scaleNoise.statistic       =  mad
+scaleNoise.fluxRange       =  negative
+scaleNoise.windowXY        =  121 #Changed from 101
+scaleNoise.windowZ         =  201
+scaleNoise.gridXY          =  0
+scaleNoise.gridZ           =  0
+scaleNoise.interpolate     =  true
+scaleNoise.scfind          =  false
+
+# S+C finder
+
+scfind.enable              =  true
+scfind.kernelsXY           =  0, 6, 12 #Changed from 0, 5, 10
+scfind.kernelsZ            =  0, 3, 7, 15, 31
+scfind.threshold           =  4.0
+scfind.replacement         =  2.0
+scfind.statistic           =  mad
+scfind.fluxRange           =  negative
+
+# Threshold finder
+
+threshold.enable           =  false
+threshold.threshold        =  5.0
+threshold.mode             =  relative
+threshold.statistic        =  mad
+threshold.fluxRange        =  negative
+
+# Linker
+
+linker.radiusXY            =  3 #Changed from 2
+linker.radiusZ             =  3 
+linker.minSizeXY           =  6	#Changed from 5
+linker.minSizeZ            =  5
+linker.maxSizeXY           =  0
+linker.maxSizeZ            =  0
+linker.keepNegative        =  false
+
+# Reliability
+
+reliability.enable         =  true
+reliability.threshold      =  0.75
+reliability.scaleKernel    =  0.35
+#reliability.fmin           =  15.0 #This parameter does not work in SoFiA2
+reliability.plot           =  true
+
+# Mask dilation
+
+dilation.enable            =  false
+
+# Parameterisation
+
+parameter.enable           =  true
+parameter.wcs              =  true
+parameter.physical         =  true
+parameter.prefix           =  DINGO
+parameter.offset           =  false
+
+# Output
+
+output.directory           =  
+output.filename            =  beam17_all
+output.writeCatASCII       =  true
+output.writeCatXML         =  true
+output.writeCatSQL         =  true
+output.writeNoise          =  false
+output.writeFiltered       =  false
+output.writeMask           =  false
+output.writeMask2d         =  true
+output.writeRawMask        =  false
+output.writeMoments        =  true
+output.writeCubelets       =  true
+output.marginCubelets      =  12 #Changed from 10
+output.overwrite           =  false
+
+
+
