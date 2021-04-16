@@ -66,7 +66,12 @@ _CMAP.set_bad(color=outlier_color)
 
 #Set the secondary colormap
 #_DIV_CMAP = cmocean.cm.oxy
-_CMAP2 = matplotlib.cm.plasma
+#_CMAP2 = matplotlib.cm.plasma
+#_CMAP2 = matplotlib.cm.viridis
+_CMAP2 = matplotlib.cm.cividis
+#_CMAP2 = cmocean.cm.delta
+#_CMAP2 = cmocean.cm.curl
+#_CMAP2 = cmocean.cm.balance
 _CMAP2.set_bad(color=outlier_color)
 
 #Set diverging colormap default
@@ -111,7 +116,13 @@ def initialise_argument_list(required_list_length,argument_list):
 
     return argument_list
 
-def plot_profile_curves(rot_dir_list, profile_file_name_list, output_fname, profile='rotation', ring_crop=2, label_list=['?'], color_list=[None]):
+def plot_profile_curves(rot_dir_list,
+                    profile_file_name_list,
+                    output_fname,
+                    profile='rotation',
+                    ring_crop=2,
+                    label_list=['?'],
+                    color_list=[None]):
     """This is a simppe function to plot different models fit on different deep
     imaging methods. The main curves this function can produce:
 
@@ -199,22 +210,50 @@ def plot_profile_curves(rot_dir_list, profile_file_name_list, output_fname, prof
             #compute the upper and lower errors
             #NOTE that according to Tristan this is an under-estionation of the
             # errors!
-            verr_l, verr_h, serr_l, serr_h = np.genfromtxt(profilefit_file_path,
-                    skip_header=1, usecols=(13,14,15,16), unpack=True)
 
-            verr_l = verr_l[:-ring_crop]
-            verr_h = verr_h[:-ring_crop]
-            serr_l = serr_l[:-ring_crop]
-            serr_h = serr_h[:-ring_crop]
+            #NOTE some output is missing the errorbar columns!
+            #So here I did a quick hack...
 
-            if profile == 'rotation':   
-                lines.append(ax.errorbar(rad, vrot, yerr=[verr_l, -verr_h], fmt='o', capsize=2,
-                    elinewidth=1.5, markersize=7.5, color=color_list[i], alpha=0.75,
-                    label='{0:s}'.format(label_list[i])))
+            try:
+                verr_l, verr_h, serr_l, serr_h = np.genfromtxt(profilefit_file_path,
+                        skip_header=1, usecols=(13,14,15,16), unpack=True)
+
+                verr_l = verr_l[:-ring_crop]
+                verr_h = verr_h[:-ring_crop]
+                serr_l = serr_l[:-ring_crop]
+                serr_h = serr_h[:-ring_crop]
+
+                noerrorbar = False
+
+            except:
+                log.warning('Invalid number of columns in profile file! No errors computed.')
+
+                noerrorbar = True
+
+
+            if profile == 'rotation':
+                if noerrorbar:
+                    lines.append(ax.scatter(rad, vrot,
+                        color=color_list[i], alpha=0.75,
+                        label='{0:s}'.format(label_list[i])))
+                
+                else:
+                    lines.append(ax.errorbar(rad, vrot, yerr=[verr_l, -verr_h],
+                        fmt='o', capsize=2, elinewidth=1.5, markersize=7.5,
+                        color=color_list[i], alpha=0.75,
+                        label='{0:s}'.format(label_list[i])))
+
             elif profile == 'dispersion':
-                lines.append(ax.errorbar(rad, srot, yerr=[serr_l, -serr_h], fmt='o', capsize=2,
-                    elinewidth=1.5, markersize=7.5, color=color_list[i], alpha=0.75,
-                    label='{0:s}'.format(label_list[i])))
+                if noerrorbar:
+                    lines.append(ax.scatter(rad, srot,
+                        color=color_list[i], alpha=0.75,
+                        label='{0:s}'.format(label_list[i])))
+
+                else:
+                    lines.append(ax.errorbar(rad, srot, yerr=[serr_l, -serr_h],
+                        fmt='o', capsize=2, elinewidth=1.5, markersize=7.5,
+                        color=color_list[i], alpha=0.75,
+                        label='{0:s}'.format(label_list[i])))
 
         else:
             rad_sd, surfdens, sd_err = np.genfromtxt(profilefit_file_path,
@@ -246,7 +285,7 @@ def plot_profile_curves(rot_dir_list, profile_file_name_list, output_fname, prof
         ax.legend(lines, labels, loc='lower right', fontsize=16)
 
         #Add inner title
-        t = ds.sdiagnostics.add_inner_title(ax, 'Rotation curves', loc=2, prop=dict(size=18))
+        t = ds.sdiagnostics.add_inner_title(ax, 'Rotation profile', loc=2, prop=dict(size=18))
         t.patch.set_ec("none")
         t.patch.set_alpha(0.5)
     elif profile == 'dispersion':
@@ -255,7 +294,7 @@ def plot_profile_curves(rot_dir_list, profile_file_name_list, output_fname, prof
         ax.legend(lines, labels, loc='lower left', fontsize=16)
 
         #Add inner title
-        t = ds.sdiagnostics.add_inner_title(ax, 'Dispersion curves', loc=1, prop=dict(size=18))
+        t = ds.sdiagnostics.add_inner_title(ax, 'Dispersion profile', loc=1, prop=dict(size=18))
         t.patch.set_ec("none")
         t.patch.set_alpha(0.5)
 
@@ -265,15 +304,28 @@ def plot_profile_curves(rot_dir_list, profile_file_name_list, output_fname, prof
         ax.legend(lines, labels, loc='lower left', fontsize=16)
 
         #Add inner title
-        t = ds.sdiagnostics.add_inner_title(ax, 'Density curves', loc=1, prop=dict(size=18))
+        t = ds.sdiagnostics.add_inner_title(ax, 'Density profile', loc=1, prop=dict(size=18))
         t.patch.set_ec("none")
         t.patch.set_alpha(0.5)
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
 
-
-def plot_pv_diagram_triangle_plot(rot_dir_list, pv_fits_name_base_list, profile_file_name_list, output_fname, plot_type='residual', vsys=None, channelwidth=4, centre_index=53, edge_crop=11, ring_crop=2, S_rms=0.001,contour_levels=[1,2,4,8,16,32], color_list=[None], label_list=['?'], ident_list=['?'] ):
+def plot_pv_diagram_triangle_plot(rot_dir_list,
+                                pv_fits_name_base_list,
+                                profile_file_name_list,
+                                output_fname,
+                                plot_type='residual',
+                                vsys=None,
+                                channelwidth=4,
+                                centre_index=53,
+                                edge_crop=11,
+                                ring_crop=2,
+                                S_rms_list=[0.001],
+                                contour_levels=[1,2,4,8,16,32],
+                                color_list=[None],
+                                label_list=['?'],
+                                ident_list=['?'] ):
     """This code generates the p-v diagram triange plots based on the output from
     3DBarolo. Note, that many parameters needs to be given as `hardcoded` input.
 
@@ -327,7 +379,7 @@ def plot_pv_diagram_triangle_plot(rot_dir_list, pv_fits_name_base_list, profile_
     centre_index: int, optional
         The index alongside of the frequency axis of the reference velocity. This
         parameter needs to be set manually for the FIRTS .fits given. Note, that
-        if thgis parameter is wrong, the sub-plots will be off-centered!
+        if this parameter is wrong, the sub-plots will be off-centered!
 
     edge_crop: int, optional
         Number of pixels cropped from the edges of the p-v plots. As the input
@@ -343,10 +395,10 @@ def plot_pv_diagram_triangle_plot(rot_dir_list, pv_fits_name_base_list, profile_
         are excluded from the plots. If negative, rings starting from the inside
         are excluded and so this parameter has to be >= 0!
 
-    S_rms: float, optional
+    S_rms_list: list of floats, optional
         The RMS value of the input data which is used as a base level for the
-        contours. Ergo, the first contour is equal to this value. The unit is
-        in the native units of the cube, possibly in [Jy/beam]
+        contours.The unit is in the native units of the cube, possibly in [Jy/beam]
+        If only a single value is given, it is used for all p-v plots
 
     contour_levels: list of floats, optional
         The contour levels in terms of `S_rms` to be drawn to the data and model. 
@@ -369,6 +421,7 @@ def plot_pv_diagram_triangle_plot(rot_dir_list, pv_fits_name_base_list, profile_
     profile_file_name_list = initialise_argument_list(N_sources, profile_file_name_list)
     label_list = initialise_argument_list(N_sources, label_list)
     ident_list = initialise_argument_list(N_sources, ident_list)
+    S_rms_list = initialise_argument_list(N_sources, S_rms_list)
 
     #Generate random colors if needed
     color_list = initialise_argument_list(N_sources, color_list)
@@ -526,12 +579,14 @@ def plot_pv_diagram_triangle_plot(rot_dir_list, pv_fits_name_base_list, profile_
                     c_min = c_min_diff
 
 
+    c_diff = np.amax([np.fabs(c_min), np.fabs(c_max)])
+
     #Set the contour levels
     #cont = 0.00392164
     #v = np.array([1,2,4,8,16,32,64])*cont
     
     #cont = S_rms
-    v = np.array(contour_levels) * S_rms
+    #v = np.array(contour_levels) * S_rms
 
     #=== Create the plot
     fig, axes = plt.subplots(figsize=(2 + 4 * N_sources, 2 + 4 * N_sources),
@@ -552,9 +607,10 @@ def plot_pv_diagram_triangle_plot(rot_dir_list, pv_fits_name_base_list, profile_
                     axes[i,j].axhline(vsys, ls='--', lw=2, color=outlier_color, alpha=1.)
                     axes[i,j].axvline(0, ls='--', lw=2, color=outlier_color, alpha=1.)
 
-                    axes[i,j].contour(model_list[i],v,origin='lower', alpha=1.,
+                    axes[i,j].contour(model_list[i],
+                                np.array(contour_levels) * S_rms_list[i],
+                                origin='lower', alpha=1.,
                                 linewidths=1.5,colors=color_list[i], extent=ext)
-                   
 
                     ax2 = axes[i,j].secondary_yaxis('right',
                             functions=(lambda x: x - vsys, lambda x: x -vsys)) 
@@ -569,7 +625,7 @@ def plot_pv_diagram_triangle_plot(rot_dir_list, pv_fits_name_base_list, profile_
                                         usecols=(1,2,3), unpack=True)
 
                         #Crop the last N ringfit
-                        ring_crop = 2
+                        #ring_crop = 2
                         rad = rad[:-ring_crop]
                         vrot = vrot[:-ring_crop]
                    
@@ -591,11 +647,12 @@ def plot_pv_diagram_triangle_plot(rot_dir_list, pv_fits_name_base_list, profile_
                     #Difference maps
                     mom_ax = axes[i,j].imshow(np.subtract(model_list[j],model_list[i]),
                             origin='lower', extent=ext, aspect=imshow_aspect,
-                            vmin=c_min, vmax=c_max, cmap='plasma')
+                            vmin=-c_diff, vmax=c_diff, cmap=_CMAP2)
 
                     #The vsys and 0 dashed lines
-                    axes[i,j].axhline(vsys, ls='--', lw=2, color=outlier_color, alpha=1.)
-                    axes[i,j].axvline(0, ls='--', lw=2, color=outlier_color, alpha=1.)
+                    #Should be in grey, but not because of cividis...
+                    axes[i,j].axhline(vsys, ls='--', lw=2, color='black', alpha=0.6)
+                    axes[i,j].axvline(0, ls='--', lw=2, color='black', alpha=0.6)
 
 
                     #Add colorbar
@@ -606,9 +663,9 @@ def plot_pv_diagram_triangle_plot(rot_dir_list, pv_fits_name_base_list, profile_
                     #set ticks and label left side
                     cbaxes.yaxis.set_ticks_position('left')
                     
-                    cb.ax.tick_params(colors='white')
+                    cb.ax.tick_params(colors='black', rotation=18)
                   
-                    cb.ax.set_ylabel(r'$\Delta$S', color='white',
+                    cb.ax.set_ylabel(r'$\Delta$S', color='black',
                             fontsize = 18, labelpad=10)
 
                     #Add inner title

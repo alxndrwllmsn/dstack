@@ -29,7 +29,7 @@ scaleNoise.enable          =  true
 scaleNoise.mode            =  local
 scaleNoise.statistic       =  mad
 scaleNoise.fluxRange       =  negative
-scaleNoise.windowXY        =  121 #Changed from 101
+scaleNoise.windowXY        =  301 #Changed from 101
 scaleNoise.windowZ         =  201
 scaleNoise.gridXY          =  0
 scaleNoise.gridZ           =  0
@@ -39,7 +39,7 @@ scaleNoise.scfind          =  false
 # S+C finder
 
 scfind.enable              =  true
-scfind.kernelsXY           =  0, 6, 12 #Changed from 0, 5, 10
+scfind.kernelsXY           =  0, 15, 30 #Changed from 0, 5, 10
 scfind.kernelsZ            =  0, 3, 7, 15, 31
 scfind.threshold           =  4.0
 scfind.replacement         =  2.0
@@ -56,9 +56,9 @@ threshold.fluxRange        =  negative
 
 # Linker
 
-linker.radiusXY            =  3 #Changed from 2
+linker.radiusXY            =  6 #Changed from 2
 linker.radiusZ             =  3 
-linker.minSizeXY           =  6	#Changed from 5
+linker.minSizeXY           =  15 #Changed from 5
 linker.minSizeZ            =  5
 linker.maxSizeXY           =  0
 linker.maxSizeZ            =  0
@@ -98,7 +98,7 @@ output.writeMask2d         =  true
 output.writeRawMask        =  false
 output.writeMoments        =  true
 output.writeCubelets       =  true
-output.marginCubelets      =  12 #Changed from 10
+output.marginCubelets      =  30 #Changed from 10
 output.overwrite           =  false
 
 

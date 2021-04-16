@@ -1306,22 +1306,26 @@ def plot_spectra_triangle_matrix(source_ID_list,
     #Get the spectra and velocity arrays
     flux_list = []
     velocity_list = []
+    uncertainty_list = []
 
     for i in range(0,N_sources):
 
-        flux, velocity = ds.sdiagnostics.get_spectra_array(source_ID = source_ID_list[i],
+        flux, velocity, uncertainty = ds.sdiagnostics.get_spectra_array(source_ID = source_ID_list[i],
                                         sofia_dir_path = sofia_dir_list[i],
                                         name_base = name_base_list[i],
                                         v_frame = v_frame_list[i],
                                         beam_correction = beam_correction_list[i],
                                         b_maj_px = b_maj_px_list[i],
-                                        b_min_px = b_min_px_list[i])
+                                        b_min_px = b_min_px_list[i],
+                                        uncertainty = True)
 
         flux_list.append(flux)
         velocity_list.append(velocity)
+        uncertainty_list.append(uncertainty)
 
     flux_list = np.array(flux_list)
     velocity_list = np.array(velocity_list)
+    uncertainty_list = np.array(uncertainty_list)
     
     #Get the difference arrays of the spectra for the upper triangle
     #Map the i,j indices to a list as: i *  N_sources + j
@@ -1408,8 +1412,18 @@ def plot_spectra_triangle_matrix(source_ID_list,
                     axes[i,j].grid(axis='x', lw=1.5, alpha=0.5)
 
                     #Plot
-                    ax.step(va, diff_array_list[panel_index], c='red', linewidth=2., alpha=0.5)
+                    ax.step(va, diff_array_list[panel_index], c='red', linewidth=2., alpha=0.6)
+
+                    ax.fill_between(velocity_list[i],
+                        -uncertainty_list[i],
+                        +uncertainty_list[i],
+                        color=color_list[i], linewidth=1.5, alpha=0.4)
                 
+                    ax.fill_between(velocity_list[j],
+                        -uncertainty_list[j],
+                        +uncertainty_list[j],
+                        color=color_list[j], linewidth=1.5, alpha=0.4)
+
                     ax.set_ylim((diff_min,diff_max))
                     
                     #Add inner title
@@ -1434,12 +1448,22 @@ def plot_spectra_triangle_matrix(source_ID_list,
                 axes[i,j].step(velocity_list[i],flux_list[i],
                 c=color_list[i], linewidth=2.5, alpha=0.8)
 
+                axes[i,j].fill_between(velocity_list[i],
+                        np.subtract(flux_list[i],uncertainty_list[i]),
+                        np.add(flux_list[i],uncertainty_list[i]),
+                        color=color_list[i], linewidth=1.5, alpha=0.4)
+
                 axes[i,j].grid(lw=1.5, alpha=0.5)
                 axes[i,j].tick_params(length=0.) #Remove ticks
 
                 if i != j:
                         axes[i,j].step(velocity_list[j], flux_list[j],
                                 c=color_list[j], linewidth=2.5, alpha=0.8)
+
+                        axes[i,j].fill_between(velocity_list[j],
+                        np.subtract(flux_list[j],uncertainty_list[j]),
+                        np.add(flux_list[j],uncertainty_list[j]),
+                        color=color_list[j], linewidth=1.5, alpha=0.4)
 
                         axes[i,j].grid(lw=1.5, alpha=0.5)
                         axes[i,j].tick_params(length=0.) #Remove ticks

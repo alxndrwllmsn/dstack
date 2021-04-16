@@ -955,7 +955,8 @@ def get_spectra_array(source_ID,
                 v_frame='optical',
                 beam_correction=True,
                 b_maj_px=5,
-                b_min_px=5):
+                b_min_px=5,
+                uncertainty=False):
     """Returns two arrays: Integrated Flux [Jy] and velocity [km/s] (optical by default) for spectral plots.
     Again, modularisation is the idea behind this function. However, there are some caveats with the SoFiA output and
     the ways the spectra is created.
@@ -975,6 +976,15 @@ def get_spectra_array(source_ID,
     This correction can be disabled, but currently is the default.
 
     The velocity axis can be frequency, optical or radio velocity.
+
+    If the parameter uncertainty is set to True, a third array also returned.
+    The third array is the uncertainty for each spectral channel computed as:
+
+                    :math: RMS * sqrt(N):
+
+    where N is the number of pixels in the mask for the corresponding channel.
+
+    I use the same RMS for computing the uncertainty.
 
     Parameters
     ==========
@@ -1000,6 +1010,9 @@ def get_spectra_array(source_ID,
     b_min_px: float, optional
         The minor axis of the beam in pixels
 
+    uncertainty: bool, optional
+        If True, the integrated flux uncertainty array is returned as well
+
     Return
     ======
     flux_array: `numpy.ndarray`
@@ -1007,25 +1020,57 @@ def get_spectra_array(source_ID,
 
     velocity_array: `numpy.ndarray`
         The corresponding velocity valuse in the given frame
+
+    uncertainty_array: `numpy.ndarray`
+        The measured uncertainty for each spectral channel
+
     """
-    source_index, catalog_path, cubelet_path_dict, spectra_path = get_source_files(source_ID, sofia_dir_path, name_base)
+    source_index, catalog_path, cubelet_path_dict, spectra_path = \
+    get_source_files(source_ID, sofia_dir_path, name_base)
 
     sofia_spectra = np.genfromtxt(spectra_path)
 
     #Get the corresponding arrays and transform them to the given frame
     flux_array= sofia_spectra[:,2]
     
+    if uncertainty:
+        uncertainty_array = sofia_spectra[:,3]
+
+        #replace zeros with ones => the empty channles have +/- 1*RMS uncertainty
+        uncertainty_array[uncertainty_array == 0] = 1 
+
+        uncertainty_array = np.sqrt(uncertainty_array)        
+
+        #Get the RMS (NOTE that only the frequency rrest frame is supported, but
+        # it does not matter as we use a single RMS value)
+        RMS = get_RMS_from_catalog(catalog_path=catalog_path,
+            source_index=source_index, rest_frame='frequency')
+
     if beam_correction:
         flux_array /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
 
+        #if uncertainty:
+        #    RMS /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
+
+    RMS /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
+
     freq_array = sofia_spectra[:,1]
 
+    uncertainty_array = np.multiply(uncertainty_array, RMS)
+
     if v_frame == 'frequency':
-        return flux_array, freq_array
+        if uncertainty:
+            return flux_array, freq_array, uncertainty_array
+        else:
+            return flux_array, freq_array
 
     else:
         velocity_array = get_velocity_from_freq(freq_array, v_frame=v_frame)
-        return flux_array, velocity_array
+
+        if uncertainty:
+            return flux_array, velocity_array, uncertainty_array
+        else:
+            return flux_array, velocity_array
 
 def get_common_frame_for_sofia_sources(moment,
                                     source_ID,
