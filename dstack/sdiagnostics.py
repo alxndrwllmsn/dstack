@@ -1052,11 +1052,11 @@ def get_spectra_array(source_ID,
         #if uncertainty:
         #    RMS /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
 
-    RMS /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
-
     freq_array = sofia_spectra[:,1]
 
-    uncertainty_array = np.multiply(uncertainty_array, RMS)
+    if uncertainty:
+        RMS /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
+        uncertainty_array = np.multiply(uncertainty_array, RMS)
 
     if v_frame == 'frequency':
         if uncertainty:

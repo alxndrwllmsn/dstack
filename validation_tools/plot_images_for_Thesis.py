@@ -109,21 +109,21 @@ if __name__ == "__main__":
     filtering = False
 
     #Decide the resolution
-    full_res = True #If True the 6km baseline results are plotted
+    full_res = False #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
-    kinematics = True
+    kinematics = False
 
     #Decide on individual figures to make
-    spectra_triangle_plot = False
-    mom0_triangle_plot = False
-    mom1_triangle_plot = False
+    spectra_triangle_plot = True
+    mom0_triangle_plot = True
+    mom1_triangle_plot = True
 
     #Kinematics
-    profile_curves = True
-    pv_data_trinagle_plot = False
-    pv_model_trinagle_plot = False
-    pv_residual_trinagle_plot = False
+    profile_curves = False
+    pv_data_trinagle_plot = True
+    pv_model_trinagle_plot = True
+    pv_residual_trinagle_plot = True
 
 
     #=== Setup variables ===
@@ -206,22 +206,23 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             output_dir = working_dir + 'validation/'
 
             dir_path_list = list(map(working_dir.__add__,['baseline_vis_imaging/',
-        'co_added_visibilities/', 'stacked_grids/', 'stacked_images/']))
+        'co_added_visibilities/', 'stacked_grids/', 'stacked_images/',
+        'conventional_imaging/']))
 
             #List parameters
             profile_file_name_list = ['densprof.txt']
             pv_profile_file_name_list = ['rings_final2.txt']
             pv_fits_name_base_list = ['DINGO_J224218.09-300323.8',
                 'DINGO_J224218.10-300326.8', 'DINGO_J224218.10-300326.8',
-                'DINGO_J224218.05-300325.7']
+                'DINGO_J224218.05-300325.7', 'NONE']
 
             contour_levels=[1,2,4,8,16,32,64]
             #contour_levels=[4,8,16]
-            color_list = ['black', c0, c2, c1]
+            color_list = ['black', c0, c2, c1, outlier_color]
             label_list = ['baseline visibilities','co-added visibilities',
-                        'stacked grids', 'stacked images']
-            ident_list = ['B', 'V', 'G', 'I']
-            S_rms_list = [0.00555033, 0.00518113, 0.00517657, 0.00510539]
+                        'stacked grids', 'stacked images', 'conventional imaging']
+            ident_list = ['B', 'V', 'G', 'I', 'C']
+            S_rms_list = [0.00555033, 0.00518113, 0.00517657, 0.00510539, 0.00625409]
 
             #Single valued parameters
             channelwidth = 4.
