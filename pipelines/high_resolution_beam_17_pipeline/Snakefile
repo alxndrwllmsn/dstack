@@ -186,7 +186,7 @@ rule deep_co_added_visibility_imaging:
         yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
         parset_name = 'cdeconvolver_{image_names}.in'
     resources:
-        walltime=1500,
+        walltime=2000,
         mem_mb=120000,
         ntasks=N_TASKS
     shell:
@@ -249,7 +249,7 @@ rule grid_stacking:
         pcf = directory('test/stacked_grids/pcf.deep')
     params:
         #Need to use abspath here I think
-        cp = '{0:s}'.format(WORKING_DIR) + '/test/stacked_grids',
+        cp = '{0:s}'1600.format(WORKING_DIR) + '/test/stacked_grids',
         cn_grid = 'grid.deep',
         cn_psfgrid = 'psfgrid.deep',
         cn_pcf = 'pcf.deep'
@@ -293,7 +293,7 @@ rule deep_imaging:
         yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
         parset_name = 'cdeconvolver_{image_names}.in'
     resources:
-        walltime=1600,
+        walltime=2000,
         mem_mb=120000,
         ntasks=N_TASKS
     shell:

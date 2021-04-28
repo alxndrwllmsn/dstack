@@ -39,7 +39,7 @@ scaleNoise.scfind          =  false
 # S+C finder
 
 scfind.enable              =  true
-scfind.kernelsXY           =  0, 15, 30 #Changed from 0, 5, 10
+scfind.kernelsXY           =  0, 6, 15, 30 #Changed from 0, 5, 10
 scfind.kernelsZ            =  0, 3, 7, 15, 31
 scfind.threshold           =  4.0
 scfind.replacement         =  2.0

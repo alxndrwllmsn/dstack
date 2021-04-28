@@ -1,6 +1,6 @@
 Cimager.freqframe = bary
 Cimager.imagetype = casa
-Cimager.MaxUV = 6000
+#Cimager.MaxUV = 6000
 Cimager.MinUV = 12
 Cimager.singleoutputfile = true
 Cimager.solverpercore = true
