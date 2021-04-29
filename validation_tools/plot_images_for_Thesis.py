@@ -95,6 +95,11 @@ _DIV_CMAP.set_bad(color=outlier_color)
 #In fact this ignores all Warnings, so comment this line for debugging!
 warnings.filterwarnings('ignore', category=Warning, append=True)
 
+#=================
+#=== Functions ===
+#=================
+
+
 #============
 #=== MAIN ===
 #============
@@ -106,7 +111,7 @@ if __name__ == "__main__":
     #=== Define what to plot ===
 
     #Decide on Wiener_filtering
-    filtering = False
+    filtering = True
 
     #Decide the resolution
     full_res = False #If True the 6km baseline results are plotted
@@ -115,9 +120,12 @@ if __name__ == "__main__":
     kinematics = False
 
     #Decide on individual figures to make
-    spectra_triangle_plot = True
-    mom0_triangle_plot = True
-    mom1_triangle_plot = True
+    simple_mom_contour_plots = True
+    simple_spectrum_plot = True
+
+    spectra_triangle_plot = False
+    mom0_triangle_plot = False
+    mom1_triangle_plot = False
 
     #Kinematics
     profile_curves = False
@@ -194,10 +202,22 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             mask_sigma_list = [3.]
             contour_levels = [8., 16.]
 
-            #Single valued parameters
             N_opt_px = 130 #Number of optical background pixels in pixels ???
             mom_triangle_contours = True
             diff_saturation = 24.
+
+            #=== Single valued parameters
+            #Select the gridded dataset for the contour plots
+            nice_plot_ID = 2
+
+            #For single contour plots
+            N_optical_pixels = 750
+
+            #mom0_contour_levels = [0.5, 1.6, 2.7, 5.3, 13] #in column density 10^20
+            mom0_contour_levels = [8, 16, 32, 64, 128] #in column density 10^20
+
+            central_vel = 1246 #central vel for mom1 map contours [km/s]
+            delta_vel = 16
 
         #Kinematics
         else:
@@ -298,6 +318,52 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
     #===========================================================================
     #=== Imaging ===
     if not kinematics:
+        if simple_mom_contour_plots:
+            log.info('Creating single mom0 and mom1 contour maps...')
+
+            source_ID = source_ID_list[nice_plot_ID]
+            sofia_dir_path = sofia_dir_path_list[nice_plot_ID]
+            name_base = name_base_list[0]
+
+            output_name = output_dir + 'nice_contour_plots.pdf'
+
+            ds.sdiagnostics.simple_moment0_and_moment1_contour_plot(source_ID = source_ID,
+                sofia_dir_path = sofia_dir_path,
+                name_base = name_base,
+                output_name = output_name,
+                b_maj = b_maj_list[0],
+                b_min = b_min_list[0],
+                b_pa = b_pa_list[0],
+                N_optical_pixels = N_optical_pixels,
+                sigma_mom0_contours = True,
+                mom0_contour_levels = mom0_contour_levels,
+                central_vel = central_vel,
+                delta_vel = delta_vel,
+                N_half_contours_mom1 = 7,
+                masking = masking_list[0],
+                mask_sigma = mask_sigma_list[0])
+
+            log.info('...done')
+
+        if simple_spectrum_plot:
+            log.info('Create single spectra plot...')
+
+            source_ID = source_ID_list[nice_plot_ID]
+            sofia_dir_path = sofia_dir_path_list[nice_plot_ID]
+            name_base = name_base_list[0]
+
+            output_name = output_dir + 'single_spectra.pdf'
+
+            ds.sdiagnostics.simple_spectra_plot(source_ID = source_ID,
+                sofia_dir_path = sofia_dir_path,
+                name_base = name_base,
+                output_name = output_name,
+                beam_correction = True,
+                b_maj_px = b_maj_px_list[0],
+                b_min_px = b_min_px_list[0])
+
+            log.info('...done')
+
         if spectra_triangle_plot:
             log.info('Creating spectra triangle plot for {0:d}km \
 baseline results...'.format(baseline_length))

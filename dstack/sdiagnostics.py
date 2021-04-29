@@ -21,7 +21,8 @@ __all__ = ['add_inner_title', 'get_source_files', 'get_N_sources', 'get_z_from_f
         'get_momN_ndarray', 'get_spectra_array', 'get_common_frame_for_sofia_sources',
         'convert_source_mom_map_to_common_frame', 'plot_optical_background_with_mom0_conturs',
         'plot_momN_map', 'plot_spectra', 'source_analytics_plot',
-        'create_complementary_figures_to_sofia_output']
+        'create_complementary_figures_to_sofia_output',
+        'simple_moment0_and_moment1_contour_plot', 'simple_spectra_plot']
 
 import os, sys
 import shutil
@@ -2057,6 +2058,259 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path,
                 b_maj_px = b_maj_px,
                 b_min_px = b_min_px,
                 output_fname = source_working_dir + name_base + '{0:d}_spec.png'.format(ID))
+
+
+def simple_moment0_and_moment1_contour_plot(source_ID,
+    sofia_dir_path,
+    name_base,
+    output_name,
+    b_maj=30.,
+    b_min=30.,
+    b_pa=0.,
+    N_optical_pixels=600,
+    sigma_mom0_contours=True,
+    mom0_contour_levels=[3.,5.,9.,16.,32.],
+    central_vel=1245,
+    delta_vel=16,
+    N_half_contours_mom1=7,
+    masking=True,
+    mask_sigma=3.5):
+    """Function to plot the contour maps for the moment0 and moment1 map on top
+    of optical background. This is to create some nice summary plots.
+
+    Parameters
+    ==========
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+
+    output_name: str
+        The full path to the output dir and the output image name
+
+    b_maj: float, optional
+        The major axis of the beam in arcseconds
+
+    b_min: float, optional
+        The minor axis of the beam in arcseconds
+
+    b_pa: float, optional
+        The position angle of the synthesised beam in degrees
+
+    N_optical_pixels: int, optional
+        The background image number of pixels (pixelsize is 1 arcsec)
+
+    sigma_mom0_contours: bool, optimal
+        If True, the contour levels should be given in terms of sigma, else in
+        column density (10^20)
+
+    mom0_contour_levels: list of float, optional
+        The list of mom0 contour levels to be drawn
+
+    central_vel: float, optional
+        The central velocity used for the mom1 contour levels in [km/s]
+
+    delta_vel: float, optional
+        The contour step for the mom1 map in [km/s]
+
+    N_half_contours_mom1: int, optional
+        The number of contour levels for the mom1 map to be drawn is defined as:
+
+        :math: (2 * N_half_contours_mom1) + 1
+        
+    masking: bool, optional
+        If True, the SoFiA cube will be masked
+
+    mask_sigma: float, optional
+        The sigma which below the SoFiA cube is potentially masked
+
+    Return
+    ======
+    output_image: file
+        The image created
+    """
+    #Get moment maps and background image
+    optical_im, optical_im_wcs, survey_used = get_optical_image_ndarray(
+    source_ID, sofia_dir_path, name_base, N_optical_pixels=N_optical_pixels)
+
+    col_den_map, mom0_wcs, col_den_sen_lim = get_momN_ndarray(0,
+            source_ID, sofia_dir_path, name_base, b_maj=b_maj, b_min=b_min,
+            masking=masking, mask_sigma=mask_sigma)
+
+    if sigma_mom0_contours:
+            mom0_contour_levels = np.array(mom0_contour_levels) * col_den_sen_lim
+            log.info('The column density contours are {}'.format(mom0_contour_levels))
+
+    mom1_map, mom1_wcs, col_den_sen_lim = ds.sdiagnostics.get_momN_ndarray(1,
+            source_ID, sofia_dir_path, name_base, b_maj=b_maj, b_min=b_min,
+            masking=masking, mask_sigma=mask_sigma)
+
+    mom1_contour_levels = [i * delta_vel + central_vel for i in\
+     range(-N_half_contours_mom1,N_half_contours_mom1)]
+
+    #Create the plot
+    fig, axes = plt.subplots(figsize=(12, 7),
+                    sharex=True, sharey=True, ncols=2, nrows=1,
+                    subplot_kw={'projection': optical_im_wcs})
+    
+    #First plot
+    axes[0].imshow(optical_im, origin='lower', cmap='Greys')
+                    
+    axes[0].contour(col_den_map, levels=np.array(mom0_contour_levels),
+            transform=axes[0].get_transform(mom0_wcs),
+            colors=c2, linewidths=1.5, alpha=1.)
+
+    #Second plot
+    axes[1].imshow(optical_im, origin='lower', cmap='Greys')
+                    
+    axes[1].contour(mom1_map, levels=mom1_contour_levels,
+            transform=axes[1].get_transform(mom1_wcs),
+            colors=c2, linewidths=1.5, alpha=1.)
+
+    #Add beam ellipse
+    beam_loc_ra = optical_im_wcs.array_index_to_world(int(0.1 * N_optical_pixels),
+            int(0.1 * N_optical_pixels)).ra.value
+    beam_loc_dec = optical_im_wcs.array_index_to_world(int(0.1 * N_optical_pixels),
+            int(0.1 * N_optical_pixels)).dec.value
+
+
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj/3600,
+            b_min/3600, b_pa, lw=1.5, fc=outlier_color, ec='black',
+            alpha=1., transform=axes[0].get_transform('fk5'))
+
+    axes[0].add_patch(beam_ellip)
+    
+    #Need to do this for matplotlib
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj/3600,
+            b_min/3600, b_pa, lw=1.5, fc=outlier_color, ec='black',
+            alpha=1., transform=axes[1].get_transform('fk5'))
+    
+    axes[1].add_patch(beam_ellip)
+
+    #Add text
+    t = ds.sdiagnostics.add_inner_title(axes[0], 'Total HI', loc=2, 
+                                prop=dict(size=24,color='black'),
+                                white_border=False)
+    
+    t.patch.set_ec("none")
+    t.patch.set_alpha(1.)
+    
+    t = ds.sdiagnostics.add_inner_title(axes[1], 'Velocity HI', loc=2, 
+                                prop=dict(size=24,color='black'),
+                                white_border=False)
+    
+    t.patch.set_ec("none")
+    t.patch.set_alpha(1.)
+    
+    #Set labels
+    axes[1].coords[1].set_ticklabel_visible(False)
+    
+    #Dec lable
+    axes[0].coords[1].set_axislabel('Declination (J2000)', fontsize=20)
+
+    #Add a subplot in the background with nothing in it and invisible axes, and use
+    # its axes for the shared labels => only for x axis
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axis
+    plt.tick_params(labelcolor='none', top=False,
+        bottom=False, left=False, right=False)
+    plt.xlabel('Right Ascension (J2000)', fontsize=20, labelpad=-10)
+    #plt.ylabel('Declination (J2000)', fontsize=18)
+    
+    plt.subplots_adjust(left=None, bottom=None, right=None, top=None,
+        wspace=0.05, hspace=0.)
+    
+    plt.savefig(output_name, bbox_inches='tight')
+    plt.close()
+
+def simple_spectra_plot(source_ID,
+    sofia_dir_path,
+    name_base,
+    output_name,
+    beam_correction=True,
+    b_maj_px=5.,
+    b_min_px=5.):
+    """Create a simple spectra plot that can be used jointly with the output from
+    `simple_moment0_and_moment1_contour_plot` and kind looks well when displayed
+    next to each other in LaTeX. For that use the following figure layout for a
+    full paperwidth plot:
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.6\columnwidth]{moment_contours.pdf}
+        \includegraphics[width=0.3\columnwidth]{spectra.pdf}
+        \caption{Title}
+        \label{fig:example_gal}
+    \end{figure}
+    
+    Or it can be used as a standalone plot
+    
+    Parameters
+    ==========
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path: str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base: str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+
+    output_name: str
+        The full path to the output dir and the output image name
+
+    beam_correction: bool, optional
+        If True, the spectra is corrected for the synthesised beam
+
+    b_maj_px: float, optional
+        The major axis of the beam in pixels
+
+    b_min_px: float, optional
+        The minor axis of the beam in pixels
+
+    Return
+    ======
+    output_image: file
+        The image created
+    """
+    flux, velocity = ds.sdiagnostics.get_spectra_array(source_ID,
+        sofia_dir_path, name_base, 
+        v_frame='optical', beam_correction=beam_correction,
+        b_maj_px=b_maj_px, b_min_px=b_min_px)
+    
+    #Create the plot
+    mm2in = lambda x: x*0.03937008
+
+    fig = plt.figure(1, figsize=(6,7))
+    ax = fig.add_subplot(111)
+
+    ax.step(velocity, flux, lw=2.5, c=c2)    
+
+    ax.tick_params(axis='both', which='major', labelsize=17)
+    
+    ax.set_xlabel(r'Velocity (km s$^{-1}$)', fontsize=20, labelpad=10)
+    ax.set_ylabel('Flux density (mJy)', fontsize=20)
+    #ax.grid()
+
+    #Add inner title
+    t = ds.sdiagnostics.add_inner_title(ax, 'Spectra', loc=1,
+        prop=dict(size=25, color='black'),
+        white_border=False)
+    
+    t.patch.set_ec("none")
+    t.patch.set_alpha(0.5)
+    
+    plt.gcf().set_size_inches(mm2in(282/2),mm2in(154))
+    
+    plt.savefig(output_name,bbox_inches='tight')
+    plt.close()
+
 
 #=== MAIN ===
 if __name__ == "__main__":
