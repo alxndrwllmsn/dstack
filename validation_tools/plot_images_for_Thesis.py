@@ -1,19 +1,20 @@
 """This script is a collection of imaging function calls of svalidation and
 sdiagnostics functions for my Thesis. The imaging scripts can be enabled by
 switches in the beginning of the main section of the code. Not only the SoFiA output
-imaging scripts are called here, but the 3Dbarollo output (kynematic modelling
+imaging scripts are called here, but the 3Dbarollo output (kinematic modelling
 results) as well. The following images can be generated:
     
     SoFiA outout:
 
     - [] RMS -- channel plot for all methods from the dirty maps
     - [] RMS -- channel plot for all methods from the residual maps
-    - [] nice mom0 and mom1 maps with column density contours (only grid stacking)
-    - [] nice spectra plot (only grid stacking)
+    - [x] nice mom0 and mom1 maps with column density contours (only grid stacking)
+    - [x] nice spectra plot (only grid stacking)
     - [x] spectras triangle plot
     - [x] mom0 triangle plot with 3and 5sigma contours and 1 sigma cut
     - [x] mom1 triangle plot with the mom0 contours and cut
-    - [] measured -- column density flux density plots for all comparisons
+    - [x] measured column density diff -- dynamic range plots for all comparisons
+    - [x] measured column density diff -- RA/Dec values plots for all comparisons
     - [] N_px -- log(N_HI) histogram for all deep imaging method
 
     3Dbarolo output:
@@ -99,6 +100,158 @@ warnings.filterwarnings('ignore', category=Warning, append=True)
 #=== Functions ===
 #=================
 
+def plot_column_density_histogram(source_ID,
+    sofia_dir,
+    name_base,
+    output_fname,
+    masking=True,
+    mask_sigma=3.0,
+    b_maj=30.,
+    b_min=30.,
+    b_pa=0.,
+    col_den_sensitivity_lim=None,
+    conver_from_NHI=True,
+    pixelsize=5.,
+    inclination=0.):
+    """This is a simple function generating the N pixel, column density histogram
+    for a single given mom0 map.
+
+    Parameters
+    ==========
+
+    source_ID: int
+        The SoFiA ID of the source
+
+    sofia_dir: str
+        The SoFiA directory path
+
+    name_base: list of str
+        The name `output.filename` variable defined in the SoFiA template 
+        .par. Basically the base of all file names in the respective SoFiA dir.
+
+    output_name: str
+        The name and full path to the output triangle plot generated.
+
+    masking: optional
+        If True, the mom0 map will be masked
+
+    mask_sigma: float, optional
+        If the mom0 map is masked, pixels below this threshold will be masked.
+        The values are given in units of column density sensitivity.
+
+    b_maj: float, optional
+        The major axis of the synthesised beam in arcseconds.
+
+    b_min: float, optional
+        The minor axis of the synthesised beam in arcseconds.
+
+    b_pa: float, optional
+        The position angle of the synthesised beam.
+
+    col_den_sensitivity_lim: float, optional
+        The column density sensitivity for each SoFiA output provided by
+        the user, rather than using the by default value computed from the SoFiA RMS value.
+        Given in units of 10^20 HI /cm^2
+    
+    convert_from_NHI: bool, optional
+        If True, the x axis will be converted from N_HI [10^20 1/cm^2] to
+        N_HI in [M_sun/pc^2] by using the following formulae:
+
+        :math:
+
+    pixelsize: float, optional
+        The pixelsize in arcseconds
+
+    inclination: float, optional
+        The inclination  in gedreed (!) used for the inclination correction.
+
+        The correction is cos(inclination)
+
+    Return
+    ======
+    output_image: file
+        The image created
+ 
+    """
+    from astropy.cosmology import FlatLambdaCDM
+    from astropy import units as u
+
+    #Get the mom map
+    mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+                            source_ID = source_ID,
+                            sofia_dir_path = sofia_dir,
+                            name_base = name_base,
+                            masking = masking,
+                            mask_sigma = mask_sigma,
+                            b_maj = b_maj,
+                            b_min = b_min,
+                            col_den_sensitivity = col_den_sensitivity_lim)
+
+
+    #Flatten the array and perform unit conversion if needed
+    col_den_array = mom_map.flatten()
+
+    #convert from [10^20 1/cm^2] to [M_sun / pc^2]
+    if conver_from_NHI:
+        #Get the redshift of the source
+        source_index, catalog_path, cubelet_path_dict, spectra_path = \
+                    ds.sdiagnostics.get_source_files(source_ID,
+                    sofia_dir, name_base)
+
+        freq, z = ds.sdiagnostics.get_freq_and_redshift_from_catalog(catalog_path,
+                        source_index)
+
+        print(z)
+
+        #Get the pixel size in pc
+        #see: https://stackoverflow.com/questions/56279723/how-to-convert-arcsec-to-mpc-using-python-astropy
+        cosmo = FlatLambdaCDM(H0=67.8, Om0=0.308) 
+
+        #TO DO: Check the cosmology parameters!!!
+        # and add them as optional parameters to the function!
+
+        d_A = cosmo.angular_diameter_distance(z=z) # in [Mpc] !!
+        print(d_A)
+
+        theta = pixelsize*u.arcsec 
+
+        distance_Mpc = (theta * d_A).to(u.Mpc, u.dimensionless_angles())
+
+        print(distance_Mpc)
+
+        px_dist_in_pc = distance_Mpc.to(u.pc).value
+
+        print(px_dist_in_pc)
+
+
+    #Correction for inclination
+    inc_corr = np.cos((np.pi * (inclination / 180)))
+
+    col_den_array = np.multiply(col_den_array, inc_corr)
+
+    #=== Create the plot ===
+    fig = plt.figure(1, figsize=(8,5))
+    ax = fig.add_subplot(111)
+
+    #Get the histogram
+    ax.hist(col_den_array,
+        bins=np.logspace(np.log10(np.amin(col_den_array)),\
+            np.log10(np.amax(col_den_array)), 10),
+        histtype='stepfilled', rwidth=0.8,
+        linewidth=2, color=c2)
+    
+    ax.set_xscale("log")
+    
+    ax.set_ylabel(r'N [pixel]', fontsize=18)
+
+    if conver_from_NHI:
+        ax.set_xlabel(r'N$_{HI}$ [M$_\odot$/pc$^2$]', fontsize=18)
+    else:
+        ax.set_xlabel(r'N$_{HI}$ [10$^{20}$/cm$^2$]', fontsize=18)
+
+    plt.savefig(output_fname,bbox_inches='tight')
+    plt.close()
+
 
 #============
 #=== MAIN ===
@@ -120,12 +273,19 @@ if __name__ == "__main__":
     kinematics = False
 
     #Decide on individual figures to make
-    simple_mom_contour_plots = True
-    simple_spectrum_plot = True
+    col_density_histogram = True
+
+    simple_grid_mom_contour_plots = False
+    simple_grid_spectrum_plot = False
+
+    simple_grid_and_image_mom_contour_plots = False
+    simple_grid_and_image_spectrum_plot = False
 
     spectra_triangle_plot = False
     mom0_triangle_plot = False
     mom1_triangle_plot = False
+
+    diff_scaling_plots = False
 
     #Kinematics
     profile_curves = False
@@ -159,7 +319,7 @@ if __name__ == "__main__":
                 # it to the required size, i.e. all deep imaging has the same parameter
 
                 #source_ID_list = [4, 4, 3]
-                source_ID_list = [6, 4, 4, 3, 3]
+                source_ID_list = [6, 4, 4, 3, 1]
                 beam_correction_list = [False, True, True, True, False]
                 #beam_correction_list = [True]
                 #color_list = [c0, c2, c1]
@@ -208,10 +368,11 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
 
             #=== Single valued parameters
             #Select the gridded dataset for the contour plots
-            nice_plot_ID = 2
+            grid_plot_ID = 2
+            image_plot_ID = 4
 
             #For single contour plots
-            N_optical_pixels = 750
+            N_optical_pixels = 600
 
             #mom0_contour_levels = [0.5, 1.6, 2.7, 5.3, 13] #in column density 10^20
             mom0_contour_levels = [8, 16, 32, 64, 128] #in column density 10^20
@@ -318,49 +479,112 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
     #===========================================================================
     #=== Imaging ===
     if not kinematics:
-        if simple_mom_contour_plots:
+        if col_density_histogram:
+            plot_column_density_histogram(source_ID = source_ID_list[grid_plot_ID],
+                sofia_dir = sofia_dir_path_list[grid_plot_ID],
+                name_base = name_base_list[0],
+                output_fname = output_dir + 'col_den_hist.pdf',
+                masking = masking_list[0],
+                mask_sigma = mask_sigma_list[0],
+                b_maj = b_maj_list[0],
+                b_min = b_maj_list[0],
+                b_pa = b_pa_list[0],
+                col_den_sensitivity_lim = None,
+                conver_from_NHI=True,
+                pixelsize=5.,
+                inclination=70)
+
+        if simple_grid_mom_contour_plots:
             log.info('Creating single mom0 and mom1 contour maps...')
 
-            source_ID = source_ID_list[nice_plot_ID]
-            sofia_dir_path = sofia_dir_path_list[nice_plot_ID]
+            source_ID = source_ID_list[grid_plot_ID]
+            sofia_dir_path = sofia_dir_path_list[grid_plot_ID]
             name_base = name_base_list[0]
 
-            output_name = output_dir + 'nice_contour_plots.pdf'
+            output_name = output_dir + 'grid_contour_plots.pdf'
 
-            ds.sdiagnostics.simple_moment0_and_moment1_contour_plot(source_ID = source_ID,
-                sofia_dir_path = sofia_dir_path,
-                name_base = name_base,
+            svalidation.simple_moment0_and_moment1_contour_plot(source_ID_list = [source_ID],
+                sofia_dir_path_list = [sofia_dir_path],
+                name_base_list = [name_base],
                 output_name = output_name,
-                b_maj = b_maj_list[0],
-                b_min = b_min_list[0],
-                b_pa = b_pa_list[0],
+                b_maj_list = b_maj_list,
+                b_min_list = b_min_list,
+                b_pa_list = b_pa_list,
                 N_optical_pixels = N_optical_pixels,
                 sigma_mom0_contours = True,
                 mom0_contour_levels = mom0_contour_levels,
                 central_vel = central_vel,
                 delta_vel = delta_vel,
                 N_half_contours_mom1 = 7,
-                masking = masking_list[0],
-                mask_sigma = mask_sigma_list[0])
+                color_list = [color_list[grid_plot_ID]],
+                masking_list = masking_list,
+                mask_sigma_list = mask_sigma_list)
 
             log.info('...done')
 
-        if simple_spectrum_plot:
+        if simple_grid_spectrum_plot:
             log.info('Create single spectra plot...')
 
-            source_ID = source_ID_list[nice_plot_ID]
-            sofia_dir_path = sofia_dir_path_list[nice_plot_ID]
+            output_name = output_dir + 'grid_spectra.pdf'
+
+            svalidation.simple_spectra_plot(source_ID_list = [source_ID_list[grid_plot_ID]],
+                sofia_dir_path_list = [sofia_dir_path_list[grid_plot_ID]],
+                name_base_list = [name_base_list[0]],
+                output_name = output_name,
+                beam_correction_list = [True],
+                color_list = [color_list[grid_plot_ID]],
+                b_maj_px_list = [b_maj_px_list[0]],
+                b_min_px_list = [b_min_px_list[0]])
+
+            log.info('...done')
+
+        if simple_grid_and_image_mom_contour_plots:
+            log.info('Creating single mom0 and mom1 contour maps...')
+
+            source_ID = [source_ID_list[grid_plot_ID],\
+                        source_ID_list[image_plot_ID]] 
+            sofia_dir_path = [sofia_dir_path_list[grid_plot_ID],\
+                        sofia_dir_path_list[image_plot_ID]]
             name_base = name_base_list[0]
 
-            output_name = output_dir + 'single_spectra.pdf'
+            mom0_contour_levels = [1, 2, 4, 8, 16]
 
-            ds.sdiagnostics.simple_spectra_plot(source_ID = source_ID,
-                sofia_dir_path = sofia_dir_path,
-                name_base = name_base,
+            output_name = output_dir + 'GI_contour_plots.pdf'
+
+            svalidation.simple_moment0_and_moment1_contour_plot(source_ID_list = source_ID,
+                sofia_dir_path_list = sofia_dir_path,
+                name_base_list = [name_base],
                 output_name = output_name,
-                beam_correction = True,
-                b_maj_px = b_maj_px_list[0],
-                b_min_px = b_min_px_list[0])
+                b_maj_list = b_maj_list,
+                b_min_list = b_min_list,
+                b_pa_list = b_pa_list,
+                N_optical_pixels = N_optical_pixels,
+                sigma_mom0_contours = False,
+                mom0_contour_levels = mom0_contour_levels,
+                central_vel = central_vel,
+                delta_vel = delta_vel,
+                N_half_contours_mom1 = 7,
+                color_list = [color_list[grid_plot_ID], color_list[image_plot_ID]],
+                masking_list = masking_list,
+                mask_sigma_list = mask_sigma_list)
+
+            log.info('...done')
+
+        if simple_grid_and_image_spectrum_plot:
+            log.info('Create single spectra plot...')
+
+            output_name = output_dir + 'GI_spectra.pdf'
+
+            svalidation.simple_spectra_plot(source_ID_list = [source_ID_list[grid_plot_ID],\
+                source_ID_list[image_plot_ID]],
+                sofia_dir_path_list = [sofia_dir_path_list[grid_plot_ID],\
+                sofia_dir_path_list[image_plot_ID]],
+                name_base_list = [name_base_list[0]],
+                output_name = output_name,
+                beam_correction_list = [True, False],
+                color_list = [color_list[grid_plot_ID], color_list[image_plot_ID]],
+                b_maj_px_list = [b_maj_px_list[0]],
+                b_min_px_list = [b_min_px_list[0]])
 
             log.info('...done')
 
@@ -430,6 +654,54 @@ baseline results...'.format(baseline_length))
                 diff_saturation = diff_saturation)
 
             log.info('...done')
+
+        if diff_scaling_plots:
+
+            mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+                source_ID = source_ID_list[0],
+                sofia_dir_path = sofia_dir_path_list[0],
+                name_base = name_base_list[0],
+                b_maj = b_maj_list[0],
+                b_min = b_min_list[0])
+
+            for i in range(0,len(ident_list)):
+                for j in range(0,len(ident_list)):
+                    #if j>i:
+                    diff_ident = '({0:s} - {1:s})'.format(ident_list[i],
+                            ident_list[j])
+        
+                    col_den_binwidth = 20
+                    col_den_lim = None                        
+
+                    for orientation, orientation_dependence in zip(['col_den', 'RA', 'Dec'], [False, True, True]):
+                        log.info('Creating flux diff against {0:s} plots for {1:}...'.format(
+                        orientation, diff_ident))
+
+                        svalidation.plot_flux_density_diff_dependience_on_column_density(source_ID_list=[source_ID_list[i],source_ID_list[j]],
+                            sofia_dir_list = [sofia_dir_path_list[i], sofia_dir_path_list[j]],
+                            name_base_list = name_base_list,
+                            output_fname = output_dir + 'scaling_plots/sensitivity_column_density_{0:s}_{1:s}{2:s}_map.pdf'.format(
+                                orientation, ident_list[i], ident_list[j]),
+                            N_optical_pixels = N_opt_px,
+                            masking_list = masking_list,
+                            mask_sigma_list = mask_sigma_list,
+                            b_maj_list = b_maj_list,
+                            b_min_list = b_min_list,
+                            b_pa_list = b_pa_list,
+                            ident_string = diff_ident,
+                            col_den_sensitivity_lim_list = [sen_lim],
+                            beam_correction = beam_correction_list[0],
+                            b_maj_px_list = b_maj_px_list,
+                            b_min_px_list = b_min_list,
+                            col_den_binwidth = col_den_binwidth,
+                            diff_binwidth = 0.1,
+                            col_den_lim = col_den_lim,
+                            sensitivity = True,
+                            logbins = True,
+                            orientation_dependence = orientation_dependence,
+                            orientation = orientation)
+            
+                        log.info('..done')
 
     #Kinematics
     else:

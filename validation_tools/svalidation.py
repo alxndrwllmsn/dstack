@@ -58,6 +58,12 @@ matplotlib.rcParams['ytick.major.size'] = 9
 matplotlib.rcParams['xtick.major.width'] = 3
 matplotlib.rcParams['ytick.major.width'] = 3
 
+matplotlib.rcParams['xtick.minor.size'] = 6
+matplotlib.rcParams['ytick.minor.size'] = 6
+
+matplotlib.rcParams['xtick.minor.width'] = 2
+matplotlib.rcParams['ytick.minor.width'] = 2
+
 matplotlib.rcParams['axes.linewidth'] = 2
 
 plt.rcParams['xtick.labelsize']=16
@@ -805,25 +811,27 @@ def plot_momN_triangle_matrix(moment,
 
 
 def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
-                                                        sofia_dir_list,
-                                                        name_base_list,
-                                                        output_fname,
-                                                        N_optical_pixels=600,
-                                                        masking_list=[True],
-                                                        mask_sigma_list=[3.0],
-                                                        b_maj_list=[30.],
-                                                        b_min_list=[30.],
-                                                        b_pa_list=[0.],
-                                                        col_den_sensitivity_lim_list=[None],
-                                                        sensitivity=False,
-                                                        ident_string='?',
-                                                        beam_correction=False,
-                                                        b_maj_px_list=[5],
-                                                        b_min_px_list=[5],
-                                                        col_den_binwidth=0.1,
-                                                        diff_binwidth=0.001,
-                                                        col_den_lim=None,
-                                                        logbins=False):
+    sofia_dir_list,
+    name_base_list,
+    output_fname,
+    N_optical_pixels=600,
+    masking_list=[True],
+    mask_sigma_list=[3.0],
+    b_maj_list=[30.],
+    b_min_list=[30.],
+    b_pa_list=[0.],
+    col_den_sensitivity_lim_list=[None],
+    sensitivity=False,
+    ident_string='?',
+    beam_correction=False,
+    b_maj_px_list=[5],
+    b_min_px_list=[5],
+    col_den_binwidth=0.1,
+    diff_binwidth=0.001,
+    col_den_lim=None,
+    logbins=False,
+    orientation_dependence=False,
+    orientation='RA'):
     """This is a quite complicated function, despite I tried to modularise it.
     So after providing all the many arguments a nice plot is created from two
     input SoFiA sources of the same object but different imaging runs.
@@ -858,21 +866,21 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     source_ID_list: list of int
         The SoFiA ID of the sources
 
-    sofia_dir_list: list str
+    sofia_dir_list: list of str
         List of the SoFiA directories to compare
 
     name_base_list: list of str
         List of the name `output.filename` variable defined in the SoFiA template 
-        .par. Basically the base of all file names in the rspective SoFiA dir.
+        .par. Basically the base of all file names in the respective SoFiA dir.
 
     output_name: str
-        The name and full path to the output tiangle plot generated.
+        The name and full path to the output triangle plot generated.
 
     N_optical_pixels: int, optional
         Number of pixels for the optical background image.
 
     masking_list: list of bool, optional
-        If True, the respective mom0 maps will be msked
+        If True, the respective mom0 maps will be masked
 
     mask_sigma_list: list of float, optional
         If the mom0 map is masked, pixels below this threshold will be masked.
@@ -952,6 +960,10 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     #The name bases might be the same
     if len(name_base_list) != N_sources:
         name_base_list = initialise_argument_list(N_sources, name_base_list)
+
+    #When the x-axis is RA or Dex the bins should be linear!
+    if orientation_dependence:
+        logbins = False
 
     #=== Create background image
     data_array, w = ds.sdiagnostics.get_common_frame_for_sofia_sources(moment = 0,
@@ -1040,6 +1052,21 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     p_col_den = copy.deepcopy(np.ma.compressed(column_density_mean))
     p_diff_map = copy.deepcopy(np.ma.compressed(diff_map))
 
+    if orientation_dependence:
+        #Get the Dec values in gedrees
+        initial_orientation_array = np.ma.array(np.zeros(np.shape(column_density_mean)), mask=column_density_mean.mask)
+
+        for i in range(0,np.shape(column_density_mean)[1]):     
+            if orientation == 'RA':
+                px_dir = w.pixel_to_world(0, i).ra.degree
+            else:
+                px_dir = w.pixel_to_world(0, i).dec.degree
+            for j in range(0,np.shape(column_density_mean)[0]):
+                if initial_orientation_array.mask[j,i] != True:
+                   initial_orientation_array[j,i] = px_dir
+
+        orientation_array = copy.deepcopy(np.ma.compressed(initial_orientation_array))
+
     #=== Set parameters for histograms and plot limits
     #Set an upper limint in column density
     if col_den_lim != None:
@@ -1059,6 +1086,10 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     
         col_den_lower_lim = np.amin(column_density_mean)
 
+    if orientation_dependence:
+        orientation_lower_lim = np.amin(orientation_array)
+        orientation_upper_lim = np.amax(orientation_array)
+
     #Limit in flux difference
     diff_upper_lim = np.ceil(np.amax(p_diff_map))
     diff_lower_lim = -1 * np.ceil(np.abs(np.amin(p_diff_map)))
@@ -1067,17 +1098,29 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     #Make a cut in the data (in column density not just in the plot range)
     p_diff_map = p_diff_map[p_col_den <= col_den_upper_lim]
     p_col_den = p_col_den[p_col_den <= col_den_upper_lim]
+    
+    if orientation_dependence:
+        orientation_array = orientation_array[p_col_den <= col_den_upper_lim]
 
     #Get rid of the lower limit points if relevant
     p_diff_map = p_diff_map[p_col_den >= col_den_lower_lim]
     p_col_den = p_col_den[p_col_den >= col_den_lower_lim]
 
+    if orientation_dependence:
+        orientation_array = orientation_array[p_col_den >= col_den_lower_lim]
+
     #Get the positive and negative column densities
     pos_def_col_den = p_col_den[p_diff_map >= 0]
     pos_def_diff_map = p_diff_map[p_diff_map >= 0]
 
+    if orientation_dependence:
+        pos_orientation_array = orientation_array[p_diff_map >= 0]
+
     neg_def_col_den = p_col_den[p_diff_map < 0]
     neg_def_diff_map = p_diff_map[p_diff_map < 0]
+
+    if orientation_dependence:
+        neg_orientation_array = orientation_array[p_diff_map < 0]
 
     #=== Create the plot
     #Following Matplotlibs example:
@@ -1112,42 +1155,63 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     #The plots
     #ax_scatter.scatter(p_col_den, p_diff_map, marker='o', s=5, c=c2)
 
-    #Plot the 'positive end' green and the negative 'blue' 
-    ax_scatter.scatter(pos_def_col_den, pos_def_diff_map, marker='o', s=5, c=c2, alpha=1.)
-    ax_scatter.scatter(neg_def_col_den, neg_def_diff_map, marker='o', s=5, c=c1, alpha=1.)
+    #Plot the 'positive end' green and the negative 'blue'
+    if not orientation_dependence:
+        ax_scatter.scatter(pos_def_col_den, pos_def_diff_map, marker='o', s=5, c=c2, alpha=1.)
+        ax_scatter.scatter(neg_def_col_den, neg_def_diff_map, marker='o', s=5, c=c1, alpha=1.)
  
-    #Set scatter plot limits for the non logarithmic case
-    if not logbins:
-        ax_scatter.set_xlim((col_den_lower_lim - col_den_binwidth,
-        col_den_upper_lim + col_den_binwidth))
-  
-    #if logbins:
-    #    ax_scatter.set_xlim((col_den_lower_lim, col_den_upper_lim))
-
-    #ax_scatter.set_ylim((diff_lower_lim - diff_binwidth,
-    #    diff_upper_lim + diff_binwidth))
-  
-    #Set logarithmic x axis
-    if logbins:
-        ax_scatter.set_xscale('log')
+    else:
+        ax_scatter.scatter(pos_orientation_array, pos_def_diff_map, marker='o', s=5, c=c2, alpha=1.)
+        ax_scatter.scatter(neg_orientation_array, neg_def_diff_map, marker='o', s=5, c=c1, alpha=1.)
 
     #= Histograms
     #Top
-    col_den_bins = np.arange(col_den_lower_lim, col_den_upper_lim + col_den_binwidth,
+    if not orientation_dependence:
+        col_den_bins = np.linspace(col_den_lower_lim, col_den_upper_lim,
+            col_den_binwidth)
+
+    else:
+        col_den_bins = np.linspace(np.amin(orientation_array), np.amax(orientation_array),
             col_den_binwidth)
 
     if logbins:
         col_den_bins = np.logspace(np.log10(col_den_bins[0]),
                 np.log10(col_den_bins[-1]),len(col_den_bins))
 
-    ax_histx.hist(p_col_den, bins=col_den_bins, histtype='step',
+    delta_col_den_bin = np.divide(np.subtract(col_den_bins[1], col_den_bins[0]),2)
+
+    #Set scatter plot limits for the non logarithmic case
+    if not logbins:
+        if not orientation_dependence:
+            ax_scatter.set_xlim((col_den_lower_lim - delta_col_den_bin,
+                col_den_upper_lim + delta_col_den_bin))
+  
+        else:
+            ax_scatter.set_xlim((orientation_lower_lim - delta_col_den_bin,
+                orientation_upper_lim + delta_col_den_bin))
+  
+    #Set logarithmic x axis
+    if logbins:
+        ax_scatter.set_xscale('log')
+
+    if not orientation_dependence:
+        ax_histx.hist(p_col_den, bins=col_den_bins, histtype='step',
+                linewidth=2, color=c0)
+        
+        ax_histx.hist(pos_def_col_den, bins=col_den_bins, histtype='stepfilled',
+                color=c2, alpha=0.75)
+        ax_histx.hist(neg_def_col_den, bins=col_den_bins, histtype='stepfilled',
+                color=c1, alpha=0.75)
+
+    else:
+        ax_histx.hist(orientation_array, bins=col_den_bins, histtype='step',
             linewidth=2, color=c0)
     
-    ax_histx.hist(pos_def_col_den, bins=col_den_bins, histtype='stepfilled',
-            color=c2, alpha=0.75)
-    ax_histx.hist(neg_def_col_den, bins=col_den_bins, histtype='stepfilled',
-            color=c1, alpha=0.75)
- 
+        ax_histx.hist(pos_orientation_array, bins=col_den_bins, histtype='stepfilled',
+                color=c2, alpha=0.75)
+        ax_histx.hist(neg_orientation_array, bins=col_den_bins, histtype='stepfilled',
+                color=c1, alpha=0.75)
+
     ax_histx.set_xlim(ax_scatter.get_xlim())
 
     if logbins:
@@ -1169,15 +1233,23 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     ax_histy.set_ylim(ax_scatter.get_ylim())
 
     #= Binned statistics
-    bin_average, bin_edges, binnumber = stats.binned_statistic(p_col_den, p_diff_map,
-            statistic='mean', bins=col_den_bins)
-            #statistic='mean', bins=np.size(col_den_bins-2),
-            #range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
+    if not orientation_dependence:
+        bin_average, bin_edges, binnumber = stats.binned_statistic(p_col_den, p_diff_map,
+                statistic='mean', bins=col_den_bins)
+                #statistic='mean', bins=np.size(col_den_bins-2),
+                #range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
 
-    bin_std, bin_edges, binnumber = stats.binned_statistic(p_col_den, p_diff_map,
-            statistic='std', bins=col_den_bins)
-            #statistic='std', bins=np.size(col_den_bins-2),
-            #range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
+        bin_std, bin_edges, binnumber = stats.binned_statistic(p_col_den, p_diff_map,
+                statistic='std', bins=col_den_bins)
+                #statistic='std', bins=np.size(col_den_bins-2),
+                #range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
+
+    else:
+        bin_average, bin_edges, binnumber = stats.binned_statistic(orientation_array, p_diff_map,
+                statistic='mean', bins=col_den_bins)
+
+        bin_std, bin_edges, binnumber = stats.binned_statistic(orientation_array, p_diff_map,
+                statistic='std', bins=col_den_bins)
 
     bin_centres = (bin_edges[:-1] + bin_edges[1:]) / 2
 
@@ -1193,10 +1265,14 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
 
 
     #Set labels
-    if sensitivity:
-        ax_scatter.set_xlabel(r'Dynamic range', fontsize=18)
+    if not orientation_dependence:
+        if sensitivity:
+            ax_scatter.set_xlabel(r'<Dynamic range>', fontsize=18)
+        else:
+            ax_scatter.set_xlabel(r'<N$_{HI}$> [10$^{20}$cm$^{-2}$]', fontsize=18)
     else:
-        ax_scatter.set_xlabel(r'N$_{HI}$ [10$^{20}$cm$^{-2}$]', fontsize=18)
+        ax_scatter.set_xlabel(r'{0:s} [deg]'.format(orientation), fontsize=18)
+
     ax_scatter.set_ylabel(r'$\Delta$S$_{int}$ [mJy km s$^{-1}$/pixel]', fontsize=18)
     ax_histx.set_ylabel('N', fontsize=18)
     ax_histy.set_xlabel('N', fontsize=18)
@@ -1496,586 +1572,344 @@ def plot_spectra_triangle_matrix(source_ID_list,
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
 
+def simple_moment0_and_moment1_contour_plot(source_ID_list,
+    sofia_dir_path_list,
+    name_base_list,
+    output_name,
+    b_maj_list=[30.],
+    b_min_list=[30.],
+    b_pa_list=[0.],
+    N_optical_pixels=600,
+    sigma_mom0_contours=True,
+    mom0_contour_levels=[3.,5.,9.,16.,32.],
+    central_vel=1245,
+    delta_vel=16,
+    N_half_contours_mom1=7,
+    color_list=[None], 
+    masking_list=True,
+    mask_sigma_list=[3.5]):
+    """Function to plot the contour maps for the moment0 and moment1 map on top
+    of optical background. This is to create some nice summary plots.
+
+    Also, multiple contours an be drawn on top of each other
+
+    Parameters
+    ==========
+    source_ID_list: list of int
+        The IDs of the selected sources. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path_list: list of str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base_list: list of str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+
+    output_name: str
+        The full path to the output dir and the output image name
+
+    b_maj_list: list of float, optional
+        The major axis of the beam in arcseconds
+
+    b_min_list: list of float, optional
+        The minor axis of the beam in arcseconds
+
+    b_pa_list: list of float, optional
+        The position angle of the synthesised beam in degrees
+
+    N_optical_pixels: int, optional
+        The background image number of pixels (pixelsize is 1 arcsec)
+
+    sigma_mom0_contours: bool, optimal
+        If True, the contour levels should be given in terms of sigma, else in
+        column density (10^20)
+
+    mom0_contour_levels: list of float, optional
+        The list of mom0 contour levels to be drawn
+
+    central_vel: float, optional
+        The central velocity used for the mom1 contour levels in [km/s]
+
+    delta_vel: float, optional
+        The contour step for the mom1 map in [km/s]
+
+    N_half_contours_mom1: int, optional
+        The number of contour levels for the mom1 map to be drawn is defined as:
+
+        :math: (2 * N_half_contours_mom1) + 1
+    
+    color_list: list of colors, optional
+        The list of the contour colors
+        
+    masking_list: list of bool, optional
+        If True, the SoFiA cube will be masked
+
+    mask_sigma_list: list of float, optional
+        The sigma which below the SoFiA cube is potentially masked
+
+    Return
+    ======
+    output_image: file
+        The image created
+    """
+    #Initialise arguments by recursively appending them
+    N_sources = len(source_ID_list)
+    assert len(sofia_dir_path_list) == N_sources, 'More or less sources are given than SoFiA directory paths!'
+
+    masking_list = initialise_argument_list(N_sources,masking_list)
+    mask_sigma_list = initialise_argument_list(N_sources, mask_sigma_list)
+    b_maj_list = initialise_argument_list(N_sources, b_maj_list)
+    b_min_list = initialise_argument_list(N_sources, b_min_list)
+    b_pa_list = initialise_argument_list(N_sources, b_pa_list)
+
+    #The name bases might be the same
+    if len(name_base_list) != N_sources:
+        name_base_list = initialise_argument_list(N_sources, name_base_list)
+
+    #Generate random colors if needed
+    for i in range(0,N_sources):
+        if color_list[i] == None:
+            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+
+    #Get moment maps and background image
+    optical_im, optical_im_wcs, survey_used = ds.sdiagnostics.get_optical_image_ndarray(
+    source_ID_list[0], sofia_dir_path_list[0], name_base_list[0],
+    N_optical_pixels=N_optical_pixels)
+
+    col_den_map_list = []
+    mom_wcs_list = []
+    mom1_map_list = []
+    col_den_sensitivity_list = []
+
+    if sigma_mom0_contours:
+        sigma_contours_list = []
+
+    for i in range(0,N_sources):
+        col_den_map, mom0_wcs, col_den_sen_lim = ds.sdiagnostics.get_momN_ndarray(0,
+                source_ID_list[i], sofia_dir_path_list[i], name_base_list[i],
+                b_maj=b_maj_list[i], b_min=b_min_list[i],
+                masking=masking_list[i], mask_sigma=mask_sigma_list[i])
+
+        col_den_map_list.append(col_den_map)
+        mom_wcs_list.append(mom0_wcs)
+        col_den_sensitivity_list.append(col_den_sen_lim)
+
+        if sigma_mom0_contours:
+                mom0_contour_levels = np.array(mom0_contour_levels) * col_den_sen_lim
+                log.info('The column density contours are {}'.format(mom0_contour_levels))
+
+                sigma_contours_list.append(mom0_contour_levels)
+
+        mom1_map, mom1_wcs, col_den_sen_lim = ds.sdiagnostics.get_momN_ndarray(1,
+                source_ID_list[i], sofia_dir_path_list[i], name_base_list[i],
+                b_maj=b_maj_list[i], b_min=b_min_list[i],
+                masking=masking_list[i], mask_sigma=mask_sigma_list[i])
+
+        mom1_map_list.append(mom1_map)
+
+    mom1_contour_levels = [i * delta_vel + central_vel for i in\
+    range(-N_half_contours_mom1,N_half_contours_mom1)]
+
+    #Create the plot
+    fig, axes = plt.subplots(figsize=(12, 7),
+                    sharex=True, sharey=True, ncols=2, nrows=1,
+                    subplot_kw={'projection': optical_im_wcs})
+    
+    #First plot
+    axes[0].imshow(optical_im, origin='lower', cmap='Greys')
+    
+    for i in range(0,N_sources):
+        if sigma_mom0_contours:
+            axes[0].contour(col_den_map_list[i],
+                levels=np.array(sigma_contours_list[i]),
+                transform=axes[0].get_transform(mom_wcs_list[i]),
+                colors=color_list[i], linewidths=1.5, alpha=1.)
+
+        else:
+            print(mom0_contour_levels)
+            axes[0].contour(col_den_map_list[i],
+                levels=np.array(mom0_contour_levels),
+                transform=axes[0].get_transform(mom_wcs_list[i]),
+                colors=color_list[i], linewidths=1.5, alpha=1.)
+
+
+    #Second plot
+    axes[1].imshow(optical_im, origin='lower', cmap='Greys')
+    
+    for i in range(0,N_sources):
+        axes[1].contour(mom1_map_list[i], levels=mom1_contour_levels,
+            transform=axes[1].get_transform(mom_wcs_list[i]),
+            colors=color_list[i], linewidths=1.5, alpha=1.)
+
+    #Add beam ellipse
+    beam_loc_ra = optical_im_wcs.array_index_to_world(int(0.1 * N_optical_pixels),
+            int(0.1 * N_optical_pixels)).ra.value
+    beam_loc_dec = optical_im_wcs.array_index_to_world(int(0.1 * N_optical_pixels),
+            int(0.1 * N_optical_pixels)).dec.value
+
+
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj_list[0]/3600,
+            b_min_list[0]/3600, b_pa_list[0], lw=1.5, fc=outlier_color, ec='black',
+            alpha=1., transform=axes[0].get_transform('fk5'))
+
+    axes[0].add_patch(beam_ellip)
+    
+    #Need to do this for matplotlib
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj_list[0]/3600,
+            b_min_list[0]/3600, b_pa_list[0], lw=1.5, fc=outlier_color, ec='black',
+            alpha=1., transform=axes[1].get_transform('fk5'))
+    
+    axes[1].add_patch(beam_ellip)
+
+    #Add text
+    t = ds.sdiagnostics.add_inner_title(axes[0], 'Total HI', loc=2, 
+                                prop=dict(size=24,color='black'),
+                                white_border=False)
+    
+    t.patch.set_ec("none")
+    t.patch.set_alpha(1.)
+    
+    t = ds.sdiagnostics.add_inner_title(axes[1], 'Velocity HI', loc=2, 
+                                prop=dict(size=24,color='black'),
+                                white_border=False)
+    
+    t.patch.set_ec("none")
+    t.patch.set_alpha(1.)
+    
+    #Set labels
+    axes[1].coords[1].set_ticklabel_visible(False)
+    
+    #Dec lable
+    axes[0].coords[1].set_axislabel('Declination (J2000)', fontsize=20)
+
+    #Add a subplot in the background with nothing in it and invisible axes, and use
+    # its axes for the shared labels => only for x axis
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axis
+    plt.tick_params(labelcolor='none', top=False,
+        bottom=False, left=False, right=False)
+    plt.xlabel('Right Ascension (J2000)', fontsize=20, labelpad=-10)
+    #plt.ylabel('Declination (J2000)', fontsize=18)
+    
+    plt.subplots_adjust(left=None, bottom=None, right=None, top=None,
+        wspace=0.05, hspace=0.)
+    
+    plt.savefig(output_name, bbox_inches='tight')
+    plt.close()
+
+def simple_spectra_plot(source_ID_list,
+    sofia_dir_path_list,
+    name_base_list,
+    output_name,
+    beam_correction_list=[True],
+    color_list=[None],
+    b_maj_px_list=[5.],
+    b_min_px_list=[5.]):
+    """Create a simple spectra plot that can be used jointly with the output from
+    `simple_moment0_and_moment1_contour_plot` and kind looks well when displayed
+    next to each other in LaTeX. For that use the following figure layout for a
+    full paperwidth plot:
+
+    \begin{figure}
+        \centering
+        \includegraphics[width=0.65\columnwidth]{moment_contours.pdf}
+        \includegraphics[width=0.315\columnwidth]{spectra.pdf}
+        \caption{Title}
+        \label{fig:example_gal}
+    \end{figure}
+    
+    Or it can be used as a standalone plot
+    
+    Parameters
+    ==========
+    source_ID_list: list of int
+        The IDs of the selected sources. IDs are not pythonic; i.e. the first ID is 1.
+
+    sofia_dir_path_list: list of str
+        Full path to the directory where the output of SoFiA saved/generated. Has to end with a slash (/)!
+
+    name_base_list: list of str
+      The `output.filename` variable defined in the SoFiA template .par. Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
+
+    output_name: str
+        The full path to the output dir and the output image name
+
+    beam_correction_list: list of bool, optional
+        If True, the spectra is corrected for the synthesised beam
+
+    color_list: list of colors, optional
+        The list of the contour colors
+
+    b_maj_px_list: list of float, optional
+        The major axis of the beam in pixels
+
+    b_min_px_list: list of float, optional
+        The minor axis of the beam in pixels
+
+    Return
+    ======
+    output_image: file
+        The image created
+    """
+    #Initialise arguments by recursively appending them
+    N_sources = len(source_ID_list)
+    assert len(sofia_dir_path_list) == N_sources, 'More or less sources are given than SoFiA directory paths!'
+
+    b_maj_px_list = initialise_argument_list(N_sources, b_maj_px_list)
+    b_min_px_list = initialise_argument_list(N_sources, b_min_px_list)
+    beam_correction_list = initialise_argument_list(N_sources, beam_correction_list)
+
+    #The name bases might be the same
+    if len(name_base_list) != N_sources:
+        name_base_list = initialise_argument_list(N_sources, name_base_list)
+
+    #Generate random colors if needed
+    for i in range(0,N_sources):
+        if color_list[i] == None:
+            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+
+    flux_list = []
+    velocity_list = []
+
+    for i in range(0,N_sources):
+        flux, velocity = ds.sdiagnostics.get_spectra_array(source_ID_list[i],
+            sofia_dir_path_list[i], name_base_list[i], 
+            v_frame='optical', beam_correction=beam_correction_list[i],
+            b_maj_px=b_maj_px_list[i], b_min_px=b_min_px_list[i])
+    
+        flux_list.append(flux)
+        velocity_list.append(velocity)
+
+    #Create the plot
+    mm2in = lambda x: x*0.03937008
+
+    fig = plt.figure(1, figsize=(6,7))
+    ax = fig.add_subplot(111)
+
+    for i in range(0,N_sources):
+        ax.step(velocity_list[i], flux_list[i], lw=2.5, c=color_list[i])    
+
+    ax.tick_params(axis='both', which='major', labelsize=17)
+    
+    ax.set_xlabel(r'Velocity (km s$^{-1}$)', fontsize=20, labelpad=10)
+    ax.set_ylabel('Flux density (mJy)', fontsize=20)
+    #ax.grid()
+
+    #Add inner title
+    t = ds.sdiagnostics.add_inner_title(ax, 'Spectra', loc=1,
+        prop=dict(size=25, color='black'),
+        white_border=False)
+    
+    t.patch.set_ec("none")
+    t.patch.set_alpha(0.5)
+    
+    plt.gcf().set_size_inches(mm2in(282/2),mm2in(154))
+    
+    plt.savefig(output_name,bbox_inches='tight')
+    plt.close()
+
 
 #=== MAIN ===
 if __name__ == "__main__":
-    #pass
-    log.setLevel(logging.INFO)
-    log.addHandler(logging.StreamHandler(sys.stdout))
-
-    #=== momN contour triangle matrix
-    """
-    #2km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
-
-    #Use the column densizty sensitivity of the co-added visibility combination
-    # for all the sensitivity maps
-    mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
-        source_ID = 1,
-        sofia_dir_path = sofia_dir_path_list[0],
-        name_base = 'beam17_all_',
-        b_maj = 30,
-        b_min = 30)
-
-    for mom in [0,1]:
-        log.info('Creating mom{0:d} contour triangle plot for 2km baselie results...'.format(mom))
-    
-        plot_momN_contour_triangle_matrix(moment=mom,
-                source_ID_list=[1, 1, 1, 2],
-                sofia_dir_list = sofia_dir_path_list,
-                name_base_list = ['beam17_all_'],
-                output_name = working_dir + 'validation/mom{0:d}_with_uniform_sensitivity_contours.pdf'.format(mom),
-                N_optical_pixels = 800,
-                contour_levels = [1150, 1200, 1250, 1300, 1350],
-                contour_step = 12,
-                N_steps = 20,
-                color_list = [c0, c2, c1, outlier_color],
-                label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
-                b_maj_list = [30, 30, 30, 30],
-                b_min_list = [30, 30, 30, 30],
-                b_pa_list = [0, 0, 0, 0],
-                col_den_sensitivity_lim_list = [sen_lim])
-
-        log.info('..done')
-
-    #exit()
-    #"""
-
-    #"""
-    #6km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/']))
-
-    #Use the column densizty sensitivity of the co-added visibility combination
-    # for all the sensitivity maps
-    mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
-        source_ID = 1,
-        sofia_dir_path = sofia_dir_path_list[0],
-        name_base = 'beam17_all_',
-        b_maj = 12,
-        b_min = 12)
-
-    for mom in [0,1]:
-        log.info('Creating mom{0:d} contour triangle plot for 6km baselie results...'.format(mom))
-
-        plot_momN_contour_triangle_matrix(moment=mom,
-            source_ID_list=[1, 1, 1],
-            sofia_dir_list = sofia_dir_path_list,
-            name_base_list = ['beam17_all_'],
-            output_name = working_dir + 'validation/mom{0:d}_with_contours.pdf'.format(mom),
-            N_optical_pixels = 800,
-            contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
-            contour_step = 25,
-            N_steps=20,
-            color_list = [c0, c2, c1],
-            label_list=['co-added visibilities', 'stacked grids', 'stacked images'],
-            b_maj_list = [12],
-            b_min_list = [12],
-            b_pa_list = [0])
-
-        log.info('...done')
-
-    exit()
-    #"""
-
-    #"""
-    #=== Flux density-difference -- column density
-    
-    #2km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
-
-    #Use the column densizty sensitivity of the co-added visibility combination
-    # for all the sensitivity maps
-    mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
-        source_ID = 1,
-        sofia_dir_path = sofia_dir_path_list[0],
-        name_base = 'beam17_all_',
-        b_maj = 30,
-        b_min = 30)
-
-
-    ID_list = [1, 1, 1, 2]
-    ident_list = ['V', 'G', 'I', 'C']
-
-    for i in range(0,4):
-        for j in range(0,4):
-            if j>i:
-                diff_ident = '({0:s} - {1:s})'.format(ident_list[i],
-                        ident_list[j])
-
-                log.info('Creating sensitivity diff against column density plots for {}...'.format(
-                    diff_ident))
-
-                for zoom_name, col_den_binwidth, col_den_lim in zip(['high', 'low'], [1., 0.25], [None, (0., 5)]):
-                    plot_flux_density_diff_dependience_on_column_density(source_ID_list=[ID_list[i],ID_list[j]],
-                        sofia_dir_list = [sofia_dir_path_list[i], sofia_dir_path_list[j]],
-                        name_base_list = ['beam17_all_'],
-                        output_fname = working_dir + 'validation/sensitivity_column_density_{0:s}_{1:s}{2:s}_map.pdf'.format(
-                            zoom_name, ident_list[i], ident_list[j]),
-                        N_optical_pixels = 170,
-                        masking_list = [True],
-                        mask_sigma_list = [3.5],
-                        b_maj_list = [30, 30],
-                        b_min_list = [30, 30],
-                        b_pa_list = [0, 0],
-                        ident_string = diff_ident,
-                        col_den_sensitivity_lim_list = [sen_lim],
-                        beam_correction = True,
-                        b_maj_px_list = [5.],
-                        b_min_px_list = [5.],
-                        col_den_binwidth = col_den_binwidth,
-                        diff_binwidth = 0.005,
-                        col_den_lim = col_den_lim)
-
-        
-                log.info('..done')
-
-    exit()
-    #"""
-
-    #"""
-    #6km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/']))
-
-    #Use the column densizty sensitivity of the co-added visibility combination
-    # for all the sensitivity maps
-    mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
-        source_ID = 1,
-        sofia_dir_path = sofia_dir_path_list[0],
-        name_base = 'beam17_all_',
-        b_maj = 12,
-        b_min = 12)
-
-
-    ID_list = [1, 1, 1]
-    ident_list = ['V', 'G', 'I']
-
-    for i in range(0,3):
-        for j in range(0,3):
-            if j>i:
-                diff_ident = '({0:s} - {1:s})'.format(ident_list[i],
-                        ident_list[j])
-
-                log.info('Creating sensitivity diff against column density plots for {}...'.format(
-                    diff_ident))
-
-                for zoom_name, col_den_binwidth, col_den_lim in zip(['high', 'low'], [1., 0.25], [None, (0., 5)]):
-                    plot_flux_density_diff_dependience_on_column_density(source_ID_list=[ID_list[i],ID_list[j]],
-                        sofia_dir_list = [sofia_dir_path_list[i], sofia_dir_path_list[j]],
-                        name_base_list = ['beam17_all_'],
-                        output_fname = working_dir + 'validation/sensitivity_column_density_{0:s}_{1:s}{2:s}_map.pdf'.format(
-                            zoom_name, ident_list[i], ident_list[j]),
-                        N_optical_pixels = 450,
-                        masking_list = [True],
-                        mask_sigma_list = [3.5],
-                        b_maj_list = [12],
-                        b_min_list = [12],
-                        b_pa_list = [0],
-                        ident_string = diff_ident,
-                        col_den_sensitivity_lim_list = [sen_lim],
-                        beam_correction = True,
-                        b_maj_px_list = [6.],
-                        b_min_px_list = [6.],
-                        col_den_binwidth = col_den_binwidth,
-                        diff_binwidth = 0.005,
-                        col_den_lim = col_den_lim)
-
-        
-                log.info('..done')
-
-    exit()
-    #"""
-
-    #"""
-    #=== mom0 contour triangle matrix
-
-    #2km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
-
-    log.info('Creating mom0 contour triangle plot for 2km baselie results...')
-    
-    #Use the column densizty sensitivity of the co-added visibility combination
-    # for all the sensitivity maps
-    mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
-        source_ID = 1,
-        sofia_dir_path = sofia_dir_path_list[0],
-        name_base = 'beam17_all_',
-        b_maj = 30,
-        b_min = 30)
-
-    plot_momN_contour_triangle_matrix(moment=0,
-            source_ID_list=[1, 1, 1, 2],
-            sofia_dir_list = sofia_dir_path_list,
-            name_base_list = ['beam17_all_'],
-            output_name = working_dir + 'validation/mom0_with_uniform_sensitivity_contours.pdf',
-            N_optical_pixels = 800,
-            contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
-            color_list = [c0, c2, c1, outlier_color],
-            label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
-            b_maj_list = [30, 30, 30, 30],
-            b_min_list = [30, 30, 30, 30],
-            b_pa_list = [0, 0, 0, 0],
-            col_den_sensitivity_lim_list = [sen_lim])
-
-    log.info('..done')
-
-    exit()
-    #"""
-
-    #"""
-    #=== momN triangle matrices
-
-    #2km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
-
-
-    for mom in range(0,3):
-        log.info('Creating mom{0:d} contour triangle plot for 2km baselie results...'.format(mom))
-
-
-        plot_momN_triangle_matrix(moment = mom,
-                source_ID_list=[1, 1, 1, 2],
-                sofia_dir_list = sofia_dir_path_list,
-                name_base_list = ['beam17_all_'],
-                output_name = working_dir + 'validation/mom{0:d}_map.pdf'.format(mom),
-                N_optical_pixels = 170,
-                masking_list = [True],
-                mask_sigma_list = [3.0],
-                color_list = [c0, c2, c1, outlier_color],
-                label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
-                ident_list = ['V', 'G', 'I', 'C'],
-                b_maj_list = [30, 30, 30, 30],
-                b_min_list = [30, 30, 30, 30],
-                b_pa_list = [0, 0, 0, 0])
-
-        
-        log.info('..done')
-
-
-        #Also create the sensitivity map
-        if mom == 0:
-            log.info('Creating the sensitivity triangle plot...')
-
-
-            #Use the column densizty sensitivity of the co-added visibility combination
-            # for all the sensitivity maps
-            mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
-                source_ID = 1,
-                sofia_dir_path = sofia_dir_path_list[0],
-                name_base = 'beam17_all_',
-                b_maj = 30,
-                b_min = 30)
-
-
-            plot_momN_triangle_matrix(moment = mom,
-                source_ID_list=[1, 1, 1, 2],
-                sofia_dir_list = sofia_dir_path_list,
-                name_base_list = ['beam17_all_'],
-                output_name = working_dir + 'validation/sensitivity_map.pdf'.format(mom),
-                N_optical_pixels = 170,
-                masking_list = [True],
-                mask_sigma_list = [3.0],
-                color_list = [c0, c2, c1, outlier_color],
-                label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
-                ident_list = ['V', 'G', 'I', 'C'],
-                b_maj_list = [30, 30, 30, 30],
-                b_min_list = [30, 30, 30, 30],
-                b_pa_list = [0, 0, 0, 0],
-                col_den_sensitivity_lim_list = [sen_lim, sen_lim, sen_lim, sen_lim],
-                sensitivity = True)
-        
-            log.info('...done')
-
-            #exit()
-
-    exit()
-    #"""
-    
-    #"""
-    #6km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/']))
-
-
-    for mom in range(0,3):
-        log.info('Creating mom{0:d} contour triangle plot for 6km baselie results...'.format(mom))
-
-        plot_momN_triangle_matrix(moment = mom,
-                source_ID_list=[1, 1, 1],
-                sofia_dir_list = sofia_dir_path_list,
-                name_base_list = ['beam17_all_'],
-                output_name = working_dir + 'validation/mom{0:d}_map.pdf'.format(mom),
-                N_optical_pixels = 400,
-                masking_list = [True],
-                mask_sigma_list = [3.],
-                color_list = [c0, c2, c1],
-                label_list = ['co-added visibilities', 'stacked grids', 'stacked images'],
-                ident_list = ['V', 'G', 'I'],
-                b_maj_list = [12, 12, 12],
-                b_min_list = [12, 12, 12],
-                b_pa_list = [0, 0, 0])
-
-        log.info('..done')
-        
-        #Also create the sensitivity map
-        if mom == 0:
-            log.info('Creating the sensitivity triangle plot...')
-
-
-            #Use the column densizty sensitivity of the co-added visibility combination
-            # for all the sensitivity maps
-            mmap, mmap_wcs, sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
-                source_ID = 1,
-                sofia_dir_path = sofia_dir_path_list[0],
-                name_base = 'beam17_all_',
-                b_maj = 12,
-                b_min = 12)
-
-
-            plot_momN_triangle_matrix(moment = mom,
-                source_ID_list=[1, 1, 1],
-                sofia_dir_list = sofia_dir_path_list,
-                name_base_list = ['beam17_all_'],
-                output_name = working_dir + 'validation/sensitivity_map.pdf'.format(mom),
-                N_optical_pixels = 400,
-                masking_list = [True],
-                mask_sigma_list = [3.0],
-                color_list = [c0, c2, c1, outlier_color],
-                label_list = ['co-added visibilities', 'stacked grids', 'stacked images'],
-                ident_list = ['V', 'G', 'I'],
-                b_maj_list = [12, 12, 12],
-                b_min_list = [12, 12, 12],
-                b_pa_list = [0, 0, 0],
-                col_den_sensitivity_lim_list = [sen_lim],
-                sensitivity = True)
-        
-            log.info('...done')
-
-
-    exit()
-    #"""
- 
-    #"""
-    #=== Spectra triangle matrix
-
-    #2km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
-
-    log.info('Creating spectra triangle plot for 2km baselie results...')
-
-
-    plot_spectra_triangle_matrix(source_ID_list = [1, 1, 1, 2],
-            sofia_dir_list = sofia_dir_path_list,
-            name_base_list = ['beam17_all_'],
-            output_name = working_dir + 'validation/spectras.pdf',
-            beam_correction_list = [True, True, True, False],
-            b_maj_px_list = [5.0],
-            b_min_px_list = [5.0],
-            color_list = [c0, c2, c1, outlier_color],
-            label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
-            ident_list = ['V', 'G', 'I', 'C'])
-
-    log.info('...done')
-
-    exit()
-    #"""
-
-    #6km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/']))
-
-    log.info('Creating spectra triangle plot for 6km baselie results...')
-
-    plot_spectra_triangle_matrix(source_ID_list = [1, 1, 1],
-            sofia_dir_list = sofia_dir_path_list,
-            name_base_list = ['beam17_all_'],
-            output_name = working_dir + 'validation/spectras.pdf',
-            beam_correction_list = [True, True, True],
-            b_maj_px_list = [6.0],
-            b_min_px_list = [6.0],
-            color_list = [c0, c2, c1],
-            label_list = ['co-added visibilities', 'stacked grids', 'stacked images'],
-            ident_list = ['V', 'G', 'I'])
-
-    log.info('...done')
-
-    exit()
-
-    #"""
-    #2km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
-
-    log.info('Creating mom0 contour triangle plot for 2km baselie results...')
-
-    plot_mom0_contour_triangle_matrix(source_ID_list=[1, 1, 1, 2],
-            sofia_dir_list = sofia_dir_path_list,
-            name_base_list = ['beam17_all_'],
-            output_name = working_dir + 'validation/mom0_with_contours.pdf',
-            N_optical_pixels = 800,
-            contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
-            color_list = [c0, c2, c1, outlier_color],
-            label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
-            b_maj_list = [30, 30, 30, 30],
-            b_min_list = [30, 30, 30, 30],
-            b_pa_list = [0, 0, 0, 0])
-
-    log.info('..done')
-
-    exit()
-    #"""
-
-    #"""
-    #6km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/']))
-
-    log.info('Creating mom0 contour triangle plot for 6km baselie results...')
-
-    plot_mom0_contour_triangle_matrix(source_ID_list=[1, 1, 1],
-            sofia_dir_list = sofia_dir_path_list,
-            name_base_list = ['beam17_all_'],
-            output_name = working_dir + 'validation/mom0_with_contours.pdf',
-            N_optical_pixels = 800,
-            contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
-            color_list = [c0, c2, c1],
-            label_list=['co-added visibilities', 'stacked grids', 'stacked images'])
-
-    log.info('...done')
-
-
-    exit()
-    #"""
-
-    #"""
-    #Chiles example SoFiA analysis
-    ds.sdiagnostics.create_complementary_figures_to_sofia_output(
-        sofia_dir_path = '/home/krozgonyi/Desktop/chiles_example/runSoFiA/',
-        name_base = 'chiles_example_',
-        N_optical_pixels = 100,
-        masking = True,
-        mask_sigma = 3,
-        contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
-        b_maj = 7,
-        b_min = 5,
-        b_pa = -45,
-        beam_correction = True, 
-        b_maj_px = 4, 
-        b_min_px = 4,
-        v_frame = 'optical')
-
-    exit()
-    #"""
-
-
-    #"""
-    #=== DINGO pilot beam17 example analysis
-
-    #2km baselines
-    stacking_method_sofia_output_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_grids/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/stacked_images/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/co_added_visibilities/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/conventional_imaging/']
-
-    for stacking_sofia_output in stacking_method_sofia_output_list:
-        ds.sdiagnostics.create_complementary_figures_to_sofia_output(
-            sofia_dir_path = stacking_sofia_output,
-            name_base = 'beam17_all_',
-            N_optical_pixels = 900,
-            masking = True,
-            mask_sigma = 3,
-            contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
-            b_maj = 30,
-            b_min = 30,
-            b_pa = 0,
-            beam_correction = True, 
-            b_maj_px = 5, 
-            b_min_px = 5,
-            v_frame = 'optical')
-
-    #6 km baselines
-    high_res_stacking_method_sofia_output_list = ['/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/stacked_grids/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/stacked_images/',
-        '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/high_resolution/co_added_visibilities/']
-
-    for stacking_sofia_output in high_res_stacking_method_sofia_output_list:
-        ds.sdiagnostics.create_complementary_figures_to_sofia_output(
-            sofia_dir_path = stacking_sofia_output,
-            name_base = 'beam17_all_',
-            N_optical_pixels = 900,
-            masking = True,
-            mask_sigma = 3,
-            contour_levels = [1.6, 2.7, 5.3, 8, 13, 21],
-            b_maj = 12,
-            b_min = 12,
-            b_pa = 0,
-            beam_correction = True, 
-            b_maj_px = 6, 
-            b_min_px = 6,
-            v_frame = 'optical')
-
-    exit()
-    #"""
-
-    #"""
-    #=== mom0 (saturated) triangle matrices
-
-    #2km baselines
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_sofia_outputs/'
-
-    sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/', 'conventional_imaging/']))
-
-
-    log.info('Creating mom0 saturated triangle plot for 2km baselie results...')
-
-    plot_momN_triangle_matrix(moment = 0,
-            source_ID_list=[1, 1, 1, 2],
-            sofia_dir_list = sofia_dir_path_list,
-            name_base_list = ['beam17_all_'],
-            output_name = working_dir + 'validation/mom0_saturated_map.pdf',
-            N_optical_pixels = 170,
-            masking_list = [True],
-            mask_sigma_list = [3.0],
-            color_list = [c0, c2, c1, outlier_color],
-            label_list = ['co-added visibilities', 'stacked grids', 'stacked images', 'conventional imaging'],
-            ident_list = ['V', 'G', 'I', 'C'],
-            b_maj_list = [30],
-            b_min_list = [30],
-            b_pa_list = [0])
-
-    
-    log.info('..done')
-
-    exit()
-    #"""
- 
-
+    pass
