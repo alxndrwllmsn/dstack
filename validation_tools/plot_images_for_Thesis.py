@@ -15,7 +15,7 @@ results) as well. The following images can be generated:
     - [x] mom1 triangle plot with the mom0 contours and cut
     - [x] measured column density diff -- dynamic range plots for all comparisons
     - [x] measured column density diff -- RA/Dec values plots for all comparisons
-    - [] N_px -- log(N_HI) histogram for all deep imaging method
+    - [x] N_px -- log(N_HI) histogram for all deep imaging method
 
     3Dbarolo output:
 
@@ -201,28 +201,47 @@ def plot_column_density_histogram(source_ID,
         freq, z = ds.sdiagnostics.get_freq_and_redshift_from_catalog(catalog_path,
                         source_index)
 
-        print(z)
-
-        #Get the pixel size in pc
+        #Get the pixel size in pc => we actually dont need this
+        #"""
         #see: https://stackoverflow.com/questions/56279723/how-to-convert-arcsec-to-mpc-using-python-astropy
-        cosmo = FlatLambdaCDM(H0=67.8, Om0=0.308) 
+        cosmo = FlatLambdaCDM(H0=67.7, Om0=0.307) 
 
         #TO DO: Check the cosmology parameters!!!
         # and add them as optional parameters to the function!
 
         d_A = cosmo.angular_diameter_distance(z=z) # in [Mpc] !!
-        print(d_A)
 
         theta = pixelsize*u.arcsec 
 
         distance_Mpc = (theta * d_A).to(u.Mpc, u.dimensionless_angles())
 
-        print(distance_Mpc)
-
         px_dist_in_pc = distance_Mpc.to(u.pc).value
-
+        
         print(px_dist_in_pc)
+        #"""
 
+        #Now convert the cm^2 to pc^2
+        # 1pc^2 equals (3.0857)^2 times 10^36
+
+        area_conv_factor = np.power((3.0857), 2)
+
+        #Convert the mass from number of HI atoms to solar masses
+        # The number of HI atoms is given in 10^20 atoms unit
+        # 1 M solar is 1.98847 times 10^30 kg
+        # and one HI in kg is the HI isotope mass times the atomic mass (inverted)
+        # (1.007825 * 1.660539) times 10^-27 kg
+        # That is,  under a 1cm^2 area 1 M solar is given by
+        # (1.98847 * (1.007825 * 1.660539)) times 10^57 HI atoms
+        #
+
+        mass_conversion_factor = 0.1 * (1.98847 * (1.007825 * 1.660539))
+
+        #Conversion
+        c_factor = mass_conversion_factor / area_conv_factor
+
+        col_den_array = np.multiply(col_den_array, c_factor)
+
+        #TO DO check this step!
 
     #Correction for inclination
     inc_corr = np.cos((np.pi * (inclination / 180)))
@@ -234,18 +253,24 @@ def plot_column_density_histogram(source_ID,
     ax = fig.add_subplot(111)
 
     #Get the histogram
-    ax.hist(col_den_array,
-        bins=np.logspace(np.log10(np.amin(col_den_array)),\
-            np.log10(np.amax(col_den_array)), 10),
+    #ax.hist(col_den_array,
+    #    bins=np.logspace(np.log10(np.amin(col_den_array)),\
+    #        np.log10(np.amax(col_den_array)), 50),
+    #    histtype='stepfilled', rwidth=0.8,
+    #    linewidth=2, color=c2)
+
+    ax.hist(np.log10(col_den_array),
+        bins=np.linspace(np.amin(np.log10(col_den_array)),\
+            np.amax(np.log10(col_den_array)), 25),
         histtype='stepfilled', rwidth=0.8,
         linewidth=2, color=c2)
-    
-    ax.set_xscale("log")
+
+    #ax.set_xscale("log")
     
     ax.set_ylabel(r'N [pixel]', fontsize=18)
 
     if conver_from_NHI:
-        ax.set_xlabel(r'N$_{HI}$ [M$_\odot$/pc$^2$]', fontsize=18)
+        ax.set_xlabel(r'log$\Sigma_{HI}$ [M$_\odot$/pc$^2$]', fontsize=18)
     else:
         ax.set_xlabel(r'N$_{HI}$ [10$^{20}$/cm$^2$]', fontsize=18)
 
@@ -491,7 +516,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_pa = b_pa_list[0],
                 col_den_sensitivity_lim = None,
                 conver_from_NHI=True,
-                pixelsize=5.,
+                pixelsize=30.,
                 inclination=70)
 
         if simple_grid_mom_contour_plots:
