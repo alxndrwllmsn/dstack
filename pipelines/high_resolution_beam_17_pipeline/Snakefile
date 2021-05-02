@@ -293,7 +293,7 @@ rule deep_imaging:
         yanda_logfile = 'logfile_cdeconvolver_{image_names}.log',
         parset_name = 'cdeconvolver_{image_names}.in'
     resources:
-        walltime=2000,
+        walltime=2400,
         mem_mb=120000,
         ntasks=N_TASKS
     shell:

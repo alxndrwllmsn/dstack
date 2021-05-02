@@ -202,7 +202,7 @@ def plot_column_density_histogram(source_ID,
                         source_index)
 
         #Get the pixel size in pc => we actually dont need this
-        #"""
+        """
         #see: https://stackoverflow.com/questions/56279723/how-to-convert-arcsec-to-mpc-using-python-astropy
         cosmo = FlatLambdaCDM(H0=67.7, Om0=0.307) 
 
@@ -224,6 +224,7 @@ def plot_column_density_histogram(source_ID,
         # 1pc^2 equals (3.0857)^2 times 10^36
 
         area_conv_factor = np.power((3.0857), 2)
+        #area_conv_factor = np.power((3.), 2)
 
         #Convert the mass from number of HI atoms to solar masses
         # The number of HI atoms is given in 10^20 atoms unit
@@ -235,9 +236,11 @@ def plot_column_density_histogram(source_ID,
         #
 
         mass_conversion_factor = 0.1 * (1.98847 * (1.007825 * 1.660539))
+        #mass_conversion_factor = 0.1 * (2. * (1. * 1.7))
 
         #Conversion
-        c_factor = mass_conversion_factor / area_conv_factor
+        c_factor = mass_conversion_factor * area_conv_factor
+        #c_factor = mass_conversion_factor
 
         col_den_array = np.multiply(col_den_array, c_factor)
 
@@ -248,24 +251,44 @@ def plot_column_density_histogram(source_ID,
 
     col_den_array = np.multiply(col_den_array, inc_corr)
 
+    #col_den_array[col_den_array == 0] = None
+
+    import copy
+
+    col_den_array = copy.deepcopy(np.ma.compressed(col_den_array))
+
+    print(np.size(col_den_array))
+
+    unique, counts = np.unique(col_den_array, return_counts=True)
+    #unique, counts = np.unique(np.log10(col_den_array), return_counts=True)
+
+    #print(np.sort(np.array(counts).flatten())[-10:-1])
+
+    result = np.column_stack((unique, counts)) 
+    print (result)
+
     #=== Create the plot ===
     fig = plt.figure(1, figsize=(8,5))
     ax = fig.add_subplot(111)
 
     #Get the histogram
-    #ax.hist(col_den_array,
-    #    bins=np.logspace(np.log10(np.amin(col_den_array)),\
-    #        np.log10(np.amax(col_den_array)), 50),
-    #    histtype='stepfilled', rwidth=0.8,
-    #    linewidth=2, color=c2)
+    if not conver_from_NHI:
+        ax.hist(col_den_array,
+            bins=np.logspace(np.log10(np.amin(col_den_array)),\
+                np.log10(np.amax(col_den_array)), 100),
+            histtype='stepfilled', rwidth=0.8,
+            linewidth=2, color=c2)
 
-    ax.hist(np.log10(col_den_array),
-        bins=np.linspace(np.amin(np.log10(col_den_array)),\
-            np.amax(np.log10(col_den_array)), 25),
-        histtype='stepfilled', rwidth=0.8,
-        linewidth=2, color=c2)
+        ax.set_xscale("log")
 
-    #ax.set_xscale("log")
+    else:
+        ax.hist(np.log10(col_den_array),
+            bins=np.linspace(np.amin(np.log10(col_den_array)),\
+                np.amax(np.log10(col_den_array)), 100),
+            histtype='stepfilled', rwidth=0.8,
+            linewidth=2, color=c2)
+
+        #ax.set_yscale("log")
     
     ax.set_ylabel(r'N [pixel]', fontsize=18)
 
@@ -511,6 +534,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 output_fname = output_dir + 'col_den_hist.pdf',
                 masking = masking_list[0],
                 mask_sigma = mask_sigma_list[0],
+                #mask_sigma = 1,
                 b_maj = b_maj_list[0],
                 b_min = b_maj_list[0],
                 b_pa = b_pa_list[0],
