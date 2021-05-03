@@ -618,8 +618,6 @@ If not given, the centre coordinates of the image are used.',
     if args.window == False:
         args.window_halfsize = None
 
-    print(args)
-
     if args.window_centre != None:
         args.window_centre = argflatten(args.window_centre)
 
@@ -642,7 +640,6 @@ If not given, the centre coordinates of the image are used.',
         spectral_array, spectral_dim = ds.cim.get_CIM_spectral_axis_array(
             cimpath = cim,
             chan=args.channel_min, chan_max=args.channel_max, close=False)
-
 
     #Get the RMS array
     rms_array, rms_dim = ds.cim.measure_CIM_RMS(cimpath = cim,

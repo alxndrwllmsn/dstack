@@ -407,7 +407,8 @@ def get_freq_and_redshift_from_catalog(catalog_path, source_index, rest_frame='f
         Measured redshift
     """
 
-    assert rest_frame == 'frequency', 'Currently only the frequency rest frame supported!'
+    if rest_frame != 'frequency':
+        raise ValueError('Currently only the frequency rest frame supported!')
   
     catalog = parse_single_table(catalog_path).to_table(use_names_over_ids=True)
 
@@ -447,7 +448,8 @@ def get_RMS_from_catalog(catalog_path, source_index, rest_frame='frequency'):
     rms: float
         Measured RMS
     """
-    assert rest_frame == 'frequency', 'Currently only the frequency rest frame supported!'
+    if rest_frame != 'frequency':
+        raise ValueError('Currently only the frequency rest frame supported!')
   
     catalog = parse_single_table(catalog_path).to_table(use_names_over_ids=True)
 
@@ -868,7 +870,6 @@ def get_momN_ndarray(moment,
     if masking:
         col_den_mask = (col_den_map <= col_den_sen_lim * mask_sigma)
 
-
     #If the column density sensitivity maps are required
     if sensitivity:
         if masking:
@@ -881,7 +882,8 @@ def get_momN_ndarray(moment,
     if flux_density:
         #This is actually some integrated flux density
         #Get moment0 (column density) map sensitivity and wcs 
-        flux_den_map = copy.deepcopy(col_den_map)
+        #flux_den_map = copy.deepcopy(col_den_map)  #This line was a bug
+        flux_den_map = copy.deepcopy(mom0_map)
 
         if beam_correction:
             flux_den_map = np.divide(flux_den_map, (np.pi * b_maj_px * b_min_px / (4 * np.log(2))))

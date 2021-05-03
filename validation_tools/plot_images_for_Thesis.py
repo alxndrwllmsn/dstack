@@ -6,8 +6,8 @@ results) as well. The following images can be generated:
     
     SoFiA outout:
 
-    - [] RMS -- channel plot for all methods from the dirty maps
-    - [] RMS -- channel plot for all methods from the residual maps
+    - [x] RMS -- channel plot for all methods from the dirty maps
+    - [x] RMS -- channel plot for all methods from the residual maps
     - [x] nice mom0 and mom1 maps with column density contours (only grid stacking)
     - [x] nice spectra plot (only grid stacking)
     - [x] spectras triangle plot
@@ -100,6 +100,105 @@ warnings.filterwarnings('ignore', category=Warning, append=True)
 #=== Functions ===
 #=================
 
+def plot_RMS(rmsfile_list,
+            output_fname,
+            label_list=['?'],
+            color_list=[None],
+            rest_frame='optical',
+            ptitle=None):
+    """Create a plot of RMS -- channel from a list of output .dat files created
+    by cimRMS.
+
+    Parameters
+    ==========
+    rmsfile_list: list of str
+        The list containing the files created by cimRMS
+
+    output_fname: str
+        Name and full path of the images created.
+
+    label list, list of strings, optional
+        A string for each RMS output, that is displayed as a legend on the plot
+
+    color_list: list of strings, optional
+        The color for each RMS output on the plot
+
+    rest_frame: str, optional
+        The rest frame in whic the x axis is displayed valid are optical and
+        frequency. The latter is expect to be provided in [Hz] and the code
+        automatically converts it to [GHz]
+
+    Return
+    ======
+    output_image: file
+        The image created
+
+    """
+    if rest_frame not in ['optical', 'frequency']:
+        raise ValueError('Invalid rest frame for spectral axis is given! \
+Only optical and frequency are supported.')
+
+    N_sources = len(rmsfile_list)
+
+    label_list = svalidation.initialise_argument_list(N_sources, label_list)
+
+    #Generate random colors if needed
+    color_list = svalidation.initialise_argument_list(N_sources, color_list)
+    for i in range(0,N_sources):
+        if color_list[i] == None:
+            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+
+    #Create plot
+    fig = plt.figure(1, figsize=(8,5))
+    ax = fig.add_subplot(111)
+
+    if ptitle is not None:
+        plt.title('{0:s}'.format(ptitle), fontsize=21, loc='left')
+
+    lines = []
+
+    for i in range(0,N_sources):
+        freq, rms = np.genfromtxt(rmsfile_list[i], skip_header=4, delimiter=',',
+                    usecols=(0,1), unpack=True)
+
+        #Convert RMS from Jy/beam to mJy/beam
+        rms = np.multiply(rms,1000)
+
+        if rest_frame == 'frequency':
+            #Convert frequency from Hz to GHz
+            freq = np.multiply(freq,1e-9)
+
+        else:
+            #Convert frequncy from Hz to km/s
+            freq = np.array([ds.sdiagnostics.get_velocity_from_freq(i) for i in freq])
+
+
+        lines.append(plt.step(freq, rms, color=color_list[i], lw=2.5, alpha=0.8,
+            label='{0:s}'.format(label_list[i]))[0])
+
+        #print(lines[0][0].get_label())
+        #print(type(lines[0][0]))
+
+    if rest_frame == 'optical':
+        ax.set_xlabel(r'V$_{opt}$ [km/s]', fontsize=18)
+    else:
+        ax.set_xlabel(r'$\nu$ [GHz]', fontsize=18)
+
+    ax.set_ylabel(r'RMS [mJy/beam]', fontsize=18)
+
+    labels = [l.get_label() for l in lines]
+    
+    legend0 = ax.legend(lines, labels, loc='center right',
+        bbox_to_anchor= (1.05, 1.0), ncol=2, borderaxespad=0, frameon=True,
+        fontsize=16, framealpha=1, fancybox=True, labelspacing=0.1,
+        handletextpad=0.3, handlelength=1., columnspacing=0.5)
+
+    legend0.get_frame().set_linewidth(2);
+    legend0.get_frame().set_edgecolor('black');
+
+    plt.savefig(output_fname,bbox_inches='tight')
+    plt.close()
+
 def plot_column_density_histogram(source_ID,
     sofia_dir,
     name_base,
@@ -109,6 +208,7 @@ def plot_column_density_histogram(source_ID,
     b_maj=30.,
     b_min=30.,
     b_pa=0.,
+    color='black',
     col_den_sensitivity_lim=None,
     conver_from_NHI=True,
     pixelsize=5.,
@@ -148,6 +248,9 @@ def plot_column_density_histogram(source_ID,
     b_pa: float, optional
         The position angle of the synthesised beam.
 
+    color: str, optional
+        The color of the histogram
+
     col_den_sensitivity_lim: float, optional
         The column density sensitivity for each SoFiA output provided by
         the user, rather than using the by default value computed from the SoFiA RMS value.
@@ -186,7 +289,6 @@ def plot_column_density_histogram(source_ID,
                             b_maj = b_maj,
                             b_min = b_min,
                             col_den_sensitivity = col_den_sensitivity_lim)
-
 
     #Flatten the array and perform unit conversion if needed
     col_den_array = mom_map.flatten()
@@ -246,18 +348,18 @@ def plot_column_density_histogram(source_ID,
 
         #TO DO check this step!
 
-    #Correction for inclination
-    inc_corr = np.cos((np.pi * (inclination / 180)))
+        #Correction for inclination
+        inc_corr = np.cos((np.pi * (inclination / 180)))
 
-    col_den_array = np.multiply(col_den_array, inc_corr)
+        col_den_array = np.multiply(col_den_array, inc_corr)
 
-    #col_den_array[col_den_array == 0] = None
+        #col_den_array[col_den_array == 0] = None
+
+        #col_den_array = np.multiply(col_den_array,0.55)
 
     import copy
 
     col_den_array = copy.deepcopy(np.ma.compressed(col_den_array))
-
-    print(np.size(col_den_array))
 
     unique, counts = np.unique(col_den_array, return_counts=True)
     #unique, counts = np.unique(np.log10(col_den_array), return_counts=True)
@@ -265,7 +367,8 @@ def plot_column_density_histogram(source_ID,
     #print(np.sort(np.array(counts).flatten())[-10:-1])
 
     result = np.column_stack((unique, counts)) 
-    print (result)
+
+    print(np.amax(col_den_array))
 
     #=== Create the plot ===
     fig = plt.figure(1, figsize=(8,5))
@@ -277,7 +380,7 @@ def plot_column_density_histogram(source_ID,
             bins=np.logspace(np.log10(np.amin(col_den_array)),\
                 np.log10(np.amax(col_den_array)), 100),
             histtype='stepfilled', rwidth=0.8,
-            linewidth=2, color=c2)
+            linewidth=2, color=color)
 
         ax.set_xscale("log")
 
@@ -286,7 +389,7 @@ def plot_column_density_histogram(source_ID,
             bins=np.linspace(np.amin(np.log10(col_den_array)),\
                 np.amax(np.log10(col_den_array)), 100),
             histtype='stepfilled', rwidth=0.8,
-            linewidth=2, color=c2)
+            linewidth=2, color=color)
 
         #ax.set_yscale("log")
     
@@ -321,10 +424,14 @@ if __name__ == "__main__":
     kinematics = False
 
     #Decide on individual figures to make
-    col_density_histogram = True
+    rms_plot = False
+
+    col_density_histogram = False
 
     simple_grid_mom_contour_plots = False
     simple_grid_spectrum_plot = False
+
+    simple_grid_and_hipass_spectrum_plot = False
 
     simple_grid_and_image_mom_contour_plots = False
     simple_grid_and_image_spectrum_plot = False
@@ -361,6 +468,17 @@ if __name__ == "__main__":
                     'co_added_visibilities/', 'stacked_grids/', 'stacked_images/',
                     'conventional_imaging/']))
 
+                rms_dir = working_dir + 'measured_RMS/'
+
+                rms_file_list = list(map(rms_dir.__add__,[
+                    'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
+                    'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
+
+                rms_colors = ['black', c0, c2, c1]
+                rms_labels = ['B', 'V', 'G', 'I']
+                rms_ptitle = 'Wiener-filtering and deconvolution'
+                rms_outlabel = 'filtering'
+
                 #Define source and imaging parameters
 
                 #NOTE when only one element is given the imaging code automatically appends
@@ -387,6 +505,16 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 sofia_dir_path_list = list(map(working_dir.__add__,[
                     'co_added_visibilities/', 'stacked_grids/', 'stacked_images/']))
 
+                rms_dir = working_dir + 'measured_RMS/'
+
+                rms_file_list = list(map(rms_dir.__add__,[
+                    'co_added_visibilities_rms.dat',
+                    'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
+
+                rms_colors = [c0, c2, c1]
+                rms_labels = ['V', 'G', 'I']
+                rms_ptitle = 'no Wiener-filtering'
+
                 #Define source and imaging parameters
 
                 #NOTE when only one element is given the imaging code automatically appends
@@ -397,6 +525,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 color_list = [c0, c2, c1]
                 label_list = ['visibilities', 'stacked grids', 'stacked images']
                 ident_list = ['V', 'G', 'I']
+                rms_outlabel = 'no_filtering'
             
             #=== Set common parameters for 2km 
             #List parameters
@@ -527,7 +656,22 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
     #===========================================================================
     #=== Imaging ===
     if not kinematics:
+        if rms_plot:
+            log.info('Creating RMS -- channel plot...')
+
+
+            plot_RMS(rmsfile_list = rms_file_list,
+                output_fname = output_dir + 'rms_{0:s}.pdf'.format(rms_outlabel),
+                label_list = rms_labels,
+                color_list = rms_colors,
+                rest_frame = 'optical',
+                ptitle = rms_ptitle)
+
+            log.info('...done')
+
         if col_density_histogram:
+            log.info('Creating column density histograms...')
+
             plot_column_density_histogram(source_ID = source_ID_list[grid_plot_ID],
                 sofia_dir = sofia_dir_path_list[grid_plot_ID],
                 name_base = name_base_list[0],
@@ -538,10 +682,13 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_maj = b_maj_list[0],
                 b_min = b_maj_list[0],
                 b_pa = b_pa_list[0],
+                color = color_list[grid_plot_ID],
                 col_den_sensitivity_lim = None,
                 conver_from_NHI=True,
                 pixelsize=30.,
                 inclination=70)
+
+            log.info('...done')
 
         if simple_grid_mom_contour_plots:
             log.info('Creating single mom0 and mom1 contour maps...')
@@ -584,6 +731,25 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 color_list = [color_list[grid_plot_ID]],
                 b_maj_px_list = [b_maj_px_list[0]],
                 b_min_px_list = [b_min_px_list[0]])
+
+            log.info('...done')
+
+        if simple_grid_and_hipass_spectrum_plot:
+            log.info('Create single spectra plot including HIPASS spectra...')
+
+            output_name = output_dir + 'grid_and_HIPASS_spectra.pdf'
+
+            svalidation.simple_spectra_plot(source_ID_list = [None, source_ID_list[grid_plot_ID]],
+                sofia_dir_path_list = [None, sofia_dir_path_list[grid_plot_ID]],
+                name_base_list = [name_base_list[0]],
+                output_name = output_name,
+                beam_correction_list = [False, True],
+                color_list = ['lightgrey', color_list[grid_plot_ID]],
+                b_maj_px_list = [b_maj_px_list[0]],
+                b_min_px_list = [b_min_px_list[0]],
+                special_flux_list = [
+                '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/2km_baseline_results/NGC7361_hipass_spectra.txt',
+                None])
 
             log.info('...done')
 

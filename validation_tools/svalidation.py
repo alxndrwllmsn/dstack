@@ -1490,15 +1490,18 @@ def plot_spectra_triangle_matrix(source_ID_list,
                     #Plot
                     ax.step(va, diff_array_list[panel_index], c='red', linewidth=2., alpha=0.6)
 
+                    #This needed for the plots
                     ax.fill_between(velocity_list[i],
                         -uncertainty_list[i],
                         +uncertainty_list[i],
-                        color=color_list[i], linewidth=1.5, alpha=0.4)
+                        color=color_list[i], linewidth=1.5,
+                        step="pre", alpha=0.4)
                 
                     ax.fill_between(velocity_list[j],
                         -uncertainty_list[j],
                         +uncertainty_list[j],
-                        color=color_list[j], linewidth=1.5, alpha=0.4)
+                        color=color_list[j], linewidth=1.5,
+                        step="pre", alpha=0.4)
 
                     ax.set_ylim((diff_min,diff_max))
                     
@@ -1524,10 +1527,12 @@ def plot_spectra_triangle_matrix(source_ID_list,
                 axes[i,j].step(velocity_list[i],flux_list[i],
                 c=color_list[i], linewidth=2.5, alpha=0.8)
 
-                axes[i,j].fill_between(velocity_list[i],
-                        np.subtract(flux_list[i],uncertainty_list[i]),
-                        np.add(flux_list[i],uncertainty_list[i]),
-                        color=color_list[i], linewidth=1.5, alpha=0.4)
+                #Looks terrible
+                #axes[i,j].fill_between(velocity_list[i],
+                #        np.subtract(flux_list[i],uncertainty_list[i]),
+                #        np.add(flux_list[i],uncertainty_list[i]),
+                #        color=color_list[i], linewidth=1.5,
+                #        step="pre", alpha=0.4)
 
                 axes[i,j].grid(lw=1.5, alpha=0.5)
                 axes[i,j].tick_params(length=0.) #Remove ticks
@@ -1536,10 +1541,12 @@ def plot_spectra_triangle_matrix(source_ID_list,
                         axes[i,j].step(velocity_list[j], flux_list[j],
                                 c=color_list[j], linewidth=2.5, alpha=0.8)
 
-                        axes[i,j].fill_between(velocity_list[j],
-                        np.subtract(flux_list[j],uncertainty_list[j]),
-                        np.add(flux_list[j],uncertainty_list[j]),
-                        color=color_list[j], linewidth=1.5, alpha=0.4)
+                        #Thos looks terrible
+                        #axes[i,j].fill_between(velocity_list[j],
+                        #np.subtract(flux_list[j],uncertainty_list[j]),
+                        #np.add(flux_list[j],uncertainty_list[j]),
+                        #color=color_list[j], linewidth=1.5,
+                        #step="pre", alpha=0.4)
 
                         axes[i,j].grid(lw=1.5, alpha=0.5)
                         axes[i,j].tick_params(length=0.) #Remove ticks
@@ -1804,7 +1811,8 @@ def simple_spectra_plot(source_ID_list,
     beam_correction_list=[True],
     color_list=[None],
     b_maj_px_list=[5.],
-    b_min_px_list=[5.]):
+    b_min_px_list=[5.],
+    special_flux_list=[None]):
     """Create a simple spectra plot that can be used jointly with the output from
     `simple_moment0_and_moment1_contour_plot` and kind looks well when displayed
     next to each other in LaTeX. For that use the following figure layout for a
@@ -1847,6 +1855,11 @@ def simple_spectra_plot(source_ID_list,
     b_min_px_list: list of float, optional
         The minor axis of the beam in pixels
 
+    special_flux_list: list of int, optional
+        This parameter just added, so I can use one function to include spectra
+        from Parkes within one function. This is specially hard coded for a 
+        particular spectra, so it is really bad coding...
+
     Return
     ======
     output_image: file
@@ -1859,6 +1872,8 @@ def simple_spectra_plot(source_ID_list,
     b_maj_px_list = initialise_argument_list(N_sources, b_maj_px_list)
     b_min_px_list = initialise_argument_list(N_sources, b_min_px_list)
     beam_correction_list = initialise_argument_list(N_sources, beam_correction_list)
+    special_flux_list = initialise_argument_list(N_sources, special_flux_list)
+
 
     #The name bases might be the same
     if len(name_base_list) != N_sources:
@@ -1871,15 +1886,56 @@ def simple_spectra_plot(source_ID_list,
 
     flux_list = []
     velocity_list = []
+    #uncertainty_list = []
 
     for i in range(0,N_sources):
-        flux, velocity = ds.sdiagnostics.get_spectra_array(source_ID_list[i],
-            sofia_dir_path_list[i], name_base_list[i], 
-            v_frame='optical', beam_correction=beam_correction_list[i],
-            b_maj_px=b_maj_px_list[i], b_min_px=b_min_px_list[i])
+        if special_flux_list[i] == None:
+            #flux, velocity, uncertainty = ds.sdiagnostics.get_spectra_array(source_ID_list[i],
+            #    sofia_dir_path_list[i], name_base_list[i], 
+            #    v_frame='optical', beam_correction=beam_correction_list[i],
+            #    b_maj_px=b_maj_px_list[i], b_min_px=b_min_px_list[i],
+            #    uncertainty=True)
     
+            flux, velocity = ds.sdiagnostics.get_spectra_array(source_ID_list[i],
+                sofia_dir_path_list[i], name_base_list[i], 
+                v_frame='optical', beam_correction=beam_correction_list[i],
+                b_maj_px=b_maj_px_list[i], b_min_px=b_min_px_list[i],
+                uncertainty=False)
+
+        else:
+            #Here goes the special spectra
+
+            #Get Omega as 1.13*beam**2/pixel**2
+            Omega_HIPASS =  (1.13 * np.power(15.5,2)) / np.power(4,2)
+            #Omega_HIPASS = np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
+
+            #=== Tristans cube
+            #freq, flux = np.genfromtxt(special_flux_list[i], skip_header=1,
+            #    delimiter='\t', usecols=(0,1), unpack=True)
+
+
+            #freq = freq[174:209]
+            #flux = flux[174:209]
+
+            #uncertainty = np.zeros(np.size(freq))
+
+            HIPPASS_data = np.genfromtxt(special_flux_list[i], skip_header=36)
+
+            velocity = HIPPASS_data[174:209,1]
+            flux = HIPPASS_data[174:209,2]
+
+            #Beam correction ???
+            #flux = np.divide(flux,(np.pi*15.5*15.5/(4*np.log(2))))
+
+            #Convert freq from MHz to optical velocity
+            #velocity = np.array([ds.sdiagnostics.get_velocity_from_freq(i * 1000000) for i in freq])
+
+            #Convert flux from mJy to Jy
+            #flux = np.divide(flux,Omega_HIPASS)
+
         flux_list.append(flux)
         velocity_list.append(velocity)
+        #uncertainty_list.append(uncertainty)
 
     #Create the plot
     mm2in = lambda x: x*0.03937008
@@ -1890,10 +1946,17 @@ def simple_spectra_plot(source_ID_list,
     for i in range(0,N_sources):
         ax.step(velocity_list[i], flux_list[i], lw=2.5, c=color_list[i])    
 
+        #This looks terrible like a blurred line
+        #ax.fill_between(velocity_list[i],
+        #            flux_list[i]-uncertainty_list[i],
+        #            flux_list[i]+uncertainty_list[i],
+        #            color=color_list[i], linewidth=1.5,
+        #            step="pre", alpha=0.4)
+
     ax.tick_params(axis='both', which='major', labelsize=17)
     
-    ax.set_xlabel(r'Velocity (km s$^{-1}$)', fontsize=20, labelpad=10)
-    ax.set_ylabel('Flux density (mJy)', fontsize=20)
+    ax.set_xlabel(r'Velocity [km s$^{-1}$]', fontsize=20, labelpad=10)
+    ax.set_ylabel('Flux density [Jy]', fontsize=20)
     #ax.grid()
 
     #Add inner title

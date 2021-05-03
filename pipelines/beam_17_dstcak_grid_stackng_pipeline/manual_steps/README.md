@@ -4,13 +4,27 @@
 For my Thesis, I had no time to properly implement (and test) several steps which is needed for my analysis and for a full scale data reduction. That is, several remaining steps needs to be completed manually after running the pipleine defined in the parent folder.
 
 These steps are the following:
-	
+
+(0.) Measure the RMS on the nonPB corrected images
+ 	
 1. Run an imaging of the co-added visibilities by using Cotton-Schwaab style deconvolution 
 2. Convert the output images to fits format 
 3. Perform primary beam correction on all deep images
 4. Run SoFiA on all deep images transformed
 
 This folder contains all the specific scripts needed and the commands for execution. The order should be as defined above. The steps are:
+
+__0. Measure RMS:__
+
+For the 2km baseline data I measzre the RMS on the central 8'x8' area equals 1+2*40 px^2 this would not really be affected by the PB correction.
+
+I only use the first 1.5 MHz (76 channels) of the cube, for which we expect to measure only the thermal noise.
+
+The following command is used:
+
+	cimRMS -c /path_to_CASAIMAGE_/ -o rms.dat -ad -cmin 0 -cmax 77 -wh 40
+
+Furthermore, by default the RMS is computed using a robust method. Values above/blow the  +/- 99% percentile cut are not counted towards the RMS. (default settings) 
 
 __I. Baseline imaging:__
 

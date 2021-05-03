@@ -159,13 +159,13 @@ def plot_profile_curves(rot_dir_list,
         are excluded and so this parameter has to be >= 0!
 
     label list, list of strings, optional
-        A string for each 3DBarolo output, that is displayed a s alegend on the plot
+        A string for each 3DBarolo output, that is displayed as a legend on the plot
 
     color_list: list of strings, optional
-        The color for each 3DBarolo output on tha plot
+        The color for each 3DBarolo output on the plot
 
-    Retun
-    =====
+    Return
+    ======
     output_image: file
         The image created
  
