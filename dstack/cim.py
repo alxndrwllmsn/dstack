@@ -250,6 +250,10 @@ reference frequency {3:.2f} of channel {4:d} with channel width of {5:.2f}.'.for
     for i in range(0,window_size):
         spectral_array[i] = spectral_reference_value - ((spectral_reference_pixel - (chan + i)) * spectral_increment)
 
+    if close:
+        log.debug('Closing image: {0:s}'.format(cim.name()))
+        del cim
+
     return spectral_array, spectral_unit
 
 def get_N_pol_from_CIM(cimpath, close=False, required_axes=_DEFAULT_REQUIRED_AXES):
@@ -796,6 +800,8 @@ def measure_CIM_RMS(cimpath,
     cim = ds.cim.create_CIM_object(cimpath)
 
     rms_dim = cim.unit()
+
+    pol = int(pol) #If the input pol is a float... this is a bad bug fix...
 
     if chan_max == None and all_dim == False:
         #Single channel mode but using the same syntax (does not work for last channel I think)

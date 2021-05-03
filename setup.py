@@ -30,6 +30,7 @@ setup(
         'dstacking = dstack.applications:dstacking',
         'dparset = dstack.applications:dparset',
         'cim2fits = dstack.applications:cim2fits',
-        'sdplots = dstack.applications:sdplots']
+        'sdplots = dstack.applications:sdplots',
+        'cimRMS = dstack.applications:cimRMS']
         }
     )

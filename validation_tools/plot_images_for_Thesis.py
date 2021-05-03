@@ -15,7 +15,7 @@ results) as well. The following images can be generated:
     - [x] mom1 triangle plot with the mom0 contours and cut
     - [x] measured column density diff -- dynamic range plots for all comparisons
     - [x] measured column density diff -- RA/Dec values plots for all comparisons
-    - [x] N_px -- log(N_HI) histogram for all deep imaging method
+    - [x?] N_px -- log(N_HI) histogram for all deep imaging method
 
     3Dbarolo output:
 

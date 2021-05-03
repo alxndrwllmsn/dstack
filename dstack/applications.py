@@ -6,11 +6,13 @@ Parameters of the applications (e.g. input file names) are passed
 as arguments.
 """
 
-__all__ = ['dstacking', 'dparset', 'cim2fits', 'sdplots']
+__all__ = ['dstacking', 'dparset', 'cim2fits', 'sdplots', 'cimRMS']
 
 import sys
 import argparse
 import logging
+
+import numpy as np
 
 import dstack as ds
 
@@ -343,7 +345,7 @@ def cim2fits():
         Input CASAImage either fileneam only or full path.
     
     str -o or --output:
-        TOutput .fits file name or full path.
+        Output .fits file name or full path.
 
     Return
     ======
@@ -411,7 +413,7 @@ def sdplots():
     optional -f or --v_frame:
         Str. The velocity frame. Can be 'frequency', 'optical' or 'radio'
     
-    optical -bc or --beam_correction:
+    optional -bc or --beam_correction:
         Boolean. If True, the flux values are corrected for the synthesised beam
 
     optional -jp or --b_maj_px:
@@ -508,6 +510,159 @@ def sdplots():
             beam_correction = args.beam_correction,
             b_maj_px = args.b_maj_px,
             b_min_px = args.b_min_px)
+
+def cimRMS():
+    """Simple application to measure the RMS noise of an image cube along the
+    spectral axis. The code cannot deal with polarised images.
+    
+    It only works on CASA images, but not on .fits files!
+
+    It is a wrapper around `dstcak.cim.measure_CIM_RMS`
+
+    The output is a .dat file with two columns containing the spectral values
+    and the respective measured RMS values.
+
+    Keyword Arguments
+    =================
+    str, -c or --cim_path:
+        Full path to the CASAImage file
+
+    str -o or --output:
+        Output .dat file name or full path.
+
+    optional -ad or --all_dim:
+        Boolean. If True (defalut), the RMS will be computed for all channels if false,
+        only the channels defined will be used
+
+    optional -cmin or --chan_min:
+        Int. Index of the first spectral channel
+
+    optional -cmax or --chan_max:
+        Int. Index of the last spectral channel
+
+    optional -r or --robust:
+        Boolean. If True (default), the RMS will be computed using a robust method
+
+    optional -pc or --percentile_cut
+        The (upper) percentile value which below/above the data is being ignored
+        when computing the robust RMS
+
+    optional -w or --window:
+        Boolean. If true (default) the given window will be used for the RMS calculation
+
+    optional -wh or --window_halfsize
+        Int. The halfsize of the rectengular window used. The size is 1+2*wh
+
+    optional -wc or --window_centre
+        List of ints. The [x,y] coordinates of the window centre. If not given, the centre
+        coordinates of the image are used.
+
+    Return
+    ======
+    output_data_fuiles: multiple files
+        Create the dat files with the channel and RMS columns
+    """
+    parser = argparse.ArgumentParser(description='This is an application to \
+measure the RMS of CASAimages for given channels.')
+
+    #=== Required arguments ===
+    parser.add_argument('-c', '--casaimage_path', 
+                        help='Full path to the CASAImage file',
+                        required=True, action="store", type=str)
+
+    parser.add_argument('-o', '--output',
+                        help='Output .dat file name or full path.',
+                        required=True, action="store", type=str)
+
+    #=== Optional arguments ===
+    parser.add_argument('-ad', '--all_dim',
+                    help='If True (defalut), the RMS will be computed \
+for all channels if false, only the channels defined will be used',
+                    required=False, action="store_false")
+
+    parser.add_argument('-cmin', '--channel_min',
+                    help='Index of the first spectral channel',
+                    required=False, default=0, nargs='?', type=int)
+
+    parser.add_argument('-cmax', '--channel_max',
+                    help='Index of the last spectral channel',
+                    required=False, default=100, nargs='?', type=int)
+
+    parser.add_argument('-r', '--robust',
+                    help='If True (default), the RMS will be \
+computed using a robust method',
+                    required=False, action="store_false")
+
+    parser.add_argument('-pc', '--percentile_cut',
+                    help='The (upper) percentile value which below/above \
+the data is being ignored when computing the robust RMS',
+                    required=False, default=1., nargs='?', type=float)
+
+    parser.add_argument('-w', '--window',
+                    help='If true (default) the given window will be used \
+for the RMS calculation',
+                    required=False, action="store_false")
+
+    parser.add_argument('-wh', '--window_halfsize',
+                    help='The halfsize of the rectengular window used',
+                    required=False, default=100, nargs='?', type=int)
+
+    parser.add_argument('-wc', '--window_centre',
+                    help='The [x,y] coordinates of the window centre. \
+If not given, the centre coordinates of the image are used.',
+                    required=False, action="append", nargs='*', type=int)
+
+    #=== Application MAIN ===
+    args = parser.parse_args()
+
+    if args.window == False:
+        args.window_halfsize = None
+
+    print(args)
+
+    if args.window_centre != None:
+        args.window_centre = argflatten(args.window_centre)
+
+    #Read in the CASAImage only once
+    cim = ds.cim.create_CIM_object(cimpath = args.casaimage_path)
+
+    #Get spectral axis array
+    if args.all_dim == True:
+        spectral_array, spectral_dim = ds.cim.get_CIM_spectral_axis_array(
+            cimpath = cim,
+            chan=None, chan_max=None, close=False)
+
+    else:
+        N_chan = ds.cim.get_N_chan_from_CIM(cimpath = cim,
+                close = False)
+
+        if args.channel_max > N_chan:
+            args.channel_max = N_chan
+
+        spectral_array, spectral_dim = ds.cim.get_CIM_spectral_axis_array(
+            cimpath = cim,
+            chan=args.channel_min, chan_max=args.channel_max, close=False)
+
+
+    #Get the RMS array
+    rms_array, rms_dim = ds.cim.measure_CIM_RMS(cimpath = cim,
+                    all_dim = args.all_dim,
+                    chan = args.channel_min,
+                    chan_max = args.channel_max,
+                    pol = 0,
+                    robust = args.robust,
+                    percentile_cut = args.percentile_cut,
+                    window_halfsize = args.window_halfsize,
+                    window_centre = args.window_centre,
+                    return_dim = True,
+                    close = True)
+
+    np.savetxt(args.output, np.column_stack((spectral_array, rms_array)),
+            fmt='%e', delimiter=',',
+            header='The measured RMS by the cimRMS app from dstack\n\
+Note that the grid stacked RMS units are currently wrong!\n\
+The columns are: spectral axis [{0:s}] , RMS [{1:s}]\n'.format(
+            spectral_dim, rms_dim))
 
 if __name__ == "__main__":
     pass
