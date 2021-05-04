@@ -199,211 +199,6 @@ Only optical and frequency are supported.')
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
 
-def plot_column_density_histogram(source_ID,
-    sofia_dir,
-    name_base,
-    output_fname,
-    masking=True,
-    mask_sigma=3.0,
-    b_maj=30.,
-    b_min=30.,
-    b_pa=0.,
-    color='black',
-    col_den_sensitivity_lim=None,
-    conver_from_NHI=True,
-    pixelsize=5.,
-    inclination=0.):
-    """This is a simple function generating the N pixel, column density histogram
-    for a single given mom0 map.
-
-    Parameters
-    ==========
-
-    source_ID: int
-        The SoFiA ID of the source
-
-    sofia_dir: str
-        The SoFiA directory path
-
-    name_base: list of str
-        The name `output.filename` variable defined in the SoFiA template 
-        .par. Basically the base of all file names in the respective SoFiA dir.
-
-    output_name: str
-        The name and full path to the output triangle plot generated.
-
-    masking: optional
-        If True, the mom0 map will be masked
-
-    mask_sigma: float, optional
-        If the mom0 map is masked, pixels below this threshold will be masked.
-        The values are given in units of column density sensitivity.
-
-    b_maj: float, optional
-        The major axis of the synthesised beam in arcseconds.
-
-    b_min: float, optional
-        The minor axis of the synthesised beam in arcseconds.
-
-    b_pa: float, optional
-        The position angle of the synthesised beam.
-
-    color: str, optional
-        The color of the histogram
-
-    col_den_sensitivity_lim: float, optional
-        The column density sensitivity for each SoFiA output provided by
-        the user, rather than using the by default value computed from the SoFiA RMS value.
-        Given in units of 10^20 HI /cm^2
-    
-    convert_from_NHI: bool, optional
-        If True, the x axis will be converted from N_HI [10^20 1/cm^2] to
-        N_HI in [M_sun/pc^2] by using the following formulae:
-
-        :math:
-
-    pixelsize: float, optional
-        The pixelsize in arcseconds
-
-    inclination: float, optional
-        The inclination  in gedreed (!) used for the inclination correction.
-
-        The correction is cos(inclination)
-
-    Return
-    ======
-    output_image: file
-        The image created
- 
-    """
-    from astropy.cosmology import FlatLambdaCDM
-    from astropy import units as u
-
-    #Get the mom map
-    mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
-                            source_ID = source_ID,
-                            sofia_dir_path = sofia_dir,
-                            name_base = name_base,
-                            masking = masking,
-                            mask_sigma = mask_sigma,
-                            b_maj = b_maj,
-                            b_min = b_min,
-                            col_den_sensitivity = col_den_sensitivity_lim)
-
-    #Flatten the array and perform unit conversion if needed
-    col_den_array = mom_map.flatten()
-
-    #convert from [10^20 1/cm^2] to [M_sun / pc^2]
-    if conver_from_NHI:
-        #Get the redshift of the source
-        source_index, catalog_path, cubelet_path_dict, spectra_path = \
-                    ds.sdiagnostics.get_source_files(source_ID,
-                    sofia_dir, name_base)
-
-        freq, z = ds.sdiagnostics.get_freq_and_redshift_from_catalog(catalog_path,
-                        source_index)
-
-        #Get the pixel size in pc => we actually dont need this
-        """
-        #see: https://stackoverflow.com/questions/56279723/how-to-convert-arcsec-to-mpc-using-python-astropy
-        cosmo = FlatLambdaCDM(H0=67.7, Om0=0.307) 
-
-        #TO DO: Check the cosmology parameters!!!
-        # and add them as optional parameters to the function!
-
-        d_A = cosmo.angular_diameter_distance(z=z) # in [Mpc] !!
-
-        theta = pixelsize*u.arcsec 
-
-        distance_Mpc = (theta * d_A).to(u.Mpc, u.dimensionless_angles())
-
-        px_dist_in_pc = distance_Mpc.to(u.pc).value
-        
-        print(px_dist_in_pc)
-        #"""
-
-        #Now convert the cm^2 to pc^2
-        # 1pc^2 equals (3.0857)^2 times 10^36
-
-        area_conv_factor = np.power((3.0857), 2)
-        #area_conv_factor = np.power((3.), 2)
-
-        #Convert the mass from number of HI atoms to solar masses
-        # The number of HI atoms is given in 10^20 atoms unit
-        # 1 M solar is 1.98847 times 10^30 kg
-        # and one HI in kg is the HI isotope mass times the atomic mass (inverted)
-        # (1.007825 * 1.660539) times 10^-27 kg
-        # That is,  under a 1cm^2 area 1 M solar is given by
-        # (1.98847 * (1.007825 * 1.660539)) times 10^57 HI atoms
-        #
-
-        mass_conversion_factor = 0.1 * (1.98847 * (1.007825 * 1.660539))
-        #mass_conversion_factor = 0.1 * (2. * (1. * 1.7))
-
-        #Conversion
-        c_factor = mass_conversion_factor * area_conv_factor
-        #c_factor = mass_conversion_factor
-
-        col_den_array = np.multiply(col_den_array, c_factor)
-
-        #TO DO check this step!
-
-        #Correction for inclination
-        inc_corr = np.cos((np.pi * (inclination / 180)))
-
-        col_den_array = np.multiply(col_den_array, inc_corr)
-
-        #col_den_array[col_den_array == 0] = None
-
-        #col_den_array = np.multiply(col_den_array,0.55)
-
-    import copy
-
-    col_den_array = copy.deepcopy(np.ma.compressed(col_den_array))
-
-    unique, counts = np.unique(col_den_array, return_counts=True)
-    #unique, counts = np.unique(np.log10(col_den_array), return_counts=True)
-
-    #print(np.sort(np.array(counts).flatten())[-10:-1])
-
-    result = np.column_stack((unique, counts)) 
-
-    print(np.amax(col_den_array))
-
-    #=== Create the plot ===
-    fig = plt.figure(1, figsize=(8,5))
-    ax = fig.add_subplot(111)
-
-    #Get the histogram
-    if not conver_from_NHI:
-        ax.hist(col_den_array,
-            bins=np.logspace(np.log10(np.amin(col_den_array)),\
-                np.log10(np.amax(col_den_array)), 100),
-            histtype='stepfilled', rwidth=0.8,
-            linewidth=2, color=color)
-
-        ax.set_xscale("log")
-
-    else:
-        ax.hist(np.log10(col_den_array),
-            bins=np.linspace(np.amin(np.log10(col_den_array)),\
-                np.amax(np.log10(col_den_array)), 100),
-            histtype='stepfilled', rwidth=0.8,
-            linewidth=2, color=color)
-
-        #ax.set_yscale("log")
-    
-    ax.set_ylabel(r'N [pixel]', fontsize=18)
-
-    if conver_from_NHI:
-        ax.set_xlabel(r'log$\Sigma_{HI}$ [M$_\odot$/pc$^2$]', fontsize=18)
-    else:
-        ax.set_xlabel(r'N$_{HI}$ [10$^{20}$/cm$^2$]', fontsize=18)
-
-    plt.savefig(output_fname,bbox_inches='tight')
-    plt.close()
-
-
 #============
 #=== MAIN ===
 #============
@@ -426,7 +221,7 @@ if __name__ == "__main__":
     #Decide on individual figures to make
     rms_plot = False
 
-    col_density_histogram = False
+    col_density_histogram = True
 
     simple_grid_mom_contour_plots = False
     simple_grid_spectrum_plot = False
@@ -435,6 +230,8 @@ if __name__ == "__main__":
 
     simple_grid_and_image_mom_contour_plots = False
     simple_grid_and_image_spectrum_plot = False
+
+    simple_grid_image_and_hipass_spectrum_plot = False
 
     spectra_triangle_plot = False
     mom0_triangle_plot = False
@@ -508,12 +305,14 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 rms_dir = working_dir + 'measured_RMS/'
 
                 rms_file_list = list(map(rms_dir.__add__,[
-                    'co_added_visibilities_rms.dat',
+                    'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
                     'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
 
-                rms_colors = [c0, c2, c1]
-                rms_labels = ['V', 'G', 'I']
+                rms_colors = ['black', c0, c2, c1]
+                rms_labels = ['B', 'V', 'G', 'I']
                 rms_ptitle = 'no Wiener-filtering'
+                rms_outlabel = 'no_filtering'
+
 
                 #Define source and imaging parameters
 
@@ -672,21 +471,22 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
         if col_density_histogram:
             log.info('Creating column density histograms...')
 
-            plot_column_density_histogram(source_ID = source_ID_list[grid_plot_ID],
-                sofia_dir = sofia_dir_path_list[grid_plot_ID],
-                name_base = name_base_list[0],
+            svalidation.plot_column_density_histogram(source_ID_list = source_ID_list,
+                sofia_dir_path_list = sofia_dir_path_list,
+                name_base_list = name_base_list,
                 output_fname = output_dir + 'col_den_hist.pdf',
-                masking = masking_list[0],
-                mask_sigma = mask_sigma_list[0],
-                #mask_sigma = 1,
-                b_maj = b_maj_list[0],
-                b_min = b_maj_list[0],
-                b_pa = b_pa_list[0],
-                color = color_list[grid_plot_ID],
-                col_den_sensitivity_lim = None,
+                N_bins = 25,
+                #masking = False,
+                masking_list = masking_list,
+                #mask_sigma = mask_sigma_list,
+                mask_sigma_list = [0.1],
+                b_maj_list = b_maj_list,
+                b_min_list = b_maj_list,
+                color_list = color_list,
+                col_den_sensitivity_lim_list = [None],
                 conver_from_NHI=True,
-                pixelsize=30.,
-                inclination=70)
+                pixelsize_list = [30.],
+                inclination_list = [70])
 
             log.info('...done')
 
@@ -744,7 +544,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 name_base_list = [name_base_list[0]],
                 output_name = output_name,
                 beam_correction_list = [False, True],
-                color_list = ['lightgrey', color_list[grid_plot_ID]],
+                color_list = ['#A7F0F0', color_list[grid_plot_ID]],
                 b_maj_px_list = [b_maj_px_list[0]],
                 b_min_px_list = [b_min_px_list[0]],
                 special_flux_list = [
@@ -802,6 +602,29 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_min_px_list = [b_min_px_list[0]])
 
             log.info('...done')
+
+        if simple_grid_image_and_hipass_spectrum_plot:
+            log.info('Create single GI spectra plot including HIPASS spectra...')
+
+            output_name = output_dir + 'GI_and_HIPASS_spectra.pdf'
+
+            svalidation.simple_spectra_plot(source_ID_list = [None,
+                source_ID_list[grid_plot_ID], source_ID_list[image_plot_ID]],
+                sofia_dir_path_list = [None, sofia_dir_path_list[grid_plot_ID],
+                sofia_dir_path_list[image_plot_ID]],
+                name_base_list = [name_base_list[0]],
+                output_name = output_name,
+                beam_correction_list = [False, True, False],
+                color_list = ['#A7F0F0', color_list[grid_plot_ID],
+                color_list[image_plot_ID]],
+                b_maj_px_list = [b_maj_px_list[0]],
+                b_min_px_list = [b_min_px_list[0]],
+                special_flux_list = [
+                '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/2km_baseline_results/NGC7361_hipass_spectra.txt',
+                None, None])
+
+            log.info('...done')        
+
 
         if spectra_triangle_plot:
             log.info('Creating spectra triangle plot for {0:d}km \

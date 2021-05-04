@@ -1904,34 +1904,11 @@ def simple_spectra_plot(source_ID_list,
 
         else:
             #Here goes the special spectra
-
-            #Get Omega as 1.13*beam**2/pixel**2
-            Omega_HIPASS =  (1.13 * np.power(15.5,2)) / np.power(4,2)
-            #Omega_HIPASS = np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
-
-            #=== Tristans cube
-            #freq, flux = np.genfromtxt(special_flux_list[i], skip_header=1,
-            #    delimiter='\t', usecols=(0,1), unpack=True)
-
-
-            #freq = freq[174:209]
-            #flux = flux[174:209]
-
-            #uncertainty = np.zeros(np.size(freq))
-
+            #=== HIPASS cube
             HIPPASS_data = np.genfromtxt(special_flux_list[i], skip_header=36)
 
-            velocity = HIPPASS_data[174:209,1]
-            flux = HIPPASS_data[174:209,2]
-
-            #Beam correction ???
-            #flux = np.divide(flux,(np.pi*15.5*15.5/(4*np.log(2))))
-
-            #Convert freq from MHz to optical velocity
-            #velocity = np.array([ds.sdiagnostics.get_velocity_from_freq(i * 1000000) for i in freq])
-
-            #Convert flux from mJy to Jy
-            #flux = np.divide(flux,Omega_HIPASS)
+            velocity = HIPPASS_data[144:179,1]
+            flux = HIPPASS_data[144:179,2]
 
         flux_list.append(flux)
         velocity_list.append(velocity)
@@ -1944,18 +1921,21 @@ def simple_spectra_plot(source_ID_list,
     ax = fig.add_subplot(111)
 
     for i in range(0,N_sources):
-        ax.step(velocity_list[i], flux_list[i], lw=2.5, c=color_list[i])    
+        #if special_flux_list[i] == None:
+        ax.step(velocity_list[i], flux_list[i], lw=2.5,
+            c=color_list[i])
 
         #This looks terrible like a blurred line
+        #
+        #if special_flux_list[i] != None:
         #ax.fill_between(velocity_list[i],
-        #            flux_list[i]-uncertainty_list[i],
-        #            flux_list[i]+uncertainty_list[i],
-        #            color=color_list[i], linewidth=1.5,
-        #            step="pre", alpha=0.4)
+        #                0, flux_list[i],
+        #                color=color_list[i], linewidth=1.5,
+        #                step="pre", alpha=0.8)
 
     ax.tick_params(axis='both', which='major', labelsize=17)
     
-    ax.set_xlabel(r'Velocity [km s$^{-1}$]', fontsize=20, labelpad=10)
+    ax.set_xlabel(r'V$_{opt}$ [km s$^{-1}$]', fontsize=20, labelpad=10)
     ax.set_ylabel('Flux density [Jy]', fontsize=20)
     #ax.grid()
 
@@ -1970,6 +1950,210 @@ def simple_spectra_plot(source_ID_list,
     plt.gcf().set_size_inches(mm2in(282/2),mm2in(154))
     
     plt.savefig(output_name,bbox_inches='tight')
+    plt.close()
+
+
+def plot_column_density_histogram(source_ID_list,
+    sofia_dir_path_list,
+    name_base_list,
+    output_fname,
+    N_bins = 20,
+    masking_list=[True],
+    mask_sigma_list=[3.0],
+    b_maj_list=[30.],
+    b_min_list=[30.],
+    color_list=[None],
+    col_den_sensitivity_lim_list=[None],
+    conver_from_NHI=True,
+    pixelsize_list=[5.],
+    inclination_list=[0.]):
+    """This is a simple function generating the N pixel, column density histogram
+    for a single given mom0 map.
+
+    Parameters
+    ==========
+
+    source_ID_list: list of int
+        The SoFiA ID of the source
+
+    sofia_dir_path_list: list of str
+        The SoFiA directory path
+
+    name_base_list: list of str
+        The name `output.filename` variable defined in the SoFiA template 
+        .par. Basically the base of all file names in the respective SoFiA dir.
+
+    output_name: str
+        The name and full path to the output triangle plot generated.
+
+    N_bins: int, optional
+        The number of equal width bins for the histogram
+
+    masking_list: list of optional
+        If True, the mom0 map will be masked
+
+    mask_sigma_list: list of float, optional
+        If the mom0 map is masked, pixels below this threshold will be masked.
+        The values are given in units of column density sensitivity.
+
+    b_maj_list: list of float, optional
+        The major axis of the synthesised beam in arcseconds.
+
+    b_min_list: list of float, optional
+        The minor axis of the synthesised beam in arcseconds.
+
+    color_list: list of str, optional
+        The color of the histogram
+
+    col_den_sensitivity_lim_list: list of float, optional
+        The column density sensitivity for each SoFiA output provided by
+        the user, rather than using the by default value computed from the SoFiA RMS value.
+        Given in units of 10^20 HI /cm^2
+    
+    convert_from_NHI: bool, optional
+        If True, the x axis will be converted from N_HI [10^20 1/cm^2] to
+        N_HI in [M_sun/pc^2] by using the following formulae:
+
+        :math: 0.7993 * column density
+
+        see the code for the details
+
+    pixelsize_list: list of float, optional
+        The pixelsize in arcseconds
+
+    inclination_list: list of float, optional
+        The inclination  in degrees (!) used for the inclination correction.
+
+        The correction is cos(inclination)
+
+    Return
+    ======
+    output_image: file
+        The image created
+ 
+    """
+    #Initialise arguments by recursively appending them
+    N_sources = len(source_ID_list)
+    assert len(sofia_dir_path_list) == N_sources, 'More or less sources are\
+given than SoFiA directory paths!'
+
+    b_maj_list = initialise_argument_list(N_sources, b_maj_list)
+    b_min_list = initialise_argument_list(N_sources, b_min_list)
+    masking_list = initialise_argument_list(N_sources, masking_list)
+    mask_sigma_list = initialise_argument_list(N_sources, mask_sigma_list)
+    col_den_sensitivity_lim_list = initialise_argument_list(N_sources,
+        col_den_sensitivity_lim_list)
+    pixelsize_list = initialise_argument_list(N_sources, pixelsize_list)
+    inclination_list = initialise_argument_list(N_sources, inclination_list)
+
+
+
+    #The name bases might be the same
+    if len(name_base_list) != N_sources:
+        name_base_list = initialise_argument_list(N_sources, name_base_list)
+
+    #Generate random colors if needed
+    for i in range(0,N_sources):
+        if color_list[i] == None:
+            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+
+    col_den_array_list = [] 
+
+    for i in range(0,N_sources):
+        #Get the mom map
+        mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+                                source_ID = source_ID_list[i],
+                                sofia_dir_path = sofia_dir_path_list[i],
+                                name_base = name_base_list[i],
+                                masking = masking_list[i],
+                                mask_sigma = mask_sigma_list[i],
+                                b_maj = b_maj_list[i],
+                                b_min = b_min_list[i],
+                                col_den_sensitivity = col_den_sensitivity_lim_list[i])
+
+        #Flatten the array and perform unit conversion if needed
+        col_den_array = mom_map.flatten()
+
+        #convert from [10^20 1/cm^2] to [M_sun / pc^2]
+        if conver_from_NHI:
+            # The mass of 1 H atom: 8.4144035 x 10^-58 M_Sun
+            # 1 cm^2 is 1.05026504 x 10^-37 Parsecs^2        
+            # Given that my measured column density is given in 10^20 number of H atoms
+            # The conversion factor is simply 0.7993
+
+            col_den_array = np.multiply(col_den_array, 0.7993)
+
+            #Correction for inclination
+            inc_corr = np.cos((np.pi * (inclination_list[i] / 180)))
+
+            col_den_array = np.multiply(col_den_array, inc_corr)
+
+        col_den_array = copy.deepcopy(np.ma.compressed(col_den_array))
+
+        col_den_array_list.append(col_den_array)
+
+    #Get the same bins for all histograms
+    if not conver_from_NHI:
+        bin_min = np.amin(np.array([\
+        np.log10(np.amin(col_den_array_list[i])) for i in range(0,N_sources)]))
+
+        bin_max = np.amax(np.array([\
+        np.log10(np.amax(col_den_array_list[i])) for i in range(0,N_sources)]))
+
+        bins = np.logspace(bin_min, bin_max, N_bins)
+
+    else:
+        bin_min = np.amin(np.array([\
+        np.amin(np.log10(col_den_array_list[i])) for i in range(0,N_sources)]))
+
+        bin_max = np.amax(np.array([\
+        np.amax(np.log10(col_den_array_list[i])) for i in range(0,N_sources)]))
+
+        bins = np.linspace(bin_min, bin_max, N_bins)
+
+
+    #TO DO solve it with overlaying bar plots!
+
+
+    #=== Create the plot ===
+    fig = plt.figure(1, figsize=(8,5))
+    ax = fig.add_subplot(111)
+
+    for i in range(0,N_sources):
+        #Get the histogram
+        if not conver_from_NHI:
+            ax.hist(col_den_array_list[i],
+                bins = bins,
+                histtype='step', rwidth=0.8,
+                linewidth=2, color=color_list[i])
+
+            ax.set_xscale("log")
+
+        else:
+            ax.hist(np.log10(col_den_array_list[i]),
+                bins = bins,
+                histtype='step', alpha=0.8,
+                linewidth=2, color=color_list[i])
+
+            #hist, bin_edges = np.histogram(np.log10(col_den_array_list[i]),
+            #        bins = bins)
+
+
+            #ax.fill_between(bins,
+            #    0, hist,
+            #    color=color_list[i], linewidth=1.5,
+            #    step="pre", alpha=0.4)
+
+    #ax.set_yscale("log")
+    
+    ax.set_ylabel(r'N [pixel]', fontsize=18)
+
+    if conver_from_NHI:
+        ax.set_xlabel(r'log$\Sigma_{HI}$ [M$_\odot$/pc$^2$]', fontsize=18)
+    else:
+        ax.set_xlabel(r'N$_{HI}$ [10$^{20}$/cm$^2$]', fontsize=18)
+
+    plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
 
 
