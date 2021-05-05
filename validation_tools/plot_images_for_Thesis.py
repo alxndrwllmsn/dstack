@@ -104,6 +104,7 @@ def plot_RMS(rmsfile_list,
             output_fname,
             label_list=['?'],
             color_list=[None],
+            linestyle_list=['-'],
             rest_frame='optical',
             ptitle=None):
     """Create a plot of RMS -- channel from a list of output .dat files created
@@ -141,6 +142,7 @@ Only optical and frequency are supported.')
     N_sources = len(rmsfile_list)
 
     label_list = svalidation.initialise_argument_list(N_sources, label_list)
+    linestyle_list = svalidation.initialise_argument_list(N_sources, linestyle_list)
 
     #Generate random colors if needed
     color_list = svalidation.initialise_argument_list(N_sources, color_list)
@@ -174,6 +176,7 @@ Only optical and frequency are supported.')
 
 
         lines.append(plt.step(freq, rms, color=color_list[i], lw=2.5, alpha=0.8,
+            linestyle=linestyle_list[i], where='mid',
             label='{0:s}'.format(label_list[i]))[0])
 
         #print(lines[0][0].get_label())
@@ -212,6 +215,12 @@ if __name__ == "__main__":
     #Decide on Wiener_filtering
     filtering = True
 
+    #Decide if deconvolution happened
+    dirty = False
+
+    if dirty == True and filtering == False:
+        raise ValueError('Only either the filtering or deconvolution can be disabled at a time!')
+
     #Decide the resolution
     full_res = False #If True the 6km baseline results are plotted
 
@@ -219,9 +228,9 @@ if __name__ == "__main__":
     kinematics = False
 
     #Decide on individual figures to make
-    rms_plot = False
+    rms_plot = True
 
-    col_density_histogram = True
+    col_density_histogram = False
 
     simple_grid_mom_contour_plots = False
     simple_grid_spectrum_plot = False
@@ -240,10 +249,10 @@ if __name__ == "__main__":
     diff_scaling_plots = False
 
     #Kinematics
-    profile_curves = False
-    pv_data_trinagle_plot = True
-    pv_model_trinagle_plot = True
-    pv_residual_trinagle_plot = True
+    profile_curves = True
+    pv_data_trinagle_plot = False
+    pv_model_trinagle_plot = False
+    pv_residual_trinagle_plot = False
 
 
     #=== Setup variables ===
@@ -254,44 +263,71 @@ if __name__ == "__main__":
         if not kinematics:
             #Define environment variables
             if filtering:
-                working_dir = '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/2km_baseline_results/'
+                if not dirty:
+                    working_dir = '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/2km_baseline_results/'
 
-                output_dir = working_dir + 'validation/'
+                    output_dir = working_dir + 'validation/'
 
-                #sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-                #    'stacked_grids/', 'stacked_images/']))
+                    #sofia_dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
+                    #    'stacked_grids/', 'stacked_images/']))
 
-                sofia_dir_path_list = list(map(working_dir.__add__,['baseline_vis_imaging/',
-                    'co_added_visibilities/', 'stacked_grids/', 'stacked_images/',
-                    'conventional_imaging/']))
+                    sofia_dir_path_list = list(map(working_dir.__add__,['baseline_vis_imaging/',
+                        'co_added_visibilities/', 'stacked_grids/', 'stacked_images/',
+                        'conventional_imaging/']))
 
-                rms_dir = working_dir + 'measured_RMS/'
+                    rms_dir = working_dir + 'measured_RMS/'
 
-                rms_file_list = list(map(rms_dir.__add__,[
-                    'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
-                    'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
+                    rms_file_list = list(map(rms_dir.__add__,[
+                        'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
+                        'stacked_grids_rms.dat', 'stacked_images_rms.dat',
+                        'conventional_imaging_rms.dat']))
 
-                rms_colors = ['black', c0, c2, c1]
-                rms_labels = ['B', 'V', 'G', 'I']
-                rms_ptitle = 'Wiener-filtering and deconvolution'
-                rms_outlabel = 'filtering'
+                    rms_colors = ['black', c0, c2, c1, outlier_color]
+                    rms_labels = ['B', 'V', 'G', 'I', 'C']
+                    rms_ptitle = 'Wiener-filtering and deconvolution'
+                    rms_outlabel = 'filtering'
+                    rms_linestyles = ['-']
 
-                #Define source and imaging parameters
+                    #Define source and imaging parameters
 
-                #NOTE when only one element is given the imaging code automatically appends
-                # it to the required size, i.e. all deep imaging has the same parameter
+                    #NOTE when only one element is given the imaging code automatically appends
+                    # it to the required size, i.e. all deep imaging has the same parameter
 
-                #source_ID_list = [4, 4, 3]
-                source_ID_list = [6, 4, 4, 3, 1]
-                beam_correction_list = [False, True, True, True, False]
-                #beam_correction_list = [True]
-                #color_list = [c0, c2, c1]
-                #label_list = ['visibilities', 'stacked grids', 'stacked images']
-                #ident_list = ['V', 'G', 'I']
-                color_list = ['black', c0, c2, c1, outlier_color]
-                label_list = ['baseline visibilities', 'visibilities', 'stacked grids',
-                                'stacked images', 'conventional imaging']
-                ident_list = ['B', 'V', 'G', 'I', 'C']
+                    #source_ID_list = [4, 4, 3]
+                    source_ID_list = [6, 4, 4, 3, 1]
+                    beam_correction_list = [False, True, True, True, False]
+                    #beam_correction_list = [True]
+                    #color_list = [c0, c2, c1]
+                    #label_list = ['visibilities', 'stacked grids', 'stacked images']
+                    #ident_list = ['V', 'G', 'I']
+                    color_list = ['black', c0, c2, c1, outlier_color]
+                    label_list = ['baseline visibilities', 'visibilities', 'stacked grids',
+                                    'stacked images', 'conventional imaging']
+                    ident_list = ['B', 'V', 'G', 'I', 'C']
+
+                else:
+                    working_dir = '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/dirty_2km_baseline_results/'
+
+                    output_dir = working_dir + 'validation/'
+
+                    rms_dir = working_dir + 'measured_RMS/'
+
+                    #rms_file_list = list(map(rms_dir.__add__,[
+                    #    'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
+                    #    'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
+
+                    rms_file_list = list(map(rms_dir.__add__,[
+                        'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
+                        'stacked_grids_rms.dat']))
+
+                    #rms_colors = ['black', c0, c2, c1]
+                    #rms_labels = ['B', 'V', 'G', 'I']
+                    rms_colors = ['black', c0, c2]
+                    rms_labels = ['B', 'V', 'G']
+                    rms_ptitle = 'no deconvolution'
+                    rms_outlabel = 'dirty'
+                    #rms_linestyles = ['-', '--', '-.', '-']
+                    rms_linestyles = ['-', '--', '-.']
 
             else:
                 working_dir = '/home/krozgonyi/Desktop/NGC7361_results/\
@@ -312,6 +348,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 rms_labels = ['B', 'V', 'G', 'I']
                 rms_ptitle = 'no Wiener-filtering'
                 rms_outlabel = 'no_filtering'
+                rms_linestyles = ['-']
+                #rms_linestyles = ['-', '--', '-.', '-']
 
 
                 #Define source and imaging parameters
@@ -402,7 +440,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 'stacked_grids/', 'stacked_images/']))
 
             #Define source and imaging parameters
-            source_ID_list = [4, 3, 4]
+            source_ID_list = [3, 4, 8]
             name_base_list = ['beam17_all_']
             beam_correction_list = [True, True, True]
             b_maj_px_list = [6.]
@@ -411,16 +449,40 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             b_min_list = [12.]
             b_pa_list = [0.]
             masking_list = [True]
-            mask_sigma_list = [3.]
+            mask_sigma_list = [1.]
             color_list = [c0, c2, c1]
             label_list = ['visibilities', 'stacked grids', 'stacked images']
             ident_list = ['V', 'G', 'I']
-            contour_levels = [16.]
+            contour_levels = [8.,16.]
+
+            grid_plot_ID = 1
+            image_plot_ID = 2
 
             #Single valued parameters
             N_opt_px = 420 #Number of optical background pixels in pixels ???
             mom_triangle_contours = True
             diff_saturation = 24.
+
+            #For single contour plots
+            N_optical_pixels = 600
+
+            #mom0_contour_levels = [0.5, 1.6, 2.7, 5.3, 13] #in column density 10^20
+            mom0_contour_levels = [8, 16, 32, 64, 128] #in column density 10^20
+
+            central_vel = 1246 #central vel for mom1 map contours [km/s]
+            delta_vel = 16
+
+            rms_dir = working_dir + 'measured_RMS/'
+
+            rms_file_list = list(map(rms_dir.__add__,[
+                'co_added_visibilities_rms.dat',
+                'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
+
+            rms_colors = [c0, c2, c1]
+            rms_labels = ['V', 'G', 'I']
+            rms_ptitle = 'Wiener-filtering and deconvolution'
+            rms_outlabel = '6km'
+            rms_linestyles = ['-']
 
 
         else:
@@ -458,11 +520,11 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
         if rms_plot:
             log.info('Creating RMS -- channel plot...')
 
-
             plot_RMS(rmsfile_list = rms_file_list,
                 output_fname = output_dir + 'rms_{0:s}.pdf'.format(rms_outlabel),
                 label_list = rms_labels,
                 color_list = rms_colors,
+                linestyle_list = rms_linestyles,
                 rest_frame = 'optical',
                 ptitle = rms_ptitle)
 
@@ -479,10 +541,11 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 #masking = False,
                 masking_list = masking_list,
                 #mask_sigma = mask_sigma_list,
-                mask_sigma_list = [0.1],
+                mask_sigma_list = [0.05],
                 b_maj_list = b_maj_list,
                 b_min_list = b_maj_list,
                 color_list = color_list,
+                label_list = ident_list,
                 col_den_sensitivity_lim_list = [None],
                 conver_from_NHI=True,
                 pixelsize_list = [30.],
@@ -614,7 +677,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 sofia_dir_path_list[image_plot_ID]],
                 name_base_list = [name_base_list[0]],
                 output_name = output_name,
-                beam_correction_list = [False, True, False],
+                beam_correction_list = [False, beam_correction_list[grid_plot_ID],
+                beam_correction_list[image_plot_ID]],
                 color_list = ['#A7F0F0', color_list[grid_plot_ID],
                 color_list[image_plot_ID]],
                 b_maj_px_list = [b_maj_px_list[0]],
@@ -746,7 +810,7 @@ baseline results...'.format(baseline_length))
         if profile_curves:
             for profile in ['rotation', 'dispersion', 'density']:
                 log.info('Creating {0:s} curves for the {1:d}km \
-    baseline results...'.format(profile, baseline_length))
+baseline results...'.format(profile, baseline_length))
 
                 if profile != 'density':
                     p_list = pv_profile_file_name_list
@@ -758,7 +822,7 @@ baseline results...'.format(baseline_length))
                     profile = profile,
                     ring_crop = ring_crop,
                     color_list = color_list,
-                    label_list = label_list,
+                    label_list = ident_list,
                     output_fname = output_dir + '{0:s}_curves.pdf'.format(profile))
 
                 log.info('...done')

@@ -185,7 +185,7 @@ def plot_profile_curves(rot_dir_list,
             color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
     
 
-    ring_crop = 2
+    #ring_crop = 2
  
     #Create plot
     fig = plt.figure(1, figsize=(8,5))
@@ -228,31 +228,53 @@ def plot_profile_curves(rot_dir_list,
             except:
                 log.warning('Invalid number of columns in profile file! No errors computed.')
 
-                noerrorbar = True
+                try:
+                    #Use the next data set...
+                    verr_l, verr_h, serr_l, serr_h = np.genfromtxt(
+                        rot_dir_list[i+1] + profile_file_name_list[i+1],
+                        skip_header=1, usecols=(13,14,15,16), unpack=True)
+
+                    verr_l = verr_l[:-ring_crop]
+                    verr_h = verr_h[:-ring_crop]
+                    serr_l = serr_l[:-ring_crop]
+                    serr_h = serr_h[:-ring_crop]
+
+                    noerrorbar = False
+
+                except:
+                    noerrorbar = True
 
 
             if profile == 'rotation':
                 if noerrorbar:
-                    lines.append(ax.scatter(rad, vrot,
-                        color=color_list[i], alpha=0.75,
-                        label='{0:s}'.format(label_list[i])))
+                    lines.append(ax.step(rad, vrot, where='mid',
+                        color=color_list[i], alpha=-0.05*i,
+                        linewidth=2.5,
+                        label='{0:s}'.format(label_list[i]))[0])
                 
                 else:
                     lines.append(ax.errorbar(rad, vrot, yerr=[verr_l, -verr_h],
-                        fmt='o', capsize=2, elinewidth=1.5, markersize=7.5,
-                        color=color_list[i], alpha=0.75,
+                        #fmt='.', capsize=2, elinewidth=1.5, markersize=7.5,
+                        linewidth=2.5, capsize=0, elinewidth=2.5,
+                        color=color_list[i], alpha=1-0.05*i,
+                        drawstyle = 'steps-mid',
                         label='{0:s}'.format(label_list[i])))
+
+                    #lines.append(ax.bar(rad, vrot, yerr=[verr_l, -verr_h],
+                    #    align='center', alpha=0.8, ecolor='black', capsize=10))
 
             elif profile == 'dispersion':
                 if noerrorbar:
-                    lines.append(ax.scatter(rad, srot,
-                        color=color_list[i], alpha=0.75,
+                    lines.append(ax.step(rad, srot, where='mid',
+                        color=color_list[i], alpha=-0.05*i,
+                        linewidth=2.5,
                         label='{0:s}'.format(label_list[i])))
 
                 else:
                     lines.append(ax.errorbar(rad, srot, yerr=[serr_l, -serr_h],
-                        fmt='o', capsize=2, elinewidth=1.5, markersize=7.5,
-                        color=color_list[i], alpha=0.75,
+                        linewidth=2.5, capsize=0, elinewidth=2.5,
+                        color=color_list[i], alpha=1-0.05*i,
+                        drawstyle = 'steps-mid',
                         label='{0:s}'.format(label_list[i])))
 
         else:
@@ -263,8 +285,10 @@ def plot_profile_curves(rot_dir_list,
             surfdens = surfdens[:-ring_crop]
             sd_err = sd_err[:-ring_crop]
 
-            lines.append(ax.errorbar(rad_sd, surfdens, yerr=sd_err, fmt='o', capsize=2,
-                    elinewidth=1.5, markersize=7.5, color=color_list[i], alpha=0.75,
+            lines.append(ax.errorbar(rad_sd, surfdens, yerr=sd_err,
+                    linewidth=2.5, capsize=0, elinewidth=2.5,
+                    color=color_list[i], alpha=1-0.05*i,
+                    drawstyle = 'steps-mid',
                     label='{0:s}'.format(label_list[i])))
      
     if profile == 'rotation':
@@ -282,7 +306,11 @@ def plot_profile_curves(rot_dir_list,
     if profile == 'rotation':
         #Add legend
         labels = [l.get_label() for l in lines]
-        ax.legend(lines, labels, loc='lower right', fontsize=16)
+        legend0 = ax.legend(lines, labels, loc='lower right',
+            bbox_to_anchor= (0.9, 0.1),
+            ncol=2, borderaxespad=0, frameon=True,
+            fontsize=16, framealpha=1, fancybox=True, labelspacing=0.25,
+            handletextpad=0.3, handlelength=1.5, columnspacing=0.5)
 
         #Add inner title
         t = ds.sdiagnostics.add_inner_title(ax, 'Rotation profile', loc=2, prop=dict(size=18))
@@ -291,7 +319,11 @@ def plot_profile_curves(rot_dir_list,
     elif profile == 'dispersion':
         #Add legend
         labels = [l.get_label() for l in lines]
-        ax.legend(lines, labels, loc='lower left', fontsize=16)
+        legend0 = ax.legend(lines, labels, loc='lower left',
+            bbox_to_anchor= (0.1, 0.1),
+            ncol=2, borderaxespad=0, frameon=True,
+            fontsize=16, framealpha=1, fancybox=True, labelspacing=0.25,
+            handletextpad=0.3, handlelength=1.5, columnspacing=0.5)
 
         #Add inner title
         t = ds.sdiagnostics.add_inner_title(ax, 'Dispersion profile', loc=1, prop=dict(size=18))
@@ -301,12 +333,19 @@ def plot_profile_curves(rot_dir_list,
     else:
         #Add legend
         labels = [l.get_label() for l in lines]
-        ax.legend(lines, labels, loc='lower left', fontsize=16)
+        legend0 = ax.legend(lines, labels, loc='lower left',
+            bbox_to_anchor= (0.1, 0.1),
+            ncol=2, borderaxespad=0, frameon=True,
+            fontsize=16, framealpha=1, fancybox=True, labelspacing=0.25,
+            handletextpad=0.3, handlelength=1.5, columnspacing=0.5)
 
         #Add inner title
         t = ds.sdiagnostics.add_inner_title(ax, 'Density profile', loc=1, prop=dict(size=18))
         t.patch.set_ec("none")
         t.patch.set_alpha(0.5)
+
+    legend0.get_frame().set_linewidth(2);
+    legend0.get_frame().set_edgecolor('black');
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()

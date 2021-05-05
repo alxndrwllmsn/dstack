@@ -1488,20 +1488,21 @@ def plot_spectra_triangle_matrix(source_ID_list,
                     axes[i,j].grid(axis='x', lw=1.5, alpha=0.5)
 
                     #Plot
-                    ax.step(va, diff_array_list[panel_index], c='red', linewidth=2., alpha=0.6)
+                    ax.step(va, diff_array_list[panel_index], c='red',
+                         where='mid', linewidth=2., alpha=0.6)
 
                     #This needed for the plots
                     ax.fill_between(velocity_list[i],
                         -uncertainty_list[i],
                         +uncertainty_list[i],
                         color=color_list[i], linewidth=1.5,
-                        step="pre", alpha=0.4)
+                        step="mid", alpha=0.4)
                 
                     ax.fill_between(velocity_list[j],
                         -uncertainty_list[j],
                         +uncertainty_list[j],
                         color=color_list[j], linewidth=1.5,
-                        step="pre", alpha=0.4)
+                        step="mid", alpha=0.4)
 
                     ax.set_ylim((diff_min,diff_max))
                     
@@ -1525,7 +1526,7 @@ def plot_spectra_triangle_matrix(source_ID_list,
 
             else:
                 axes[i,j].step(velocity_list[i],flux_list[i],
-                c=color_list[i], linewidth=2.5, alpha=0.8)
+                c=color_list[i], linewidth=2.5, alpha=0.8, where='mid')
 
                 #Looks terrible
                 #axes[i,j].fill_between(velocity_list[i],
@@ -1539,14 +1540,15 @@ def plot_spectra_triangle_matrix(source_ID_list,
 
                 if i != j:
                         axes[i,j].step(velocity_list[j], flux_list[j],
-                                c=color_list[j], linewidth=2.5, alpha=0.8)
+                                c=color_list[j], linewidth=2.5, 
+                                where='mid', alpha=0.8)
 
                         #Thos looks terrible
                         #axes[i,j].fill_between(velocity_list[j],
                         #np.subtract(flux_list[j],uncertainty_list[j]),
                         #np.add(flux_list[j],uncertainty_list[j]),
                         #color=color_list[j], linewidth=1.5,
-                        #step="pre", alpha=0.4)
+                        #step="mid", alpha=0.4)
 
                         axes[i,j].grid(lw=1.5, alpha=0.5)
                         axes[i,j].tick_params(length=0.) #Remove ticks
@@ -1923,7 +1925,7 @@ def simple_spectra_plot(source_ID_list,
     for i in range(0,N_sources):
         #if special_flux_list[i] == None:
         ax.step(velocity_list[i], flux_list[i], lw=2.5,
-            c=color_list[i])
+            c=color_list[i], where='mid')
 
         #This looks terrible like a blurred line
         #
@@ -1963,6 +1965,7 @@ def plot_column_density_histogram(source_ID_list,
     b_maj_list=[30.],
     b_min_list=[30.],
     color_list=[None],
+    label_list=['?'],
     col_den_sensitivity_lim_list=[None],
     conver_from_NHI=True,
     pixelsize_list=[5.],
@@ -2005,6 +2008,9 @@ def plot_column_density_histogram(source_ID_list,
     color_list: list of str, optional
         The color of the histogram
 
+    label_list: list of str, optional
+        The ident strings displayed as labels
+
     col_den_sensitivity_lim_list: list of float, optional
         The column density sensitivity for each SoFiA output provided by
         the user, rather than using the by default value computed from the SoFiA RMS value.
@@ -2045,8 +2051,7 @@ given than SoFiA directory paths!'
         col_den_sensitivity_lim_list)
     pixelsize_list = initialise_argument_list(N_sources, pixelsize_list)
     inclination_list = initialise_argument_list(N_sources, inclination_list)
-
-
+    label_list = initialise_argument_list(N_sources,label_list)
 
     #The name bases might be the same
     if len(name_base_list) != N_sources:
@@ -2092,6 +2097,8 @@ given than SoFiA directory paths!'
 
         col_den_array_list.append(col_den_array)
 
+    #hist_list = []
+
     #Get the same bins for all histograms
     if not conver_from_NHI:
         bin_min = np.amin(np.array([\
@@ -2112,11 +2119,16 @@ given than SoFiA directory paths!'
         bins = np.linspace(bin_min, bin_max, N_bins)
 
 
-    #TO DO solve it with overlaying bar plots!
+        #For using barplots otr stepfunctions
+        #halfbin = bins[1] - bins[0]
+        #bin_centres = np.array([bins[i] + halfbin for i in range(0,np.size(bins)-1)])
 
+        #for i in range(0,N_sources):
+        #    hist, bins = np.histogram(np.log10(col_den_array_list[i]), bins)
+        #    hist_list.append(hist)
 
     #=== Create the plot ===
-    fig = plt.figure(1, figsize=(8,5))
+    fig = plt.figure(1, figsize=(9,6))
     ax = fig.add_subplot(111)
 
     for i in range(0,N_sources):
@@ -2124,25 +2136,20 @@ given than SoFiA directory paths!'
         if not conver_from_NHI:
             ax.hist(col_den_array_list[i],
                 bins = bins,
-                histtype='step', rwidth=0.8,
-                linewidth=2, color=color_list[i])
+                histtype='step', alpha=1-0.05*i,
+                linewidth=2.5, color=color_list[i])
 
             ax.set_xscale("log")
 
         else:
             ax.hist(np.log10(col_den_array_list[i]),
                 bins = bins,
-                histtype='step', alpha=0.8,
-                linewidth=2, color=color_list[i])
+                histtype='step', alpha=1-0.05*i,
+                linewidth=2.5, color=color_list[i],
+                label=label_list[i])
 
-            #hist, bin_edges = np.histogram(np.log10(col_den_array_list[i]),
-            #        bins = bins)
-
-
-            #ax.fill_between(bins,
-            #    0, hist,
-            #    color=color_list[i], linewidth=1.5,
-            #    step="pre", alpha=0.4)
+            #ax.plot(bin_centres, hist_list[i],alpha=1-0.05*i,
+            #        linewidth=2.5, color=color_list[i])
 
     #ax.set_yscale("log")
     
@@ -2152,6 +2159,13 @@ given than SoFiA directory paths!'
         ax.set_xlabel(r'log$\Sigma_{HI}$ [M$_\odot$/pc$^2$]', fontsize=18)
     else:
         ax.set_xlabel(r'N$_{HI}$ [10$^{20}$/cm$^2$]', fontsize=18)
+
+    legend0 = ax.legend(loc='upper left', fontsize=16,
+        frameon=True, bbox_to_anchor= (0.075, 0.95),
+        framealpha=1., fancybox=True,)
+
+    legend0.get_frame().set_linewidth(2);
+    legend0.get_frame().set_edgecolor('black');
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
