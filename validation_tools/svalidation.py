@@ -1040,8 +1040,13 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     column_density_mean = np.divide(np.add(transformed_map_list[0],
                                     transformed_map_list[1]), 2)
     
+
+    column_density_err = np.divide(np.fabs(np.subtract(transformed_map_list[0],
+                        transformed_map_list[1])),2)
+
     #Masking Nan values
     column_density_mean = np.ma.array(column_density_mean, mask=np.isnan(column_density_mean))
+    column_density_err = np.ma.array(column_density_err, mask=np.isnan(column_density_mean))
 
     #Only for moment 2 maps
     #diff_map = np.ma.array(diff_map, mask=np.ma.getmask(column_density_mean))
@@ -1051,6 +1056,8 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     #
     p_col_den = copy.deepcopy(np.ma.compressed(column_density_mean))
     p_diff_map = copy.deepcopy(np.ma.compressed(diff_map))
+
+    p_col_den_err = copy.deepcopy(np.ma.compressed(column_density_err))
 
     if orientation_dependence:
         #Get the Dec values in gedrees
@@ -1098,6 +1105,7 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     #Make a cut in the data (in column density not just in the plot range)
     p_diff_map = p_diff_map[p_col_den <= col_den_upper_lim]
     p_col_den = p_col_den[p_col_den <= col_den_upper_lim]
+    p_col_den_err = p_col_den_err[p_col_den <= col_den_upper_lim]
     
     if orientation_dependence:
         orientation_array = orientation_array[p_col_den <= col_den_upper_lim]
@@ -1105,6 +1113,7 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     #Get rid of the lower limit points if relevant
     p_diff_map = p_diff_map[p_col_den >= col_den_lower_lim]
     p_col_den = p_col_den[p_col_den >= col_den_lower_lim]
+    p_col_den_err = p_col_den_err[p_col_den >= col_den_lower_lim]
 
     if orientation_dependence:
         orientation_array = orientation_array[p_col_den >= col_den_lower_lim]
@@ -1112,6 +1121,8 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
     #Get the positive and negative column densities
     pos_def_col_den = p_col_den[p_diff_map >= 0]
     pos_def_diff_map = p_diff_map[p_diff_map >= 0]
+
+    pos_def_col_den_err = p_col_den_err[p_diff_map >= 0]
 
     if orientation_dependence:
         pos_orientation_array = orientation_array[p_diff_map >= 0]
@@ -1160,6 +1171,10 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
         ax_scatter.scatter(pos_def_col_den, pos_def_diff_map, marker='o', s=5, c=c2, alpha=1.)
         ax_scatter.scatter(neg_def_col_den, neg_def_diff_map, marker='o', s=5, c=c1, alpha=1.)
  
+        #Test errorbars
+        #ax_scatter.errorbar(pos_def_col_den, pos_def_diff_map, xerr=pos_def_col_den_err,
+        #    fmt='.', c=c2, alpha=0.8)
+
     else:
         ax_scatter.scatter(pos_orientation_array, pos_def_diff_map, marker='o', s=5, c=c2, alpha=1.)
         ax_scatter.scatter(neg_orientation_array, neg_def_diff_map, marker='o', s=5, c=c1, alpha=1.)
@@ -1244,6 +1259,9 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
                 #statistic='std', bins=np.size(col_den_bins-2),
                 #range=(col_den_lower_lim, col_den_upper_lim + col_den_binwidth))
 
+        bin_average_err, bin_edges, binnumber = stats.binned_statistic(p_col_den,
+            p_col_den_err, statistic='mean', bins=col_den_bins)
+
     else:
         bin_average, bin_edges, binnumber = stats.binned_statistic(orientation_array, p_diff_map,
                 statistic='mean', bins=col_den_bins)
@@ -1253,7 +1271,15 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
 
     bin_centres = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-    ax_scatter.errorbar(bin_centres, bin_average, yerr=bin_std, alpha=1.,
+    if not orientation_dependence:
+        ax_scatter.errorbar(bin_centres, bin_average, yerr=bin_std,
+            xerr=bin_average_err, alpha=1.,
+            fmt='D', capsize=2, elinewidth=1.5, markersize=5, color=c0)
+
+        #print(bin_average_err)
+
+    else:
+        ax_scatter.errorbar(bin_centres, bin_average, yerr=bin_std, alpha=1.,
             fmt='D', capsize=2, elinewidth=1.5, markersize=5, color=c0)
 
     #= Draw lines
@@ -2169,6 +2195,122 @@ given than SoFiA directory paths!'
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
+
+def plot_RMS(rmsfile_list,
+            output_fname,
+            label_list=['?'],
+            color_list=[None],
+            linestyle_list=['-'],
+            rest_frame='optical',
+            region_list=[None],
+            ptitle=None):
+    """Create a plot of RMS -- channel from a list of output .dat files created
+    by cimRMS.
+
+    Parameters
+    ==========
+    rmsfile_list: list of str
+        The list containing the files created by cimRMS
+
+    output_fname: str
+        Name and full path of the images created.
+
+    label list, list of strings, optional
+        A string for each RMS output, that is displayed as a legend on the plot
+
+    color_list: list of strings, optional
+        The color for each RMS output on the plot
+
+    rest_frame: str, optional
+        The rest frame in whic the x axis is displayed valid are optical and
+        frequency. The latter is expect to be provided in [Hz] and the code
+        automatically converts it to [GHz]
+
+    region_list: list of touple, optional
+        If not None, the min and max indices of the RMS array to be plot
+
+    ptitle: str, optional
+        The title of the plot
+
+    Return
+    ======
+    output_image: file
+        The image created
+
+    """
+    if rest_frame not in ['optical', 'frequency']:
+        raise ValueError('Invalid rest frame for spectral axis is given! \
+Only optical and frequency are supported.')
+
+    N_sources = len(rmsfile_list)
+
+    label_list = svalidation.initialise_argument_list(N_sources, label_list)
+    linestyle_list = svalidation.initialise_argument_list(N_sources, linestyle_list)
+    region_list = svalidation.initialise_argument_list(N_sources, region_list)
+
+    #Generate random colors if needed
+    color_list = svalidation.initialise_argument_list(N_sources, color_list)
+    for i in range(0,N_sources):
+        if color_list[i] == None:
+            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+
+    #Create plot
+    fig = plt.figure(1, figsize=(8,5))
+    ax = fig.add_subplot(111)
+
+    if ptitle is not None:
+        plt.title('{0:s}'.format(ptitle), fontsize=21, loc='left')
+
+    lines = []
+
+    for i in range(0,N_sources):
+        freq, rms = np.genfromtxt(rmsfile_list[i], skip_header=4, delimiter=',',
+                    usecols=(0,1), unpack=True)
+
+        #Convert RMS from Jy/beam to mJy/beam
+        rms = np.multiply(rms,1000)
+
+        if rest_frame == 'frequency':
+            #Convert frequency from Hz to GHz
+            freq = np.multiply(freq,1e-9)
+
+        else:
+            #Convert frequncy from Hz to km/s
+            freq = np.array([ds.sdiagnostics.get_velocity_from_freq(i) for i in freq])
+
+        if region_list[i] != None:
+            freq = freq[region_list[i][0]:region_list[i][1]]
+            rms = rms[region_list[i][0]:region_list[i][1]]
+
+        #print(freq[0]-freq[1])
+
+        lines.append(plt.step(freq, rms, color=color_list[i], lw=2.5, alpha=0.8,
+            linestyle=linestyle_list[i], where='mid',
+            label='{0:s}'.format(label_list[i]))[0])
+
+        #print(lines[0][0].get_label())
+        #print(type(lines[0][0]))
+
+    if rest_frame == 'optical':
+        ax.set_xlabel(r'V$_{opt}$ [km/s]', fontsize=18)
+    else:
+        ax.set_xlabel(r'$\nu$ [GHz]', fontsize=18)
+
+    ax.set_ylabel(r'RMS [mJy/beam]', fontsize=18)
+
+    labels = [l.get_label() for l in lines]
+    
+    legend0 = ax.legend(lines, labels, loc='center right',
+        bbox_to_anchor= (1.05, 1.0), ncol=2, borderaxespad=0, frameon=True,
+        fontsize=16, framealpha=1, fancybox=True, labelspacing=0.1,
+        handletextpad=0.3, handlelength=1., columnspacing=0.5)
+
+    legend0.get_frame().set_linewidth(2);
+    legend0.get_frame().set_edgecolor('black');
+
+    plt.savefig(output_fname,bbox_inches='tight')
+    plt.close()
+
 
 
 #=== MAIN ===

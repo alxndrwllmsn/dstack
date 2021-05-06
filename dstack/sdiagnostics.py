@@ -531,7 +531,10 @@ def get_optical_image(catalog_path,
                     source_index,
                     survey='DSS2 Red',
                     N_optical_pixels=600,
-                    temp_fits_path=str(os.getcwd() + '/temp.fits')):
+                    temp_fits_path=str(os.getcwd() + '/temp.fits'),
+                    spec_centre=False,
+                    centre_ra=None,
+                    centre_dec=None):
     """ Download optical image cutsouts of sources from SkyVeiw via astroquery
     The optical image is by default from the 2nd Digitised sky survey (DSS2)
     red band: https://skyview.gsfc.nasa.gov/current/cgi/moreinfo.pl?survey=DSS2%20Red
@@ -584,6 +587,15 @@ def get_optical_image(catalog_path,
         Full path and file name to a fits file wich will be created in case no online data can be retrieved. This is a temprorary file and will be deleted
         This is the working directory by default.
 
+    spec_centre: bool, optional
+        If True then the user can specify the centre of the optical image
+
+    centre_ra: float, optional,
+        The RA of the user specified centre in [degrees] !
+
+    centre_dec: float, optional,
+        The Dec of the user specified centre in [degrees] !
+
     Return
     ======
     optical_fits_first_element: `PrimaryHDU`
@@ -596,8 +608,19 @@ def get_optical_image(catalog_path,
     catalog = parse_single_table(catalog_path).to_table(use_names_over_ids=True)
 
     #Get the optical image centre from the SoFiA RA, Dec coordinates of the selected source
-    ra = catalog['ra'][source_index]
-    dec = catalog['dec'][source_index]
+    if spec_centre:
+        #Use the user-provided centre rather than the sourve centre to create
+        # offset background images for various different iomaging tasks
+        if centre_ra == None or centre_dec == None:
+            raise ValueError('One of the special centre coordinates are not provided!')
+
+        ra = centre_ra
+        dec = centre_dec
+
+    else:
+        ra = catalog['ra'][source_index]
+        dec = catalog['dec'][source_index]
+
     pos = SkyCoord(ra=ra, dec=dec, unit='deg',equinox='J2000')
 
     # get (download) the image and select the first elemnt of the list (only one elemnt should be in the list returned)
@@ -702,7 +725,10 @@ def get_optical_image_ndarray(source_ID,
                         sofia_dir_path,
                         name_base,
                         survey='DSS2 Red',
-                        N_optical_pixels=600):
+                        N_optical_pixels=600,
+                        spec_centre=False,
+                        centre_ra=None,
+                        centre_dec=None):
     """Return the background optical image as a numpy array. It is an useful modularisation for ploting
     Furthermore, this can be imported to external code for more complex analysis.
 
@@ -723,6 +749,15 @@ def get_optical_image_ndarray(source_ID,
 
     N_optical_pixels: int, optional
          Number of pixels of the background image. Image size in arcseconds if the backfround is `DSS2 Red` (default)
+
+    spec_centre: bool, optional
+        If True then the user can specify the centre of the optical image
+
+    centre_ra: float, optional,
+        The RA of the user specified centre in [degrees] !
+
+    centre_dec: float, optional,
+        The Dec of the user specified centre in [degrees] !
     
     Return
     ======
@@ -736,7 +771,8 @@ def get_optical_image_ndarray(source_ID,
    
     #Get optical image and coordinate system
     optical_im_fits_hdu, survey_used = get_optical_image(catalog_path, source_index,
-            survey=survey, N_optical_pixels=N_optical_pixels)
+        survey=survey, N_optical_pixels=N_optical_pixels, spec_centre = spec_centre,
+        centre_ra = centre_ra, centre_dec = centre_dec)
 
     optical_im = optical_im_fits_hdu.data
     optical_im_wcs = WCS(optical_im_fits_hdu.header)

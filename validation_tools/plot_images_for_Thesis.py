@@ -43,6 +43,7 @@ import warnings
 
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse, Rectangle, Circle
 
 import cmocean
 
@@ -100,107 +101,182 @@ warnings.filterwarnings('ignore', category=Warning, append=True)
 #=== Functions ===
 #=================
 
-def plot_RMS(rmsfile_list,
-            output_fname,
-            label_list=['?'],
-            color_list=[None],
-            linestyle_list=['-'],
-            rest_frame='optical',
-            ptitle=None):
-    """Create a plot of RMS -- channel from a list of output .dat files created
-    by cimRMS.
+def observation_setup_plot(source_ID,
+    sofia_dir_path,
+    name_base,
+    centre_ra,
+    centre_dec,
+    output_name,
+    b_maj=30.,
+    b_min=30.,
+    b_pa=0.,
+    rms_halfwidth = None,
+    beam_FWHM_halfwidth=None,
+    N_optical_pixels=600,
+    sigma_mom0_contours=True,
+    mom0_contour_levels=[3.,5.,9.,16.,32.],
+    color=None, 
+    masking=True,
+    mask_sigma=3.5):
+    """A specific function displaying the observation setup that includes:
+
+        - background optical image
+        - The observed galaxy contours
+        - The imaged area borders
+        - Primary beam FWHM circle
+        - Centre rectangular area in which the RMS is measured 
+
+    That is, this function really is specific for the Thesis.
 
     Parameters
     ==========
-    rmsfile_list: list of str
-        The list containing the files created by cimRMS
+    source_ID: int
+        The ID of the selected source. IDs are not pythonic; i.e. the first ID is 1.
 
-    output_fname: str
-        Name and full path of the images created.
+    sofia_dir_path_list: str
+        Full path to the directory where the output of SoFiA saved/generated.
+        Has to end with a slash (/)!
 
-    label list, list of strings, optional
-        A string for each RMS output, that is displayed as a legend on the plot
+    name_base_list: str
+      The `output.filename` variable defined in the SoFiA template .par.
+      Basically the base of all file names.
+      However, it has to end with a lower dash (?): _ !
 
-    color_list: list of strings, optional
-        The color for each RMS output on the plot
+    centre_ra: float, optional,
+        The RA of the field centre in [degrees] !
 
-    rest_frame: str, optional
-        The rest frame in whic the x axis is displayed valid are optical and
-        frequency. The latter is expect to be provided in [Hz] and the code
-        automatically converts it to [GHz]
+    centre_dec: float, optional,
+        The Dec of the field centre in [degrees] !
+
+    output_name: str
+        The full path to the output dir and the output image name
+
+    b_maj: float, optional
+        The major axis of the beam in arcseconds
+
+    b_min: float, optional
+        The minor axis of the beam in arcseconds
+
+    b_pa: float, optional
+        The position angle of the synthesised beam in degrees
+
+    rms_halfwidth: int, optional
+        The half-width of the rectangular window used to measure RMS in [arcseconds]
+
+    beam_FWHM_halfwidth: int, optional
+        The half of the FWHM of the primary beam in [arcseconds]
+
+    N_optical_pixels: int, optional
+        The background image number of pixels (pixelsize is 1 arcsec)
+
+    sigma_mom0_contours: bool, optimal
+        If True, the contour levels should be given in terms of sigma, else in
+        column density (10^20)
+
+    mom0_contour_levels: list of float, optional
+        The list of mom0 contour levels to be drawn
+    
+    color: color, optional
+        The source contour colors
+        
+    masking: bool, optional
+        If True, the SoFiA cube will be masked
+
+    mask_sigma: float, optional
+        The sigma which below the SoFiA cube is potentially masked
 
     Return
     ======
     output_image: file
         The image created
-
     """
-    if rest_frame not in ['optical', 'frequency']:
-        raise ValueError('Invalid rest frame for spectral axis is given! \
-Only optical and frequency are supported.')
+    #Generate a random color if needed
+    if color == None:
+        color = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
 
-    N_sources = len(rmsfile_list)
+    #Get moment maps and background image
+    optical_im, optical_im_wcs, survey_used = ds.sdiagnostics.get_optical_image_ndarray(
+        source_ID_list[0], sofia_dir_path_list[0], name_base_list[0],
+        N_optical_pixels = N_optical_pixels, spec_centre = True,
+        centre_ra = centre_ra, centre_dec = centre_dec)
 
-    label_list = svalidation.initialise_argument_list(N_sources, label_list)
-    linestyle_list = svalidation.initialise_argument_list(N_sources, linestyle_list)
+    col_den_map, mom0_wcs, col_den_sen_lim = ds.sdiagnostics.get_momN_ndarray(0,
+            source_ID, sofia_dir_path, name_base, b_maj=b_maj, b_min=b_min,
+            masking=masking, mask_sigma=mask_sigma)
 
-    #Generate random colors if needed
-    color_list = svalidation.initialise_argument_list(N_sources, color_list)
-    for i in range(0,N_sources):
-        if color_list[i] == None:
-            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+    if sigma_mom0_contours:
+            mom0_contour_levels = np.array(mom0_contour_levels) * col_den_sen_lim
+            log.info('The column density contours are {}'.format(mom0_contour_levels))
 
-    #Create plot
-    fig = plt.figure(1, figsize=(8,5))
-    ax = fig.add_subplot(111)
-
-    if ptitle is not None:
-        plt.title('{0:s}'.format(ptitle), fontsize=21, loc='left')
-
-    lines = []
-
-    for i in range(0,N_sources):
-        freq, rms = np.genfromtxt(rmsfile_list[i], skip_header=4, delimiter=',',
-                    usecols=(0,1), unpack=True)
-
-        #Convert RMS from Jy/beam to mJy/beam
-        rms = np.multiply(rms,1000)
-
-        if rest_frame == 'frequency':
-            #Convert frequency from Hz to GHz
-            freq = np.multiply(freq,1e-9)
-
-        else:
-            #Convert frequncy from Hz to km/s
-            freq = np.array([ds.sdiagnostics.get_velocity_from_freq(i) for i in freq])
-
-
-        lines.append(plt.step(freq, rms, color=color_list[i], lw=2.5, alpha=0.8,
-            linestyle=linestyle_list[i], where='mid',
-            label='{0:s}'.format(label_list[i]))[0])
-
-        #print(lines[0][0].get_label())
-        #print(type(lines[0][0]))
-
-    if rest_frame == 'optical':
-        ax.set_xlabel(r'V$_{opt}$ [km/s]', fontsize=18)
-    else:
-        ax.set_xlabel(r'$\nu$ [GHz]', fontsize=18)
-
-    ax.set_ylabel(r'RMS [mJy/beam]', fontsize=18)
-
-    labels = [l.get_label() for l in lines]
+    #Create the plot
+    fig = plt.figure(1, figsize=(9,9))
+    ax = fig.add_subplot(111, projection=optical_im_wcs)
     
-    legend0 = ax.legend(lines, labels, loc='center right',
-        bbox_to_anchor= (1.05, 1.0), ncol=2, borderaxespad=0, frameon=True,
-        fontsize=16, framealpha=1, fancybox=True, labelspacing=0.1,
-        handletextpad=0.3, handlelength=1., columnspacing=0.5)
+    ax.imshow(optical_im.data,origin='lower',cmap='Greys')
+    ax.contour(col_den_map, levels=mom0_contour_levels,
+        transform=ax.get_transform(mom0_wcs),
+        colors=color, linewidths=2.5, alpha=1.0)    
+    
+    ax.coords[0].set_major_formatter('hh:mm:ss')
+    ax.coords[1].set_major_formatter('dd:mm')
+    ax.coords[0].set_axislabel('RA (J2000)', fontsize=16)
+    ax.coords[1].set_axislabel('Dec (J2000)', fontsize=16)
 
-    legend0.get_frame().set_linewidth(2);
-    legend0.get_frame().set_edgecolor('black');
+    ax.set_aspect('equal', 'box')
 
-    plt.savefig(output_fname,bbox_inches='tight')
+    ax.grid(color='white', linewidth=1.5, alpha=0.5, linestyle='dashed')
+
+    #Add Galaxy name
+    ax.text(x=0.525, y=0.725, s="NGC7361", fontsize=18, transform=ax.transAxes)
+
+    #Add beam ellipse centre is defined as a fraction of the background image size
+    beam_loc_ra = optical_im_wcs.array_index_to_world(
+        int(0.025 * N_optical_pixels), int(0.025 * N_optical_pixels)).ra.value
+    beam_loc_dec = optical_im_wcs.array_index_to_world(
+        int(0.025 * N_optical_pixels), int(0.025 * N_optical_pixels)).dec.value
+
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec),
+        b_maj/3600, b_min/3600, b_pa, fc='black', ec='black', alpha=0.75,
+        transform=ax.get_transform('fk5'))
+    
+    ax.add_patch(beam_ellip)
+
+    #Add RMS rectangle
+    arcsec2deg = lambda x: x / 3600
+
+    if rms_halfwidth == None:
+        #Use 240' window
+        rms_halfwidth = 40.*6. #Assuming 6 arsecpixel size and 80 pixels window 
+
+    rms_rectangle = Rectangle((centre_ra - arcsec2deg(rms_halfwidth),
+        centre_dec - arcsec2deg(rms_halfwidth)), arcsec2deg(2*rms_halfwidth),
+        arcsec2deg(2*rms_halfwidth), fill=None,
+        linestyle='-', linewidth=2.5, ec='black', alpha=1.,
+        transform=ax.get_transform('fk5'))    
+
+    ax.add_patch(rms_rectangle)
+
+    #Primary beam FWHM
+    #Computed by using the formula
+    # radian2arcsec(1.09*(0.21/12)*4*np.log10(2))
+    # where the parameters are coming from:
+    # https://github.com/ATNF/yandasoft/wiki/linmos#alternate-primary-beam-models
+
+    if beam_FWHM_halfwidth == None:
+        radian2arcsec = lambda x: x * 206264.80625 #quick and dirty
+
+        beam_FWHM_halfwidth = radian2arcsec(1.09*(0.21/12)*4*np.log10(2)) / 2 
+
+    beam_FWHM_circle = Circle((centre_ra, centre_dec),
+        radius = arcsec2deg(beam_FWHM_halfwidth), fill=None,
+        linestyle='--', linewidth=2.5, ec='black', alpha=1.,
+        transform=ax.get_transform('fk5'))    
+
+    ax.add_patch(beam_FWHM_circle)
+
+    plt.savefig(output_name, bbox_inches='tight')
     plt.close()
+
 
 #============
 #=== MAIN ===
@@ -211,7 +287,6 @@ if __name__ == "__main__":
     log.addHandler(logging.StreamHandler(sys.stdout))
 
     #=== Define what to plot ===
-
     #Decide on Wiener_filtering
     filtering = True
 
@@ -225,10 +300,13 @@ if __name__ == "__main__":
     full_res = False #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
-    kinematics = False
+    kinematics = True
+
+    #===
+    setup_plot = False
 
     #Decide on individual figures to make
-    rms_plot = True
+    rms_plot = False
 
     col_density_histogram = False
 
@@ -282,10 +360,17 @@ if __name__ == "__main__":
                         'stacked_grids_rms.dat', 'stacked_images_rms.dat',
                         'conventional_imaging_rms.dat']))
 
+                    #rms_file_list = list(map(rms_dir.__add__,[
+                    #    'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
+                    #    'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
+
                     rms_colors = ['black', c0, c2, c1, outlier_color]
                     rms_labels = ['B', 'V', 'G', 'I', 'C']
+                    #rms_colors = ['black', c0, c2, c1]
+                    #rms_labels = ['B', 'V', 'G', 'I']
                     rms_ptitle = 'Wiener-filtering and deconvolution'
                     rms_outlabel = 'filtering'
+                    #rms_outlabel = 'filtering_without_C'
                     rms_linestyles = ['-']
 
                     #Define source and imaging parameters
@@ -312,22 +397,22 @@ if __name__ == "__main__":
 
                     rms_dir = working_dir + 'measured_RMS/'
 
-                    #rms_file_list = list(map(rms_dir.__add__,[
-                    #    'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
-                    #    'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
-
                     rms_file_list = list(map(rms_dir.__add__,[
                         'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
-                        'stacked_grids_rms.dat']))
+                        'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
 
-                    #rms_colors = ['black', c0, c2, c1]
-                    #rms_labels = ['B', 'V', 'G', 'I']
-                    rms_colors = ['black', c0, c2]
-                    rms_labels = ['B', 'V', 'G']
+                    #rms_file_list = list(map(rms_dir.__add__,[
+                    #    'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
+                    #    'stacked_grids_rms.dat']))
+
+                    rms_colors = ['black', c0, c2, c1]
+                    rms_labels = ['B', 'V', 'G', 'I']
+                    #rms_colors = ['black', c0, c2]
+                    #rms_labels = ['B', 'V', 'G']
                     rms_ptitle = 'no deconvolution'
                     rms_outlabel = 'dirty'
-                    #rms_linestyles = ['-', '--', '-.', '-']
-                    rms_linestyles = ['-', '--', '-.']
+                    rms_linestyles = ['-', '--', '-.', '-']
+                    #rms_linestyles = ['-', '--', '-.']
 
             else:
                 working_dir = '/home/krozgonyi/Desktop/NGC7361_results/\
@@ -481,7 +566,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             rms_colors = [c0, c2, c1]
             rms_labels = ['V', 'G', 'I']
             rms_ptitle = 'Wiener-filtering and deconvolution'
-            rms_outlabel = '6km'
+            rms_outlabel = 'filtering'
             rms_linestyles = ['-']
 
 
@@ -517,15 +602,45 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
     #===========================================================================
     #=== Imaging ===
     if not kinematics:
+        #The special setup plot
+        if setup_plot:
+            log.info('Creating observation setup plot...')
+
+            #Use the grid stacking 2km baseline data
+
+            observation_setup_plot(source_ID = source_ID_list[grid_plot_ID],
+                sofia_dir_path = sofia_dir_path_list[grid_plot_ID],
+                name_base = name_base_list[0],
+                centre_ra = 340.591, #Field centre RA in degrees
+                centre_dec = -30.41624, #Field centre Dec in degrees
+                output_name = output_dir + '{0:d}km_observation_setup.pdf'.format(
+                    baseline_length),
+                b_maj = b_maj_list[0],
+                b_min = b_min_list[0],
+                b_pa = b_pa_list[0],
+                rms_halfwidth = None,
+                beam_FWHM_halfwidth = None,
+                N_optical_pixels = 6144, #The whole area imaged
+                sigma_mom0_contours = False,
+                mom0_contour_levels = [np.sqrt(2.)],
+                color = color_list[grid_plot_ID], 
+                masking = masking_list[0],
+                mask_sigma = mask_sigma_list[0])
+
+            log.info('...done')
+
+
         if rms_plot:
             log.info('Creating RMS -- channel plot...')
 
-            plot_RMS(rmsfile_list = rms_file_list,
-                output_fname = output_dir + 'rms_{0:s}.pdf'.format(rms_outlabel),
+            svalidation.plot_RMS(rmsfile_list = rms_file_list,
+                output_fname = output_dir + '{0:d}km_rms_{1:s}.pdf'.format(
+                    baseline_length,rms_outlabel),
                 label_list = rms_labels,
                 color_list = rms_colors,
                 linestyle_list = rms_linestyles,
                 rest_frame = 'optical',
+                region_list=[None,None,None,None,(319,397)],
                 ptitle = rms_ptitle)
 
             log.info('...done')
@@ -536,7 +651,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             svalidation.plot_column_density_histogram(source_ID_list = source_ID_list,
                 sofia_dir_path_list = sofia_dir_path_list,
                 name_base_list = name_base_list,
-                output_fname = output_dir + 'col_den_hist.pdf',
+                output_fname = output_dir + '{0:d}km_col_den_hist.pdf'.format(
+                    baseline_length),
                 N_bins = 25,
                 #masking = False,
                 masking_list = masking_list,
@@ -560,7 +676,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             sofia_dir_path = sofia_dir_path_list[grid_plot_ID]
             name_base = name_base_list[0]
 
-            output_name = output_dir + 'grid_contour_plots.pdf'
+            output_name = output_dir + '{0:d}km_grid_contour_plots.pdf'.format(
+                baseline_length)
 
             svalidation.simple_moment0_and_moment1_contour_plot(source_ID_list = [source_ID],
                 sofia_dir_path_list = [sofia_dir_path],
@@ -584,7 +701,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
         if simple_grid_spectrum_plot:
             log.info('Create single spectra plot...')
 
-            output_name = output_dir + 'grid_spectra.pdf'
+            output_name = output_dir + '{0:d}km_grid_spectra.pdf'.format(
+                baseline_length)
 
             svalidation.simple_spectra_plot(source_ID_list = [source_ID_list[grid_plot_ID]],
                 sofia_dir_path_list = [sofia_dir_path_list[grid_plot_ID]],
@@ -600,7 +718,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
         if simple_grid_and_hipass_spectrum_plot:
             log.info('Create single spectra plot including HIPASS spectra...')
 
-            output_name = output_dir + 'grid_and_HIPASS_spectra.pdf'
+            output_name = output_dir + '{0:d}km_grid_and_HIPASS_spectra.pdf'.format(
+                baseline_length)
 
             svalidation.simple_spectra_plot(source_ID_list = [None, source_ID_list[grid_plot_ID]],
                 sofia_dir_path_list = [None, sofia_dir_path_list[grid_plot_ID]],
@@ -627,7 +746,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
 
             mom0_contour_levels = [1, 2, 4, 8, 16]
 
-            output_name = output_dir + 'GI_contour_plots.pdf'
+            output_name = output_dir + '{0:d}km_GI_contour_plots.pdf'.format(
+                baseline_length)
 
             svalidation.simple_moment0_and_moment1_contour_plot(source_ID_list = source_ID,
                 sofia_dir_path_list = sofia_dir_path,
@@ -651,7 +771,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
         if simple_grid_and_image_spectrum_plot:
             log.info('Create single spectra plot...')
 
-            output_name = output_dir + 'GI_spectra.pdf'
+            output_name = output_dir + '{0:d}km_GI_spectra.pdf'.format(
+                baseline_length)
 
             svalidation.simple_spectra_plot(source_ID_list = [source_ID_list[grid_plot_ID],\
                 source_ID_list[image_plot_ID]],
@@ -669,7 +790,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
         if simple_grid_image_and_hipass_spectrum_plot:
             log.info('Create single GI spectra plot including HIPASS spectra...')
 
-            output_name = output_dir + 'GI_and_HIPASS_spectra.pdf'
+            output_name = output_dir + '{0:d}km_GI_and_HIPASS_spectra.pdf'.format(
+                baseline_length)
 
             svalidation.simple_spectra_plot(source_ID_list = [None,
                 source_ID_list[grid_plot_ID], source_ID_list[image_plot_ID]],
@@ -689,7 +811,6 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
 
             log.info('...done')        
 
-
         if spectra_triangle_plot:
             log.info('Creating spectra triangle plot for {0:d}km \
 baseline results...'.format(baseline_length))
@@ -697,7 +818,8 @@ baseline results...'.format(baseline_length))
             svalidation.plot_spectra_triangle_matrix(source_ID_list = source_ID_list,
                 sofia_dir_list = sofia_dir_path_list,
                 name_base_list = name_base_list,
-                output_name = output_dir + 'spectra_triangle.pdf',
+                output_name = output_dir + '{0:d}km_spectra_triangle.pdf'.format(
+                baseline_length),
                 beam_correction_list = beam_correction_list,
                 b_maj_px_list = b_maj_px_list,
                 b_min_px_list = b_min_px_list,
@@ -715,7 +837,8 @@ baseline results...'.format(baseline_length))
                 source_ID_list = source_ID_list,
                 sofia_dir_list = sofia_dir_path_list,
                 name_base_list = name_base_list,
-                output_name = output_dir + 'mom0_map_triangle.pdf',
+                output_name = output_dir + '{0:d}km_mom0_map_triangle.pdf'.format(
+                baseline_length),
                 N_optical_pixels = N_opt_px,
                 masking_list = masking_list,
                 mask_sigma_list = mask_sigma_list,
@@ -740,7 +863,8 @@ baseline results...'.format(baseline_length))
                 source_ID_list = source_ID_list,
                 sofia_dir_list = sofia_dir_path_list,
                 name_base_list = name_base_list,
-                output_name = output_dir + 'mom1_map_triangle.pdf',
+                output_name = output_dir + '{0:d}km_mom1_map_triangle.pdf'.format(
+                baseline_length),
                 N_optical_pixels = N_opt_px,
                 masking_list = masking_list,
                 mask_sigma_list = mask_sigma_list,
@@ -779,11 +903,13 @@ baseline results...'.format(baseline_length))
                         log.info('Creating flux diff against {0:s} plots for {1:}...'.format(
                         orientation, diff_ident))
 
-                        svalidation.plot_flux_density_diff_dependience_on_column_density(source_ID_list=[source_ID_list[i],source_ID_list[j]],
+                        svalidation.plot_flux_density_diff_dependience_on_column_density(
+                            source_ID_list=[source_ID_list[i],source_ID_list[j]],
                             sofia_dir_list = [sofia_dir_path_list[i], sofia_dir_path_list[j]],
                             name_base_list = name_base_list,
-                            output_fname = output_dir + 'scaling_plots/sensitivity_column_density_{0:s}_{1:s}{2:s}_map.pdf'.format(
-                                orientation, ident_list[i], ident_list[j]),
+                            output_fname = output_dir + \
+                            'scaling_plots/{0:d}km_sensitivity_column_density_{1:s}_{2:s}{3:s}_map.pdf'.format(
+                                baseline_length, orientation, ident_list[i], ident_list[j]),
                             N_optical_pixels = N_opt_px,
                             masking_list = masking_list,
                             mask_sigma_list = mask_sigma_list,
@@ -792,7 +918,7 @@ baseline results...'.format(baseline_length))
                             b_pa_list = b_pa_list,
                             ident_string = diff_ident,
                             col_den_sensitivity_lim_list = [sen_lim],
-                            beam_correction = beam_correction_list[0],
+                            beam_correction = beam_correction_list[1],
                             b_maj_px_list = b_maj_px_list,
                             b_min_px_list = b_min_list,
                             col_den_binwidth = col_den_binwidth,
