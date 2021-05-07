@@ -297,7 +297,7 @@ if __name__ == "__main__":
         raise ValueError('Only either the filtering or deconvolution can be disabled at a time!')
 
     #Decide the resolution
-    full_res = False #If True the 6km baseline results are plotted
+    full_res = True #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
     kinematics = True
@@ -327,10 +327,11 @@ if __name__ == "__main__":
     diff_scaling_plots = False
 
     #Kinematics
-    profile_curves = True
-    pv_data_trinagle_plot = False
-    pv_model_trinagle_plot = False
-    pv_residual_trinagle_plot = False
+    profile_curves = False
+    angle_curves = False
+    pv_data_trinagle_plot = True
+    pv_model_trinagle_plot = True
+    pv_residual_trinagle_plot = True
 
 
     #=== Setup variables ===
@@ -508,7 +509,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             channelwidth = 4.
             centre_index = 55
             edge_crop = 9
-            ring_crop = 3
+            ring_crop = 2
+            inner_ring_crop = 0
             #S_rms=0.00555033 #This is the actual RMS level of the baseline 
 
 
@@ -582,21 +584,22 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             #List parameters
             profile_file_name_list = ['densprof.txt']
             pv_profile_file_name_list = ['rings_final2.txt']
-            pv_fits_name_base_list = ['DINGO_J224218.04-300319.2',
-                'DINGO_J224218.05-300319.0', 'DINGO_J224219.24-300310.2']
+            pv_fits_name_base_list = ['DINGO_J224218.06-300326.6',
+                'DINGO_J224218.05-300326.8', 'DINGO_J224217.92-300325.2']
 
             contour_levels=[1,2,4,8,16,32,64]
             color_list = [c0, c2, c1]
             label_list = ['co-added visibilities',
                         'stacked grids', 'stacked images']
-            ident_list = ['B', 'V', 'G', 'I']
-            S_rms_list = [0.0044004, 0.00439989, 0.00443053]
+            ident_list = ['V', 'G', 'I']
+            S_rms_list = [0.00440574, 0.00441169, 0.00444099]
 
             #Single valued parameters
             channelwidth = 4.
             centre_index = 75
             edge_crop = 3
-            ring_crop = 6
+            ring_crop = 4
+            inner_ring_crop = 1
 
 
     #===========================================================================
@@ -947,9 +950,29 @@ baseline results...'.format(profile, baseline_length))
                     profile_file_name_list = p_list,
                     profile = profile,
                     ring_crop = ring_crop,
+                    inner_ring_crop = inner_ring_crop,
                     color_list = color_list,
                     label_list = ident_list,
                     output_fname = output_dir + '{0:s}_curves.pdf'.format(profile))
+
+                log.info('...done')
+
+        if angle_curves:
+            for angle_profile in ['inclination', 'position_angle']:
+                log.info('Creating {0:s} curves for the {1:d}km \
+baseline results...'.format(angle_profile, baseline_length))
+
+                p_list = pv_profile_file_name_list
+
+                kvalidation.plot_angle_curves(rot_dir_list = dir_path_list,
+                    profile_file_name_list = p_list,
+                    angle_type = angle_profile,
+                    ring_crop = ring_crop,
+                    inner_ring_crop = inner_ring_crop,
+                    color_list = color_list,
+                    label_list = ident_list,
+                    output_fname = output_dir + '{0:s}_curves.pdf'.format(
+                        angle_profile))
 
                 log.info('...done')
 
@@ -966,6 +989,7 @@ baseline results...'.format(baseline_length))
                 centre_index = centre_index,
                 edge_crop = edge_crop,
                 ring_crop = ring_crop,
+                inner_ring_crop = inner_ring_crop,
                 S_rms_list = S_rms_list,
                 contour_levels = contour_levels,
                 color_list = color_list,
@@ -988,6 +1012,7 @@ baseline results...'.format(baseline_length))
                 centre_index = centre_index,
                 edge_crop = edge_crop,
                 ring_crop = ring_crop,
+                inner_ring_crop = inner_ring_crop,
                 S_rms_list = S_rms_list,
                 contour_levels = contour_levels,
                 color_list = color_list,
@@ -1010,6 +1035,7 @@ baseline results...'.format(baseline_length))
                 centre_index = centre_index,
                 edge_crop = edge_crop,
                 ring_crop = ring_crop,
+                inner_ring_crop = inner_ring_crop,
                 S_rms_list = S_rms_list,
                 contour_levels = contour_levels,
                 color_list = color_list,

@@ -121,6 +121,7 @@ def plot_profile_curves(rot_dir_list,
                     output_fname,
                     profile='rotation',
                     ring_crop=2,
+                    inner_ring_crop=0,
                     label_list=['?'],
                     color_list=[None]):
     """This is a simple function to plot different models fit on different deep
@@ -157,6 +158,10 @@ def plot_profile_curves(rot_dir_list,
         outter rings are fitted to the noisy data. The number of rings from the
         are excluded from the plots. If negative, rings starting from the inside
         are excluded and so this parameter has to be >= 0!
+
+    inner_ring_crop: int, optional
+        Number of rings from the inside, not included in the plots. Useful for the
+        6km baseline modeling, as the innermost rings(s) can yield weird values...
 
     label list, list of strings, optional
         A string for each 3DBarolo output, that is displayed as a legend on the plot
@@ -204,9 +209,9 @@ def plot_profile_curves(rot_dir_list,
                                     usecols=(1,2,3), unpack=True) 
 
             #Crop the last N ringfit
-            rad = rad[:-ring_crop]
-            vrot = vrot[:-ring_crop]
-            srot = srot[:-ring_crop]       
+            rad = rad[inner_ring_crop:-ring_crop]
+            vrot = vrot[inner_ring_crop:-ring_crop]
+            srot = srot[inner_ring_crop:-ring_crop]       
 
             #compute the upper and lower errors
             #NOTE that according to Tristan this is an under-estionation of the
@@ -219,10 +224,10 @@ def plot_profile_curves(rot_dir_list,
                 verr_l, verr_h, serr_l, serr_h = np.genfromtxt(profilefit_file_path,
                         skip_header=1, usecols=(13,14,15,16), unpack=True)
 
-                verr_l = verr_l[:-ring_crop]
-                verr_h = verr_h[:-ring_crop]
-                serr_l = serr_l[:-ring_crop]
-                serr_h = serr_h[:-ring_crop]
+                verr_l = verr_l[inner_ring_crop:-ring_crop]
+                verr_h = verr_h[inner_ring_crop:-ring_crop]
+                serr_l = serr_l[inner_ring_crop:-ring_crop]
+                serr_h = serr_h[inner_ring_crop:-ring_crop]
 
                 noerrorbar = False
 
@@ -235,10 +240,10 @@ def plot_profile_curves(rot_dir_list,
                         rot_dir_list[i+1] + profile_file_name_list[i+1],
                         skip_header=1, usecols=(13,14,15,16), unpack=True)
 
-                    verr_l = verr_l[:-ring_crop]
-                    verr_h = verr_h[:-ring_crop]
-                    serr_l = serr_l[:-ring_crop]
-                    serr_h = serr_h[:-ring_crop]
+                    verr_l = verr_l[inner_ring_crop:-ring_crop]
+                    verr_h = verr_h[inner_ring_crop:-ring_crop]
+                    serr_l = serr_l[inner_ring_crop:-ring_crop]
+                    serr_h = serr_h[inner_ring_crop:-ring_crop]
 
                     noerrorbar = False
 
@@ -267,7 +272,7 @@ def plot_profile_curves(rot_dir_list,
             elif profile == 'dispersion':
                 if noerrorbar:
                     lines.append(ax.step(rad, srot, where='mid',
-                        color=color_list[i], alpha=-0.05*i,
+                        color=color_list[i], alpha=1.-0.05*i,
                         linewidth=2.5,
                         label='{0:s}'.format(label_list[i])))
 
@@ -282,9 +287,9 @@ def plot_profile_curves(rot_dir_list,
             rad_sd, surfdens, sd_err = np.genfromtxt(profilefit_file_path,
                     usecols=(0,3,4), unpack=True)
 
-            rad_sd = rad_sd[:-ring_crop]
-            surfdens = surfdens[:-ring_crop]
-            sd_err = sd_err[:-ring_crop]
+            rad_sd = rad_sd[inner_ring_crop:-ring_crop]
+            surfdens = surfdens[inner_ring_crop:-ring_crop]
+            sd_err = sd_err[inner_ring_crop:-ring_crop]
 
             lines.append(ax.errorbar(rad_sd, surfdens, yerr=sd_err,
                     linewidth=2.5, capsize=0, elinewidth=2.5,
@@ -314,9 +319,11 @@ def plot_profile_curves(rot_dir_list,
             handletextpad=0.3, handlelength=1.5, columnspacing=0.5)
 
         #Add inner title
-        t = ds.sdiagnostics.add_inner_title(ax, 'Rotation profile', loc=2, prop=dict(size=18))
+        t = ds.sdiagnostics.add_inner_title(ax, 'Rotation profile', loc=2,
+            prop=dict(size=18))
         t.patch.set_ec("none")
         t.patch.set_alpha(0.5)
+
     elif profile == 'dispersion':
         #Add legend
         labels = [l.get_label() for l in lines]
@@ -327,7 +334,8 @@ def plot_profile_curves(rot_dir_list,
             handletextpad=0.3, handlelength=1.5, columnspacing=0.5)
 
         #Add inner title
-        t = ds.sdiagnostics.add_inner_title(ax, 'Dispersion profile', loc=1, prop=dict(size=18))
+        t = ds.sdiagnostics.add_inner_title(ax, 'Dispersion profile', loc=1,
+            prop=dict(size=18))
         t.patch.set_ec("none")
         t.patch.set_alpha(0.5)
 
@@ -356,6 +364,7 @@ def plot_angle_curves(rot_dir_list,
                     output_fname,
                     angle_type='inclination',
                     ring_crop=2,
+                    inner_ring_crop = 0,
                     label_list=['?'],
                     color_list=[None]):
     """This is a simple function to plot different models fit on different deep
@@ -397,6 +406,11 @@ def plot_angle_curves(rot_dir_list,
         are excluded from the plots. If negative, rings starting from the inside
         are excluded and so this parameter has to be >= 0!
 
+    inner_ring_crop: int, optional
+        Number of rings from the inside, not included in the plots. Useful for the
+        6km baseline modeling, as the innermost rings(s) can yield weird values...
+
+
     label list, list of strings, optional
         A string for each 3DBarolo output, that is displayed as a legend on the plot
 
@@ -412,9 +426,92 @@ def plot_angle_curves(rot_dir_list,
     #Check the available profiles
     if angle_type not in ['inclination', 'position_angle']:
         raise TypeError('Invalid angle image requested!')
+    
+    N_sources = len(rot_dir_list)
+
+    profile_file_name_list = initialise_argument_list(N_sources, profile_file_name_list)
+    label_list = initialise_argument_list(N_sources, label_list)
+
+    #Generate random colors if needed
+    color_list = initialise_argument_list(N_sources, color_list)
+    for i in range(0,N_sources):
+        if color_list[i] == None:
+            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+     
+    #Create plot
+    fig = plt.figure(1, figsize=(8,5))
+    ax = fig.add_subplot(111)
+
+    lines = []
+
+    for i in range(0,N_sources):
+        profilefit_file_path = rot_dir_list[i] + profile_file_name_list[i]
 
 
-    #TO DO finish this code!
+        if angle_type == 'inclination':
+            rad, ang = np.genfromtxt(profilefit_file_path, skip_header=1,
+                                    usecols=(1,4), unpack=True)
+
+        else:
+            rad, ang = np.genfromtxt(profilefit_file_path, skip_header=1,
+                                    usecols=(1,5), unpack=True)
+
+        #Crop the last N ringfit
+        rad = rad[inner_ring_crop:-ring_crop]
+        ang = ang[inner_ring_crop:-ring_crop]
+
+        #lines.append(ax.step(rad, ang, where='mid',
+        #                color=color_list[i], alpha=1.-0.05*i,
+        #                linewidth=2.5,
+        #                label='{0:s}'.format(label_list[i]))[0])
+
+        lines.append(ax.plot(rad, ang, '-', lw=2.5,
+                        color=color_list[i], alpha=1.,
+                        label='{0:s}'.format(label_list[i]))[0])
+
+        ax.scatter(rad, ang, color=color_list[i], alpha=1.)
+
+    if angle_type == 'inclination':
+        ax.set_ylabel(r'i [deg]', fontsize=18)
+    else:
+        ax.set_ylabel(r'$\Phi$ [deg]', fontsize=18)
+    
+    ax.set_xlabel('Radius [arcsec]', fontsize=18)
+
+
+    #Add legend
+    labels = [l.get_label() for l in lines]
+    if angle_type == 'inclination':
+        legend0 = ax.legend(lines, labels, loc='upper right',
+            bbox_to_anchor= (0.95, 0.95),
+            ncol=2, borderaxespad=0, frameon=True,
+            fontsize=16, framealpha=1, fancybox=True, labelspacing=0.25,
+            handletextpad=0.3, handlelength=1.5, columnspacing=0.5)
+    else:
+        legend0 = ax.legend(lines, labels, loc='lower right',
+            bbox_to_anchor= (0.95, 0.1),
+            ncol=2, borderaxespad=0, frameon=True,
+            fontsize=16, framealpha=1, fancybox=True, labelspacing=0.25,
+            handletextpad=0.3, handlelength=1.5, columnspacing=0.5)
+
+
+
+    if angle_type == 'inclination':
+        #Add inner title
+        t = ds.sdiagnostics.add_inner_title(ax, 'Inclination',
+            loc=2, prop=dict(size=18))
+    else: 
+        t = ds.sdiagnostics.add_inner_title(ax, 'Position angle',
+            loc=2, prop=dict(size=18))
+
+    t.patch.set_ec("none")
+    t.patch.set_alpha(0.5)
+
+    legend0.get_frame().set_linewidth(2);
+    legend0.get_frame().set_edgecolor('black');
+
+    plt.savefig(output_fname,bbox_inches='tight')
+    plt.close()
 
 
 def plot_pv_diagram_triangle_plot(rot_dir_list,
@@ -427,6 +524,7 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
                                 centre_index=53,
                                 edge_crop=11,
                                 ring_crop=2,
+                                inner_ring_crop=0,
                                 S_rms_list=[0.001],
                                 contour_levels=[1,2,4,8,16,32],
                                 color_list=[None],
@@ -505,6 +603,10 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
         The RMS value of the input data which is used as a base level for the
         contours.The unit is in the native units of the cube, possibly in [Jy/beam]
         If only a single value is given, it is used for all p-v plots
+
+    inner_ring_crop: int, optional
+        Number of rings from the inside, not included in the plots. Useful for the
+        6km baseline modeling, as the innermost rings(s) can yield weird values...
 
     contour_levels: list of floats, optional
         The contour levels in terms of `S_rms` to be drawn to the data and model. 
@@ -620,7 +722,7 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
                 if centre_index == None:
                     if data_shape2 & 1:
                         centre_index = int((data_shape2 - 1) / 2) - 3
-                        print(centre_index)
+                        #print(centre_index)
                     
                     else:
                         centre_index = int(data_shape2 / 2)
@@ -732,8 +834,8 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
 
                         #Crop the last N ringfit
                         #ring_crop = 2
-                        rad = rad[:-ring_crop]
-                        vrot = vrot[:-ring_crop]
+                        rad = rad[inner_ring_crop:-ring_crop]
+                        vrot = vrot[inner_ring_crop:-ring_crop]
                    
                         radius = np.concatenate((-rad,rad))
                         vrot1 = vsys + vrot
@@ -796,64 +898,6 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
     plt.close()
     
 
-
 #=== MAIN ===
-if __name__ == "__main__":
-    #pass
-    log.setLevel(logging.INFO)
-    log.addHandler(logging.StreamHandler(sys.stdout))
-
-    #PV diagram triangle plot
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_rotation_curve_resuls/'
-
-    dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/']))
-
-    pv_plot_type_list = ['data', 'model', 'residual']
-
-    for pvtype in pv_plot_type_list:
-        
-        log.info('Making p-v {0:s} triangle plot...'.format(pvtype))
-
-        plot_pv_diagram_triangle_plot(rot_dir_list = dir_path_list,
-            profile_file_name_list = ['ringlog2.txt'],
-            pv_fits_name_base_list = ['DINGO_J224218.10-300330.0', 'DINGO_J224218.09-300329.7', 'DINGO_J224218.04-300329.9'],
-            plot_type = pvtype,
-            channelwidth = 4.,
-            centre_index=53,
-            edge_crop=11,
-            ring_crop=2,
-            S_rms=0.00392164 / 3,#This is the actual RMS level
-            contour_levels=[3,6,12,24,48,92],
-            color_list = [c0, c2, c1],
-            label_list = ['co-added visibilities', 'stacked grids', 'stacked images'],
-            ident_list = ['V', 'G', 'I'],
-            output_fname = working_dir + 'validation/pv_diagram_{0:s}_triangle_plot.pdf'.format(pvtype))
-
-        log.info('...done')
-
-    exit()
-
-    #Rotattion different profile curves
-    working_dir = '/home/krozgonyi/Desktop/quick_and_dirty_rotation_curve_resuls/'
-
-    dir_path_list = list(map(working_dir.__add__,['co_added_visibilities/',
-        'stacked_grids/', 'stacked_images/']))
-
-    profile_list = ['rotation', 'dispersion', 'density']
-    profile_file_names = [['ringlog2.txt'], ['ringlog2.txt'], ['densprof.txt']]
-
-    for i in range(0,3):
-        log.info('Creating {0:s} curves plot...'.format(profile_list[i]))
-
-        plot_profile_curves(rot_dir_list = dir_path_list,
-            profile_file_name_list = profile_file_names[i],
-            profile = profile_list[i],
-            label_list = ['co-added visibilities', 'stacked grids', 'stacked images'],
-            color_list = [c0,c2,c1],
-            output_fname = working_dir + 'validation/{0:s}_curves.pdf'.format(
-            profile_list[i]))
-
-        log.info('...done')
-
-
+if __name__ == "__main__"
+    pass
