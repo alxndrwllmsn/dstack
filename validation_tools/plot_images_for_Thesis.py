@@ -297,10 +297,10 @@ if __name__ == "__main__":
         raise ValueError('Only either the filtering or deconvolution can be disabled at a time!')
 
     #Decide the resolution
-    full_res = True #If True the 6km baseline results are plotted
+    full_res = False #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
-    kinematics = True
+    kinematics = False
 
     #===
     setup_plot = False
@@ -321,7 +321,7 @@ if __name__ == "__main__":
     simple_grid_image_and_hipass_spectrum_plot = False
 
     spectra_triangle_plot = False
-    mom0_triangle_plot = False
+    mom0_triangle_plot = True
     mom1_triangle_plot = False
 
     diff_scaling_plots = False

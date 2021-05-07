@@ -899,5 +899,5 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
     
 
 #=== MAIN ===
-if __name__ == "__main__"
+if __name__ == "__main__":
     pass

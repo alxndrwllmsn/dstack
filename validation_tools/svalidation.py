@@ -719,7 +719,7 @@ def plot_momN_triangle_matrix(moment,
                             fontsize = 18, labelpad=10)
                     else:
                         if moment == 0:
-                            cb.ax.set_ylabel(r'N$_{HI}$ [10$^{20}$cm$^2$]', color='black',
+                            cb.ax.set_ylabel(r'N$_{HI}\times$10$^{20}$ [cm$^{-2}$]', color='black',
                                 fontsize = 18, labelpad=10)
                         else:
                             cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', color='black',
