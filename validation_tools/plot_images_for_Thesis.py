@@ -321,10 +321,10 @@ if __name__ == "__main__":
     simple_grid_image_and_hipass_spectrum_plot = False
 
     spectra_triangle_plot = False
-    mom0_triangle_plot = True
+    mom0_triangle_plot = False
     mom1_triangle_plot = False
 
-    diff_scaling_plots = False
+    diff_scaling_plots = True
 
     #Kinematics
     profile_curves = False
@@ -477,7 +477,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             #mom0_contour_levels = [0.5, 1.6, 2.7, 5.3, 13] #in column density 10^20
             mom0_contour_levels = [8, 16, 32, 64, 128] #in column density 10^20
 
-            central_vel = 1246 #central vel for mom1 map contours [km/s]
+            central_vel = 1247 #central vel for mom1 map contours [km/s]
             delta_vel = 16
 
         #Kinematics
@@ -536,7 +536,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             b_min_list = [12.]
             b_pa_list = [0.]
             masking_list = [True]
-            mask_sigma_list = [1.]
+            mask_sigma_list = [3.]
             color_list = [c0, c2, c1]
             label_list = ['visibilities', 'stacked grids', 'stacked images']
             ident_list = ['V', 'G', 'I']
@@ -626,12 +626,12 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 N_optical_pixels = 6144, #The whole area imaged
                 sigma_mom0_contours = False,
                 mom0_contour_levels = [np.sqrt(2.)],
+                #mom0_contour_levels = [1.],
                 color = color_list[grid_plot_ID], 
                 masking = masking_list[0],
                 mask_sigma = mask_sigma_list[0])
 
             log.info('...done')
-
 
         if rms_plot:
             log.info('Creating RMS -- channel plot...')
@@ -761,7 +761,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_pa_list = b_pa_list,
                 N_optical_pixels = N_optical_pixels,
                 sigma_mom0_contours = False,
-                mom0_contour_levels = mom0_contour_levels,
+                #mom0_contour_levels = mom0_contour_levels
+                mom0_contour_levels = [0.64, 1.29, 2.57, 5.15, 10.3],
                 central_vel = central_vel,
                 delta_vel = delta_vel,
                 N_half_contours_mom1 = 7,
@@ -899,7 +900,7 @@ baseline results...'.format(baseline_length))
                     diff_ident = '({0:s} - {1:s})'.format(ident_list[i],
                             ident_list[j])
         
-                    col_den_binwidth = 20
+                    col_den_binwidth = 21
                     col_den_lim = None                        
 
                     for orientation, orientation_dependence in zip(['col_den', 'RA', 'Dec'], [False, True, True]):

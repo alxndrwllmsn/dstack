@@ -719,7 +719,7 @@ def plot_momN_triangle_matrix(moment,
                             fontsize = 18, labelpad=10)
                     else:
                         if moment == 0:
-                            cb.ax.set_ylabel(r'N$_{HI}\times$10$^{20}$ [cm$^{-2}$]', color='black',
+                            cb.ax.set_ylabel(r'N$_{HI}\times$10$^{20}$ [1/cm$^{2}$]', color='black',
                                 fontsize = 18, labelpad=10)
                         else:
                             cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', color='black',
@@ -1295,11 +1295,13 @@ def plot_flux_density_diff_dependience_on_column_density(source_ID_list,
         if sensitivity:
             ax_scatter.set_xlabel(r'<Dynamic range>', fontsize=18)
         else:
-            ax_scatter.set_xlabel(r'<N$_{HI}$> [10$^{20}$cm$^{-2}$]', fontsize=18)
+            #ax_scatter.set_xlabel(r'<N$_{HI}$> [10$^{20}$cm$^{-2}$]', fontsize=18)
+            ax_scatter.set_xlabel(r'<N$_{HI}$> [10$^{20}$/cm$^{2}$]', fontsize=18)
     else:
         ax_scatter.set_xlabel(r'{0:s} [deg]'.format(orientation), fontsize=18)
 
-    ax_scatter.set_ylabel(r'$\Delta$S$_{int}$ [mJy km s$^{-1}$/pixel]', fontsize=18)
+    #ax_scatter.set_ylabel(r'$\Delta$S$_{int}$ [mJy km s$^{-1}$/pixel]', fontsize=18)
+    ax_scatter.set_ylabel(r'$\Delta$S$_{int}$ [mJy km/s /pixel]', fontsize=18)
     ax_histx.set_ylabel('N', fontsize=18)
     ax_histy.set_xlabel('N', fontsize=18)
 
@@ -1730,10 +1732,18 @@ def simple_moment0_and_moment1_contour_plot(source_ID_list,
         col_den_sensitivity_list.append(col_den_sen_lim)
 
         if sigma_mom0_contours:
-                mom0_contour_levels = np.array(mom0_contour_levels) * col_den_sen_lim
-                log.info('The column density contours are {}'.format(mom0_contour_levels))
+            mom0_contour_levels = np.array(mom0_contour_levels) * col_den_sen_lim
+            log.info('The column density contours are {}'.format(mom0_contour_levels))
+            print('The column density contours are {}'.format(mom0_contour_levels))
 
-                sigma_contours_list.append(mom0_contour_levels)
+            sigma_contours_list.append(mom0_contour_levels)
+
+        else:
+            log.info('The sigma contours are {}'.format(
+                np.array(mom0_contour_levels) / col_den_sen_lim))
+            print('The sigma contours are {}'.format(
+                    np.array(mom0_contour_levels) / col_den_sen_lim))
+
 
         mom1_map, mom1_wcs, col_den_sen_lim = ds.sdiagnostics.get_momN_ndarray(1,
                 source_ID_list[i], sofia_dir_path_list[i], name_base_list[i],
@@ -1775,6 +1785,10 @@ def simple_moment0_and_moment1_contour_plot(source_ID_list,
         axes[1].contour(mom1_map_list[i], levels=mom1_contour_levels,
             transform=axes[1].get_transform(mom_wcs_list[i]),
             colors=color_list[i], linewidths=1.5, alpha=1.)
+
+        axes[1].contour(mom1_map_list[i], levels=[central_vel],
+            transform=axes[1].get_transform(mom_wcs_list[i]),
+            colors=color_list[i], linewidths=4., alpha=1.)
 
     #Add beam ellipse
     beam_loc_ra = optical_im_wcs.array_index_to_world(int(0.1 * N_optical_pixels),
@@ -1964,7 +1978,7 @@ def simple_spectra_plot(source_ID_list,
     ax.tick_params(axis='both', which='major', labelsize=17)
     
     ax.set_xlabel(r'V$_{opt}$ [km s$^{-1}$]', fontsize=20, labelpad=10)
-    ax.set_ylabel('Flux density [Jy]', fontsize=20)
+    ax.set_ylabel('Flux [Jy]', fontsize=20)
     #ax.grid()
 
     #Add inner title
