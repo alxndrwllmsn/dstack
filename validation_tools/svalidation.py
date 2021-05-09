@@ -2009,7 +2009,8 @@ def plot_column_density_histogram(source_ID_list,
     col_den_sensitivity_lim_list=[None],
     conver_from_NHI=True,
     pixelsize_list=[5.],
-    inclination_list=[0.]):
+    inclination_list=[0.],
+    densplot=False):
     """This is a simple function generating the N pixel, column density histogram
     for a single given mom0 map.
 
@@ -2072,6 +2073,12 @@ def plot_column_density_histogram(source_ID_list,
 
         The correction is cos(inclination)
 
+    densplot: bool, optional
+        If True, a mask is created by using all input data, and each input column
+        density map is masked by this mask. That is for the histograms, each input
+        map have the same number of pixels, and so the histograms can be normalised
+        by this number and this yields an apples-to-apples comparison
+
     Return
     ======
     output_image: file
@@ -2104,40 +2111,82 @@ given than SoFiA directory paths!'
 
     col_den_array_list = [] 
 
-    for i in range(0,N_sources):
-        #Get the mom map
-        mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
-                                source_ID = source_ID_list[i],
-                                sofia_dir_path = sofia_dir_path_list[i],
-                                name_base = name_base_list[i],
-                                masking = masking_list[i],
-                                mask_sigma = mask_sigma_list[i],
-                                b_maj = b_maj_list[i],
-                                b_min = b_min_list[i],
-                                col_den_sensitivity = col_den_sensitivity_lim_list[i])
+    if not densplot:
+        for i in range(0,N_sources):
+            #Get the mom map
+            mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+                                    source_ID = source_ID_list[i],
+                                    sofia_dir_path = sofia_dir_path_list[i],
+                                    name_base = name_base_list[i],
+                                    masking = masking_list[i],
+                                    mask_sigma = mask_sigma_list[i],
+                                    b_maj = b_maj_list[i],
+                                    b_min = b_min_list[i],
+                                    col_den_sensitivity = col_den_sensitivity_lim_list[i])
 
-        #Flatten the array and perform unit conversion if needed
-        col_den_array = mom_map.flatten()
+            #Flatten the array and perform unit conversion if needed
+            col_den_array = mom_map.flatten()
 
-        #convert from [10^20 1/cm^2] to [M_sun / pc^2]
-        if conver_from_NHI:
-            # The mass of 1 H atom: 8.4144035 x 10^-58 M_Sun
-            # 1 cm^2 is 1.05026504 x 10^-37 Parsecs^2        
-            # Given that my measured column density is given in 10^20 number of H atoms
-            # The conversion factor is simply 0.7993
+            #convert from [10^20 1/cm^2] to [M_sun / pc^2]
+            if conver_from_NHI:
+                # The mass of 1 H atom: 8.4144035 x 10^-58 M_Sun
+                # 1 cm^2 is 1.05026504 x 10^-37 Parsecs^2        
+                # Given that my measured column density is given in 10^20 number of H atoms
+                # The conversion factor is simply 0.7993
 
-            col_den_array = np.multiply(col_den_array, 0.7993)
+                col_den_array = np.multiply(col_den_array, 0.7993)
 
-            #Correction for inclination
-            inc_corr = np.cos((np.pi * (inclination_list[i] / 180)))
+                #Correction for inclination
+                inc_corr = np.cos((np.pi * (inclination_list[i] / 180)))
 
-            col_den_array = np.multiply(col_den_array, inc_corr)
+                col_den_array = np.multiply(col_den_array, inc_corr)
 
-        col_den_array = copy.deepcopy(np.ma.compressed(col_den_array))
+            col_den_array = copy.deepcopy(np.ma.compressed(col_den_array))
 
-        col_den_array_list.append(col_den_array)
+            col_den_array_list.append(col_den_array)
 
-    #hist_list = []
+    else:
+        if N_sources == 1:
+            #Do the same as normal, no need for generating a mask
+            for i in range(0,N_sources):
+                #Get the mom map
+                mom_map, map_wcs, map_sen_lim = ds.sdiagnostics.get_momN_ndarray(moment = 0,
+                                        source_ID = source_ID_list[i],
+                                        sofia_dir_path = sofia_dir_path_list[i],
+                                        name_base = name_base_list[i],
+                                        masking = masking_list[i],
+                                        mask_sigma = mask_sigma_list[i],
+                                        b_maj = b_maj_list[i],
+                                        b_min = b_min_list[i],
+                                        col_den_sensitivity = col_den_sensitivity_lim_list[i])
+
+                #Flatten the array and perform unit conversion if needed
+                col_den_array = mom_map.flatten()
+
+                #convert from [10^20 1/cm^2] to [M_sun / pc^2]
+                if conver_from_NHI:
+                    # The mass of 1 H atom: 8.4144035 x 10^-58 M_Sun
+                    # 1 cm^2 is 1.05026504 x 10^-37 Parsecs^2        
+                    # Given that my measured column density is given in 10^20 number of H atoms
+                    # The conversion factor is simply 0.7993
+
+                    col_den_array = np.multiply(col_den_array, 0.7993)
+
+                    #Correction for inclination
+                    inc_corr = np.cos((np.pi * (inclination_list[i] / 180)))
+
+                    col_den_array = np.multiply(col_den_array, inc_corr)
+
+                col_den_array = copy.deepcopy(np.ma.compressed(col_den_array))
+
+                col_den_array_list.append(col_den_array)
+
+        else:
+            #Generate a common mask, then apply it to all data and write the output
+            # to col_den_array_list
+
+            #TO DO finish this part of the function!
+            pass;
 
     #Get the same bins for all histograms
     if not conver_from_NHI:
@@ -2174,26 +2223,43 @@ given than SoFiA directory paths!'
     for i in range(0,N_sources):
         #Get the histogram
         if not conver_from_NHI:
-            ax.hist(col_den_array_list[i],
-                bins = bins,
-                histtype='step', alpha=1-0.05*i,
-                linewidth=2.5, color=color_list[i])
+            if not densplot:
+                ax.hist(col_den_array_list[i],
+                    bins = bins, density=False,
+                    histtype='step', alpha=1-0.05*i,
+                    linewidth=2.5, color=color_list[i])
+
+            else:
+                ax.hist(col_den_array_list[i],
+                    bins = bins, density=False,
+                    histtype='step', alpha=1-0.05*i,
+                    linewidth=2.5, color=color_list[i])
 
             ax.set_xscale("log")
 
         else:
-            ax.hist(np.log10(col_den_array_list[i]),
-                bins = bins,
-                histtype='step', alpha=1-0.05*i,
-                linewidth=2.5, color=color_list[i],
-                label=label_list[i])
+            if not densplot:
+                ax.hist(np.log10(col_den_array_list[i]),
+                    bins = bins, density=False,
+                    histtype='step', alpha=1-0.05*i,
+                    linewidth=2.5, color=color_list[i],
+                    label=label_list[i])
+            else:
+                ax.hist(np.log10(col_den_array_list[i]),
+                    bins = bins, density=True,
+                    histtype='step', alpha=1-0.05*i,
+                    linewidth=2.5, color=color_list[i],
+                    label=label_list[i])
 
             #ax.plot(bin_centres, hist_list[i],alpha=1-0.05*i,
             #        linewidth=2.5, color=color_list[i])
 
     #ax.set_yscale("log")
     
-    ax.set_ylabel(r'N [pixel]', fontsize=18)
+    if not densplot:
+        ax.set_ylabel(r'N [pixel]', fontsize=18)
+    else:
+        ax.set_ylabel(r'Fraction of sampling points', fontsize=18)
 
     if conver_from_NHI:
         ax.set_xlabel(r'log$\Sigma_{HI}$ [M$_\odot$/pc$^2$]', fontsize=18)

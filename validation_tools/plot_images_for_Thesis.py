@@ -297,7 +297,7 @@ if __name__ == "__main__":
         raise ValueError('Only either the filtering or deconvolution can be disabled at a time!')
 
     #Decide the resolution
-    full_res = False #If True the 6km baseline results are plotted
+    full_res = True #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
     kinematics = False
@@ -308,11 +308,12 @@ if __name__ == "__main__":
     #Decide on individual figures to make
     rms_plot = False
 
-    col_density_histogram = False
+    col_density_histogram = True
 
     simple_grid_mom_contour_plots = False
     simple_grid_spectrum_plot = False
 
+    simple_image_and_hipass_spectrum_plot = False
     simple_grid_and_hipass_spectrum_plot = False
 
     simple_grid_and_image_mom_contour_plots = False
@@ -324,14 +325,14 @@ if __name__ == "__main__":
     mom0_triangle_plot = False
     mom1_triangle_plot = False
 
-    diff_scaling_plots = True
+    diff_scaling_plots = False
 
     #Kinematics
-    profile_curves = False
-    angle_curves = False
-    pv_data_trinagle_plot = True
-    pv_model_trinagle_plot = True
-    pv_residual_trinagle_plot = True
+    profile_curves = True
+    angle_curves = True
+    pv_data_trinagle_plot = False
+    pv_model_trinagle_plot = False
+    pv_residual_trinagle_plot = False
 
 
     #=== Setup variables ===
@@ -460,6 +461,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             b_pa_list = [0.]
             masking_list = [True]
             mask_sigma_list = [3.]
+            densplot_mask_sigma_list = [0.05]
             contour_levels = [8., 16.]
 
             N_opt_px = 130 #Number of optical background pixels in pixels ???
@@ -537,6 +539,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             b_pa_list = [0.]
             masking_list = [True]
             mask_sigma_list = [3.]
+            densplot_mask_sigma_list = [0.01]
             color_list = [c0, c2, c1]
             label_list = ['visibilities', 'stacked grids', 'stacked images']
             ident_list = ['V', 'G', 'I']
@@ -556,7 +559,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             #mom0_contour_levels = [0.5, 1.6, 2.7, 5.3, 13] #in column density 10^20
             mom0_contour_levels = [8, 16, 32, 64, 128] #in column density 10^20
 
-            central_vel = 1246 #central vel for mom1 map contours [km/s]
+            central_vel = 1250 #central vel for mom1 map contours [km/s]
             delta_vel = 16
 
             rms_dir = working_dir + 'measured_RMS/'
@@ -659,8 +662,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 N_bins = 25,
                 #masking = False,
                 masking_list = masking_list,
-                #mask_sigma = mask_sigma_list,
-                mask_sigma_list = [0.05],
+                mask_sigma_list = densplot_mask_sigma_list,
                 b_maj_list = b_maj_list,
                 b_min_list = b_maj_list,
                 color_list = color_list,
@@ -668,7 +670,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 col_den_sensitivity_lim_list = [None],
                 conver_from_NHI=True,
                 pixelsize_list = [30.],
-                inclination_list = [70])
+                inclination_list = [70],
+                densplot=False)
 
             log.info('...done')
 
@@ -690,8 +693,10 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_min_list = b_min_list,
                 b_pa_list = b_pa_list,
                 N_optical_pixels = N_optical_pixels,
-                sigma_mom0_contours = True,
-                mom0_contour_levels = mom0_contour_levels,
+                #sigma_mom0_contours = True,
+                sigma_mom0_contours = False,
+                #mom0_contour_levels = mom0_contour_levels,
+                mom0_contour_levels = [0.64, 1.29, 2.57, 5.15, 10.3],
                 central_vel = central_vel,
                 delta_vel = delta_vel,
                 N_half_contours_mom1 = 7,
@@ -738,6 +743,26 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
 
             log.info('...done')
 
+        if simple_image_and_hipass_spectrum_plot:
+            log.info('Create single spectra plot including HIPASS spectra...')
+
+            output_name = output_dir + '{0:d}km_image_and_HIPASS_spectra.pdf'.format(
+                baseline_length)
+
+            svalidation.simple_spectra_plot(source_ID_list = [None, source_ID_list[image_plot_ID]],
+                sofia_dir_path_list = [None, sofia_dir_path_list[image_plot_ID]],
+                name_base_list = [name_base_list[0]],
+                output_name = output_name,
+                beam_correction_list = [False, True],
+                color_list = ['#A7F0F0', color_list[image_plot_ID]],
+                b_maj_px_list = [b_maj_px_list[0]],
+                b_min_px_list = [b_min_px_list[0]],
+                special_flux_list = [
+                '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/2km_baseline_results/NGC7361_hipass_spectra.txt',
+                None])
+
+            log.info('...done')            
+
         if simple_grid_and_image_mom_contour_plots:
             log.info('Creating single mom0 and mom1 contour maps...')
 
@@ -761,8 +786,9 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_pa_list = b_pa_list,
                 N_optical_pixels = N_optical_pixels,
                 sigma_mom0_contours = False,
-                #mom0_contour_levels = mom0_contour_levels
-                mom0_contour_levels = [0.64, 1.29, 2.57, 5.15, 10.3],
+                #sigma_mom0_contours = True,
+                mom0_contour_levels = mom0_contour_levels,
+                #mom0_contour_levels = [0.64, 1.29, 2.57, 5.15, 10.3],
                 central_vel = central_vel,
                 delta_vel = delta_vel,
                 N_half_contours_mom1 = 7,

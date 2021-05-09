@@ -50,7 +50,8 @@ import dstack as ds
 
 #=== Globals ===
 _HI_RESTFREQ = 1420405751.786 #[Hz]
-_C = 299792.458 #[km/s] speed of light
+#_C = 299792.458 #[km/s] speed of light
+_C = 300000. #[km/s] actual value of the speed of light
 
 #RCparams for plotting
 matplotlib.rcParams['xtick.direction'] = 'in'
