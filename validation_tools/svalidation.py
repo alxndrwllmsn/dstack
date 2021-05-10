@@ -2010,7 +2010,9 @@ def plot_column_density_histogram(source_ID_list,
     conver_from_NHI=True,
     pixelsize_list=[5.],
     inclination_list=[0.],
-    densplot=False):
+    densplot=False,
+    N_optical_pixels=600,
+    bin_edge_list=[None]):
     """This is a simple function generating the N pixel, column density histogram
     for a single given mom0 map.
 
@@ -2079,6 +2081,13 @@ def plot_column_density_histogram(source_ID_list,
         map have the same number of pixels, and so the histograms can be normalised
         by this number and this yields an apples-to-apples comparison
 
+    N_optical_pixels: int, optional
+        If `densprof` is True, this parameter defines the background frame size
+        to which the moment 0 maps are transformed onto for generating the mask.
+
+    bin_edge_list: list of float, optional
+        If given, the user can specify the bin edges (!) used in binning
+
     Return
     ======
     output_image: file
@@ -2145,6 +2154,8 @@ given than SoFiA directory paths!'
 
             col_den_array_list.append(col_den_array)
 
+            print(np.size(col_den_array))
+
     else:
         if N_sources == 1:
             #Do the same as normal, no need for generating a mask
@@ -2186,26 +2197,113 @@ given than SoFiA directory paths!'
             # to col_den_array_list
 
             #TO DO finish this part of the function!
-            pass;
+            #=== Create background image
+            data_array, w = ds.sdiagnostics.get_common_frame_for_sofia_sources(
+                    moment = 0,
+                    source_ID = source_ID_list[0],
+                    sofia_dir_path = sofia_dir_path_list[0],
+                    name_base = name_base_list[0],
+                    masking = masking_list[0],
+                    mask_sigma = mask_sigma_list[0],
+                    b_maj = b_maj_list[0],
+                    b_min = b_min_list[0],
+                    col_den_sensitivity_lim = col_den_sensitivity_lim_list[i],
+                    N_optical_pixels = N_optical_pixels)
+
+            #Now we have the background image that has the same pixel size as the moment maps
+
+            #NOTE that all mom map has to have the same pixel size!
+            
+            #Get the moment maps and sensitivities
+            transformed_map_list = []
+
+            #Get all the moment maps and transform them into the background image coordinate frame
+            for i in range(0,N_sources):
+                transformed_map, tmap_sen_lim = ds.sdiagnostics.convert_source_mom_map_to_common_frame(
+                    moment = 0,
+                    source_ID = source_ID_list[i],
+                    sofia_dir_path = sofia_dir_path_list[i],
+                    name_base = name_base_list[i],
+                    optical_wcs = w,
+                    optical_data_array = data_array,
+                    masking = masking_list[i],
+                    mask_sigma = mask_sigma_list[i],
+                    b_maj = b_maj_list[i],
+                    b_min = b_min_list[i],
+                    col_den_sensitivity_lim = col_den_sensitivity_lim_list[i])
+                
+                transformed_map_list.append(transformed_map)
+
+                #Now we have all transformed maps
+                #Get an overall mask using difference maps
+
+            diff_map = transformed_map_list[0]
+
+            for i in range(1,N_sources):
+                diff_map = np.subtract(diff_map, transformed_map_list[i])
+                #diff_map = transformed_map_list[i]
+
+                #Remove NaNs
+                if i == 1:
+                    diff_map = np.ma.array(diff_map, mask=np.isnan(diff_map))
+                else:
+                    diff_map = np.ma.array(diff_map, mask=diff_map.mask)
+
+
+            mask_map = copy.deepcopy(diff_map)
+
+            del diff_map
+
+            #Now get the col den maps by using the same masks
+            for i in range(0,N_sources):
+                mom_map = copy.deepcopy(np.ma.array(transformed_map_list[i],
+                mask=mask_map.mask))
+
+                col_den_array = mom_map.flatten()
+
+                #convert from [10^20 1/cm^2] to [M_sun / pc^2]
+                if conver_from_NHI:
+                    # The mass of 1 H atom: 8.4144035 x 10^-58 M_Sun
+                    # 1 cm^2 is 1.05026504 x 10^-37 Parsecs^2        
+                    # Given that my measured column density is given in 10^20 number of H atoms
+                    # The conversion factor is simply 0.7993
+
+                    col_den_array = np.multiply(col_den_array, 0.7993)
+
+                    #Correction for inclination
+                    inc_corr = np.cos((np.pi * (inclination_list[i] / 180)))
+
+                    col_den_array = np.multiply(col_den_array, inc_corr)
+
+                col_den_array = copy.deepcopy(np.ma.compressed(col_den_array))
+
+                #print(np.size(col_den_array))
+
+                col_den_array_list.append(col_den_array)
+
+                print(np.size(col_den_array))
 
     #Get the same bins for all histograms
-    if not conver_from_NHI:
-        bin_min = np.amin(np.array([\
-        np.log10(np.amin(col_den_array_list[i])) for i in range(0,N_sources)]))
-
-        bin_max = np.amax(np.array([\
-        np.log10(np.amax(col_den_array_list[i])) for i in range(0,N_sources)]))
-
-        bins = np.logspace(bin_min, bin_max, N_bins)
-
+    if bin_edge_list[0] != None:
+        bins = bin_edge_list
     else:
-        bin_min = np.amin(np.array([\
-        np.amin(np.log10(col_den_array_list[i])) for i in range(0,N_sources)]))
+        if not conver_from_NHI:
+            bin_min = np.amin(np.array([\
+            np.log10(np.amin(col_den_array_list[i])) for i in range(0,N_sources)]))
 
-        bin_max = np.amax(np.array([\
-        np.amax(np.log10(col_den_array_list[i])) for i in range(0,N_sources)]))
+            bin_max = np.amax(np.array([\
+            np.log10(np.amax(col_den_array_list[i])) for i in range(0,N_sources)]))
 
-        bins = np.linspace(bin_min, bin_max, N_bins)
+            bins = np.logspace(bin_min, bin_max, N_bins)
+
+        else:
+            bin_min = np.amin(np.array([\
+            np.amin(np.log10(col_den_array_list[i])) for i in range(0,N_sources)]))
+
+            bin_max = np.amax(np.array([\
+            np.amax(np.log10(col_den_array_list[i])) for i in range(0,N_sources)]))
+
+            bins = np.linspace(bin_min, bin_max, N_bins)
 
 
         #For using barplots otr stepfunctions
@@ -2251,11 +2349,18 @@ given than SoFiA directory paths!'
                     linewidth=2.5, color=color_list[i],
                     label=label_list[i])
 
+                y_vals = ax.get_yticks()
+                ax.set_yticklabels(['{:.2f}'.format(x * np.fabs(bins[0]-bins[1])) for x in y_vals])
+
             #ax.plot(bin_centres, hist_list[i],alpha=1-0.05*i,
             #        linewidth=2.5, color=color_list[i])
 
     #ax.set_yscale("log")
     
+    #Below this cut I and V restores more flux than B, V or G
+    #ax.axvline(-0.5, linestyle='--', linewidth=2., color='red',
+    #            alpha=0.8, zorder=0)
+
     if not densplot:
         ax.set_ylabel(r'N [pixel]', fontsize=18)
     else:

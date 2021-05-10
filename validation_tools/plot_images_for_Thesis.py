@@ -274,6 +274,21 @@ def observation_setup_plot(source_ID,
 
     ax.add_patch(beam_FWHM_circle)
 
+    #Add HIPASS beam
+    # TO DO: add this as an optional argument...
+
+    HIPASS_beam_FWHM_halfwidth = 14.3 * 60. / 2
+    galaxy_centre_ra = 340.574623
+    galaxy_centre_dec = -30.057655
+
+    HIPASS_beam_FWHM_circle = Circle((galaxy_centre_ra, galaxy_centre_dec),
+        radius = arcsec2deg(HIPASS_beam_FWHM_halfwidth), fill=None,
+        linestyle='--', linewidth=2.5, ec='#A7F0F0', alpha=1.,
+        transform=ax.get_transform('fk5'))    
+
+    ax.add_patch(HIPASS_beam_FWHM_circle)
+
+
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
 
@@ -297,10 +312,10 @@ if __name__ == "__main__":
         raise ValueError('Only either the filtering or deconvolution can be disabled at a time!')
 
     #Decide the resolution
-    full_res = True #If True the 6km baseline results are plotted
+    full_res = False #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
-    kinematics = False
+    kinematics = True
 
     #===
     setup_plot = False
@@ -308,7 +323,8 @@ if __name__ == "__main__":
     #Decide on individual figures to make
     rms_plot = False
 
-    col_density_histogram = True
+    col_density_histogram = False
+    normalised_col_density_histogram = False
 
     simple_grid_mom_contour_plots = False
     simple_grid_spectrum_plot = False
@@ -328,17 +344,21 @@ if __name__ == "__main__":
     diff_scaling_plots = False
 
     #Kinematics
-    profile_curves = True
-    angle_curves = True
+    profile_curves = False
+    angle_curves = False
     pv_data_trinagle_plot = False
     pv_model_trinagle_plot = False
     pv_residual_trinagle_plot = False
 
 
+    ringdensplot = True
+
     #=== Setup variables ===
 
     if not full_res:
         baseline_length = int(2)
+
+        N_opt_px = 130 #Number of optical background pixels in pixels (not in arcsecond)
 
         if not kinematics:
             #Define environment variables
@@ -464,7 +484,6 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             densplot_mask_sigma_list = [0.05]
             contour_levels = [8., 16.]
 
-            N_opt_px = 130 #Number of optical background pixels in pixels ???
             mom_triangle_contours = True
             diff_saturation = 24.
 
@@ -495,6 +514,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             #List parameters
             profile_file_name_list = ['densprof.txt']
             pv_profile_file_name_list = ['rings_final2.txt']
+            pv_err_profile_file_name_list = ['rings_final1.txt']
             pv_fits_name_base_list = ['DINGO_J224218.09-300323.8',
                 'DINGO_J224218.10-300326.8', 'DINGO_J224218.10-300326.8',
                 'DINGO_J224218.05-300325.7', 'NONE']
@@ -511,7 +531,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             channelwidth = 4.
             centre_index = 55
             edge_crop = 9
-            ring_crop = 2
+            ring_crop = 3
             inner_ring_crop = 0
             #S_rms=0.00555033 #This is the actual RMS level of the baseline 
 
@@ -587,6 +607,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             #List parameters
             profile_file_name_list = ['densprof.txt']
             pv_profile_file_name_list = ['rings_final2.txt']
+            pv_err_profile_file_name_list = ['rings_final1.txt']
             pv_fits_name_base_list = ['DINGO_J224218.06-300326.6',
                 'DINGO_J224218.05-300326.8', 'DINGO_J224217.92-300325.2']
 
@@ -595,13 +616,13 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             label_list = ['co-added visibilities',
                         'stacked grids', 'stacked images']
             ident_list = ['V', 'G', 'I']
-            S_rms_list = [0.00440574, 0.00441169, 0.00444099]
+            S_rms_list = [0.00440574, 0.00441169, 0.00441169]
 
             #Single valued parameters
             channelwidth = 4.
             centre_index = 75
             edge_crop = 3
-            ring_crop = 4
+            ring_crop = 5
             inner_ring_crop = 1
 
 
@@ -671,7 +692,35 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 conver_from_NHI=True,
                 pixelsize_list = [30.],
                 inclination_list = [70],
-                densplot=False)
+                densplot=False,
+                N_optical_pixels = N_opt_px,
+                bin_edge_list=np.arange(-3,1.5,0.2))
+
+            log.info('...done')
+
+        if normalised_col_density_histogram:
+            log.info('Creating normalised column density histograms...')
+
+            svalidation.plot_column_density_histogram(source_ID_list = source_ID_list,
+                sofia_dir_path_list = sofia_dir_path_list,
+                name_base_list = name_base_list,
+                output_fname = output_dir + '{0:d}km_normalised_col_den_hist.pdf'.format(
+                    baseline_length),
+                N_bins = 25,
+                #masking = False,
+                masking_list = masking_list,
+                mask_sigma_list = densplot_mask_sigma_list,
+                b_maj_list = b_maj_list,
+                b_min_list = b_maj_list,
+                color_list = color_list,
+                label_list = ident_list,
+                col_den_sensitivity_lim_list = [None],
+                conver_from_NHI=True,
+                pixelsize_list = [30.],
+                inclination_list = [70],
+                densplot=True,
+                N_optical_pixels = N_opt_px,
+                bin_edge_list=np.arange(-3,1.5,0.2))
 
             log.info('...done')
 
@@ -980,7 +1029,8 @@ baseline results...'.format(profile, baseline_length))
                     inner_ring_crop = inner_ring_crop,
                     color_list = color_list,
                     label_list = ident_list,
-                    output_fname = output_dir + '{0:s}_curves.pdf'.format(profile))
+                    output_fname = output_dir + '{0:d}km_{1:s}_curves.pdf'.format(
+                        baseline_length,profile))
 
                 log.info('...done')
 
@@ -993,13 +1043,14 @@ baseline results...'.format(angle_profile, baseline_length))
 
                 kvalidation.plot_angle_curves(rot_dir_list = dir_path_list,
                     profile_file_name_list = p_list,
+                    profile_error_file_name_list = pv_err_profile_file_name_list,
                     angle_type = angle_profile,
                     ring_crop = ring_crop,
                     inner_ring_crop = inner_ring_crop,
                     color_list = color_list,
                     label_list = ident_list,
-                    output_fname = output_dir + '{0:s}_curves.pdf'.format(
-                        angle_profile))
+                    output_fname = output_dir + '{0:d}km_{1:s}_curves.pdf'.format(
+                        baseline_length, angle_profile))
 
                 log.info('...done')
 
@@ -1069,5 +1120,21 @@ baseline results...'.format(baseline_length))
                 label_list = label_list,
                 ident_list = ident_list,
                 output_fname = output_dir + 'pv_diagram_residual_triangle_plot.pdf')
+
+            log.info('...done')
+
+        if ringdensplot:
+            log.info('Plot integrated flux density map with ring models...')
+
+
+            fits_path = dir_path_list[1] + '/maps/DINGO_J224218.10-300326.8_0mom.fits'
+
+            kvalidation.plot_3Dbarolo_fits_map(fits_path = fits_path,
+                rot_dir = dir_path_list[1],
+                profile_file_name = pv_profile_file_name_list[0],
+                output_fname = output_dir + '{0:d}km_ringdensplot.pdf'.format(
+                        baseline_length),
+                N_optical_pixels = N_opt_px)
+
 
             log.info('...done')

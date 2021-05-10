@@ -19,6 +19,14 @@ import random
 
 import copy
 
+import astropy
+from astropy.io import fits
+from astropy.wcs import WCS
+from astropy.table import Table, Column
+from astropy.io.votable import parse_single_table
+from astropy.coordinates import SkyCoord
+from astroquery.skyview import SkyView
+
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
@@ -197,6 +205,12 @@ def plot_profile_curves(rot_dir_list,
     fig = plt.figure(1, figsize=(8,5))
     ax = fig.add_subplot(111)
 
+    #Get the shift value for plotting
+    if N_sources == 1:
+        pshift = 0
+    else:
+        pshift = (N_sources - 1) / 2
+
     lines = []
 
     for i in range(0,N_sources):
@@ -240,8 +254,8 @@ def plot_profile_curves(rot_dir_list,
                         rot_dir_list[i+1] + profile_file_name_list[i+1],
                         skip_header=1, usecols=(13,14,15,16), unpack=True)
 
-                    verr_l = verr_l[inner_ring_crop:-ring_crop]
                     verr_h = verr_h[inner_ring_crop:-ring_crop]
+                    verr_l = verr_l[inner_ring_crop:-ring_crop]
                     serr_l = serr_l[inner_ring_crop:-ring_crop]
                     serr_h = serr_h[inner_ring_crop:-ring_crop]
 
@@ -257,14 +271,23 @@ def plot_profile_curves(rot_dir_list,
                         color=color_list[i], alpha=-0.05*i,
                         linewidth=2.5,
                         label='{0:s}'.format(label_list[i]))[0])
-                
+
                 else:
-                    lines.append(ax.errorbar(rad, vrot, yerr=[verr_l, -verr_h],
-                        #fmt='.', capsize=2, elinewidth=1.5, markersize=7.5,
-                        linewidth=2.5, capsize=0, elinewidth=2.5,
-                        color=color_list[i], alpha=1-0.05*i,
-                        drawstyle = 'steps-mid',
-                        label='{0:s}'.format(label_list[i])))
+                    #lines.append(ax.errorbar(rad, vrot, yerr=[verr_l, -verr_h],
+                    #    #fmt='.', capsize=2, elinewidth=1.5, markersize=7.5,
+                    #    linewidth=2.5, capsize=0, elinewidth=2.5,
+                    #    color=color_list[i], alpha=1-0.05*i,
+                    #    drawstyle = 'steps-mid',
+                    #    label='{0:s}'.format(label_list[i])))
+
+                    lines.append(ax.errorbar(rad+1.*(i-pshift), vrot,
+                            yerr=[verr_l, -verr_h],
+                            marker='X', mec='white',
+                            linewidth=1.5, capsize=2.5, capthick=0., elinewidth=2.5,
+                            color=color_list[i], alpha=1,
+                            drawstyle = 'steps-mid',
+                            label='{0:s}'.format(label_list[i]),
+                            zorder=i))
 
                     #lines.append(ax.bar(rad, vrot, yerr=[verr_l, -verr_h],
                     #    align='center', alpha=0.8, ecolor='black', capsize=10))
@@ -277,11 +300,14 @@ def plot_profile_curves(rot_dir_list,
                         label='{0:s}'.format(label_list[i])))
 
                 else:
-                    lines.append(ax.errorbar(rad, srot, yerr=[serr_l, -serr_h],
-                        linewidth=2.5, capsize=0, elinewidth=2.5,
-                        color=color_list[i], alpha=1-0.05*i,
-                        drawstyle = 'steps-mid',
-                        label='{0:s}'.format(label_list[i])))
+                    lines.append(ax.errorbar(rad+1.*(i-pshift), srot,
+                            yerr=[serr_l, -serr_h],
+                            marker='X', mec='white',
+                            linewidth=1.5, capsize=2.5, capthick=0., elinewidth=2.5,
+                            color=color_list[i], alpha=1,
+                            drawstyle = 'steps-mid',
+                            label='{0:s}'.format(label_list[i]),
+                            zorder=i))
 
         else:
             rad_sd, surfdens, sd_err = np.genfromtxt(profilefit_file_path,
@@ -291,12 +317,15 @@ def plot_profile_curves(rot_dir_list,
             surfdens = surfdens[inner_ring_crop:-ring_crop]
             sd_err = sd_err[inner_ring_crop:-ring_crop]
 
-            lines.append(ax.errorbar(rad_sd, surfdens, yerr=sd_err,
-                    linewidth=2.5, capsize=0, elinewidth=2.5,
-                    color=color_list[i], alpha=1-0.05*i,
+            lines.append(ax.errorbar(rad_sd+1.*(i-pshift), surfdens,
+                    yerr=sd_err,
+                    marker='X', mec='white',
+                    linewidth=1.5, capsize=2.5, capthick=0., elinewidth=2.5,
+                    color=color_list[i], alpha=1,
                     drawstyle = 'steps-mid',
-                    label='{0:s}'.format(label_list[i])))
-     
+                    label='{0:s}'.format(label_list[i]),
+                    zorder=i))
+
     if profile == 'rotation':
         ax.set_ylabel(r'v$_{rot}$ [km/s]', fontsize=18)
     elif profile == 'dispersion':
@@ -317,6 +346,8 @@ def plot_profile_curves(rot_dir_list,
             ncol=2, borderaxespad=0, frameon=True,
             fontsize=16, framealpha=1, fancybox=True, labelspacing=0.25,
             handletextpad=0.3, handlelength=1.5, columnspacing=0.5)
+
+        ax.grid(linestyle=':',linewidth=1.,zorder=20,alpha=0.5, color=outlier_color)
 
         #Add inner title
         t = ds.sdiagnostics.add_inner_title(ax, 'Rotation profile', loc=2,
@@ -361,6 +392,7 @@ def plot_profile_curves(rot_dir_list,
 
 def plot_angle_curves(rot_dir_list,
                     profile_file_name_list,
+                    profile_error_file_name_list,
                     output_fname,
                     angle_type='inclination',
                     ring_crop=2,
@@ -429,32 +461,64 @@ def plot_angle_curves(rot_dir_list,
     
     N_sources = len(rot_dir_list)
 
-    profile_file_name_list = initialise_argument_list(N_sources, profile_file_name_list)
+    profile_file_name_list = initialise_argument_list(N_sources,
+        profile_file_name_list)
+    profile_error_file_name_list = initialise_argument_list(N_sources,
+        profile_error_file_name_list)
     label_list = initialise_argument_list(N_sources, label_list)
 
     #Generate random colors if needed
     color_list = initialise_argument_list(N_sources, color_list)
     for i in range(0,N_sources):
         if color_list[i] == None:
-            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) #Generate random HEX color
+            color_list[i] = "#{:06x}".format(random.randint(0, 0xFFFFFF)) 
      
     #Create plot
     fig = plt.figure(1, figsize=(8,5))
     ax = fig.add_subplot(111)
 
+    #Get the shift value for plotting
+    if N_sources == 1:
+        pshift = 0
+    else:
+        pshift = (N_sources - 1) / 2
+
     lines = []
 
     for i in range(0,N_sources):
         profilefit_file_path = rot_dir_list[i] + profile_file_name_list[i]
+        profilefit_error_file_path = rot_dir_list[i] + profile_error_file_name_list[i]
 
 
         if angle_type == 'inclination':
             rad, ang = np.genfromtxt(profilefit_file_path, skip_header=1,
                                     usecols=(1,4), unpack=True)
 
+            try:
+                pos_ang_err, neg_ang_err = np.genfromtxt(profilefit_error_file_path,
+                    skip_header=1, usecols=(17,18), unpack=True)
+            except:
+                pos_ang_err, neg_ang_err = np.genfromtxt(
+                    rot_dir_list[i+1] + profile_error_file_name_list[i],
+                    skip_header=1, usecols=(17,18), unpack=True)
+
+            
+
         else:
             rad, ang = np.genfromtxt(profilefit_file_path, skip_header=1,
                                     usecols=(1,5), unpack=True)
+
+            try:
+                pos_ang_err, neg_ang_err = np.genfromtxt(
+                    profilefit_error_file_path, skip_header=1,
+                    usecols=(19,20), unpack=True)
+            except:
+                pos_ang_err, neg_ang_err = np.genfromtxt(
+                    rot_dir_list[i+1] + profile_error_file_name_list[i],
+                    skip_header=1, usecols=(19,20), unpack=True)
+
+        pos_ang_err = np.fabs(pos_ang_err[inner_ring_crop:-ring_crop])
+        neg_ang_err = np.fabs(neg_ang_err[inner_ring_crop:-ring_crop])
 
         #Crop the last N ringfit
         rad = rad[inner_ring_crop:-ring_crop]
@@ -465,11 +529,32 @@ def plot_angle_curves(rot_dir_list,
         #                linewidth=2.5,
         #                label='{0:s}'.format(label_list[i]))[0])
 
-        lines.append(ax.plot(rad, ang, '-', lw=2.5,
-                        color=color_list[i], alpha=1.,
-                        label='{0:s}'.format(label_list[i]))[0])
+        if angle_type == 'inclination':
+            lines.append(ax.errorbar(rad+1.*(i-pshift), ang,
+                yerr=[neg_ang_err,pos_ang_err],
+                marker='X', mec='white',
+                linewidth=1.5, capsize=2.5, capthick=0., elinewidth=2.5,
+                color=color_list[i], alpha=1,
+                drawstyle = 'steps-mid',
+                label='{0:s}'.format(label_list[i]),
+                zorder=i))
 
-        ax.scatter(rad, ang, color=color_list[i], alpha=1.)
+        else:
+            lines.append(ax.errorbar(rad+1.*(i-pshift), ang,
+                yerr=[neg_ang_err,pos_ang_err],
+                marker='X', mec='white',
+                linewidth=1.5, capsize=2.5, capthick=0., elinewidth=2.5,
+                color=color_list[i], alpha=1,
+                drawstyle = 'steps-mid',
+                label='{0:s}'.format(label_list[i]),
+                zorder=i))
+
+        #if angle_type == 'inclination':
+        #    ax.scatter(rad, ang, color=color_list[i], alpha=1.)
+        #else:
+        #    pass
+
+        #ax.scatter(rad, ang, color=color_list[i], alpha=1.)
 
     if angle_type == 'inclination':
         ax.set_ylabel(r'i [deg]', fontsize=18)
@@ -509,6 +594,9 @@ def plot_angle_curves(rot_dir_list,
 
     legend0.get_frame().set_linewidth(2);
     legend0.get_frame().set_edgecolor('black');
+
+    mm2in = lambda x: x*0.03937008
+    plt.gcf().set_size_inches(mm2in(179),mm2in(117))
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
@@ -897,6 +985,212 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
     plt.savefig(output_fname, bbox_inches='tight')
     plt.close()
     
+
+def plot_3Dbarolo_fits_map(fits_path,
+        rot_dir,
+        profile_file_name,
+        output_fname,
+        N_optical_pixels=150,
+        temp_fits_path='./temp.fits',
+        b_maj=30,
+        b_min=30,
+        b_pa=0):
+    """
+
+    Parameters
+    ==========
+
+    Return
+    ======
+    output_image: file
+        The image created
+    """
+    #Get the rings profile file
+    profilefit_file_path = rot_dir + profile_file_name
+
+    #Get data arrays
+    fits_map = fits.getdata(fits_path)
+
+    fits_wcs = ds.sdiagnostics.fget_wcs(fits_path)
+
+    #Get central pixel RA Dec values
+    centre_coords = astropy.wcs.utils.pixel_to_skycoord(
+        np.floor(np.shape(fits_map)[1] / 2),
+        np.floor(np.shape(fits_map)[0] / 2), 
+        fits_wcs, origin=0)
+ 
+    #Create empty background fits image at this centre with square background
+    data_array = np.zeros((N_optical_pixels,N_optical_pixels))
+
+    #Create the WCS
+    w = WCS(naxis=2)
+    # The negation in the longitude is needed by definition of RA, DEC
+    #w.wcs.cdelt = [-1 / 3600, 1 / 3600] #pixels in arcseconds
+    w.wcs.cdelt = astropy.wcs.utils.proj_plane_pixel_scales(fits_wcs) #pixels in arcseconds
+    w.wcs.crpix = [N_optical_pixels // 2 + 1, N_optical_pixels // 2 + 1]
+    w.wcs.ctype = ["RA---SIN", "DEC--SIN"]
+    w.wcs.crval = [centre_coords.ra.deg, centre_coords.dec.deg]
+    w.naxis = 2
+    w.wcs.radesys = 'ICRS'
+    w.wcs.equinox = 2000.0
+
+    #Create file and read in and the nelete it....
+    #Remove file if exists
+    if os.path.exists(temp_fits_path):
+        os.remove(temp_fits_path)
+    
+    fits.writeto(filename=temp_fits_path, data=data_array, header=w.to_header(), 
+            checksum=True, output_verify='ignore', overwrite=False)
+    
+    optical_fits = fits.open(temp_fits_path)
+    
+    optical_im_fits_hdu = optical_fits[0]
+
+    #Remove for good
+    os.remove(temp_fits_path)
+
+    del w, data_array, optical_fits
+
+    #Empty optical background image created
+
+    optical_data_array = optical_im_fits_hdu.data
+    optical_wcs = WCS(optical_im_fits_hdu.header)
+
+    #Project the original fits to the empty background image
+    transformed_map = copy.deepcopy(optical_data_array)
+
+    #Define the data array wich the moment map will be transformed
+    #Get the reference pixels
+    x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
+            astropy.wcs.utils.pixel_to_skycoord(0, 0, fits_wcs, origin=0),
+            optical_wcs, origin=0)
+
+    x_ref_index = int(x_ref)
+    y_ref_index = int(y_ref)
+
+    #Add the moment map to the background image
+    for j in range(0,np.shape(fits_map)[0]):
+        for k in range(0,np.shape(fits_map)[1]):
+
+            #This is a slower pixel-to-pixel tranformation
+            #x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
+            #astropy.wcs.utils.pixel_to_skycoord(k,j, fits_wcs, origin=0),
+            #    optical_wcs, origin=0)
+            #x_ref_index = int(x_ref)
+            #y_ref_index = int(y_ref)
+            #transformed_map[y_ref_index, x_ref_index] = fits_map[j,k]
+
+            transformed_map[y_ref_index + j, x_ref_index - k] = fits_map[j,k]
+            #transformed_map[j, k] = fits_map[j,k]
+
+    #Flip the result image along the Dec axis
+    transformed_map = np.flip(transformed_map,axis=1)
+
+    #Mask zero values as the input moment maps are masked as well.
+    mask = (transformed_map == 0.)
+    transformed_map = np.ma.array(transformed_map, mask=mask)
+
+    #Mask out Nan values as well (if present)
+    transformed_map = np.ma.array(transformed_map, mask=np.isnan(transformed_map))
+
+    del fits_map, mask
+
+    #Create plot
+    fig = plt.figure(1, figsize=(6,6))
+    ax = fig.add_subplot(111, projection=optical_wcs)
+ 
+    map_fig = ax.imshow(transformed_map, origin='lower', cmap=_CMAP)
+    #map_fig = ax.imshow(transformed_map, origin='lower', cmap='viridis_r')
+
+    #Colorbar settings
+    cb = plt.colorbar(map_fig, ax=ax, fraction=0.0476, pad=0.0)
+    
+    cb.ax.yaxis.get_offset_text().set_fontsize(18)
+    cb.ax.tick_params(labelsize=18)
+    cb.ax.tick_params(direction='in', length=6, width=2)
+
+    cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', fontsize = 18)
+
+    #Label settings
+    #ax.coords.grid(color='white', alpha=0.5, linestyle='dashed')
+    ax.coords[0].set_major_formatter('hh:mm:ss')
+    ax.coords[1].set_major_formatter('dd:mm')
+    ax.coords[0].set_axislabel('RA (J2000)', fontsize=16)
+    ax.coords[1].set_axislabel('Dec (J2000)', fontsize=16)
+
+    #=== Plot centre X marker
+    rad, inc, pa, xpos, ypos = np.genfromtxt(profilefit_file_path,
+            skip_header=1, usecols=(1,4,5,9,10), unpack=True)
+
+    avg_xpos = int(np.average(xpos))
+    avg_ypos = int(np.average(ypos))
+
+    xcen, ycen = astropy.wcs.utils.skycoord_to_pixel(
+        astropy.wcs.utils.pixel_to_skycoord(avg_xpos, avg_ypos,
+        fits_wcs, origin=0),
+        optical_wcs, origin=0)
+
+    xcen = N_optical_pixels - xcen #To account for the flip
+
+    #Looks weird
+    #ax.plot(xcen, ycen, 
+    #    'x', color='black', markersize=7, mew=1.5)
+
+    #== Plot inclination line
+    avg_pa = np.average(pa)
+    avg_inc = np.average(inc)
+
+    #Plot the position angle line
+    x = np.arange(xcen-3.,xcen+3.,0.1) 
+    y = np.tan(np.radians(avg_pa-90))*(x-xcen)+ycen 
+
+    ax.plot(x, y, '--', color='black', linewidth=1.5, alpha=1.) 
+    
+
+    #=== Plot the rings based on the 3Dbarolo plot
+    ring_crop = 3
+    pixelsize = 6
+    for i in range(0,np.size(rad)):
+        rad_pix = rad / pixelsize
+        posa = np.radians(avg_pa-90)
+        axmaj = rad_pix[i] 
+        axmin = axmaj*np.cos(np.radians(inc[i]))
+
+        t = np.linspace(0,2*np.pi,100)
+
+        xt = xcen+axmaj*np.cos(posa)*np.cos(t)-axmin*np.sin(posa)*np.sin(t)
+        yt = ycen+axmaj*np.sin(posa)*np.cos(t)+axmin*np.cos(posa)*np.sin(t)
+
+        if i < np.size(rad) - ring_crop:
+            ax.plot(xt, yt, '-', c='white', lw=1., alpha=0.8)
+        else:
+            ax.plot(xt, yt, '-', c='red', lw=1., alpha=0.8)
+
+    #Add beam ellipse centre is defined as a fraction of the background image size
+    beam_loc_ra = optical_wcs.array_index_to_world(
+        int(np.shape(transformed_map)[0] * 0.075),
+        int(np.shape(transformed_map)[0] * 0.075)).ra.value
+    beam_loc_dec = optical_wcs.array_index_to_world(
+        int(np.shape(transformed_map)[0] * 0.075),
+        int(np.shape(transformed_map)[0] * 0.075)).dec.value
+
+    beam_ellip = Ellipse((beam_loc_ra, beam_loc_dec), b_maj/3600, b_min/3600, b_pa,
+        fc='white', ec='white', alpha=1., transform=ax.get_transform('fk5'))
+    
+    ax.add_patch(beam_ellip)
+
+    #Limit plotting area in terms of pixels
+    plt.xlim(xcen - 45, xcen + 45)
+    plt.ylim(ycen - 45, ycen + 45)
+
+    #Add inner title
+    #t = add_inner_title(ax, 'mom0 + contours', loc=2, prop=dict(size=16))
+
+    #t.patch.set_ec("none")
+    #t.patch.set_alpha(0.5)
+
+    plt.savefig(output_fname,bbox_inches='tight')
+    plt.close()
 
 #=== MAIN ===
 if __name__ == "__main__":

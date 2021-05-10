@@ -1361,7 +1361,7 @@ def convert_source_mom_map_to_common_frame(moment,
     #Define the data array wich the moment map will be transformed
     transformed_map = copy.deepcopy(optical_data_array)
 
-    #Get the referenc epixels
+    #Get the reference pixels
     x_ref, y_ref = astropy.wcs.utils.skycoord_to_pixel(
             astropy.wcs.utils.pixel_to_skycoord(0, 0, map_wcs, origin=0),
             optical_wcs, origin=0)
