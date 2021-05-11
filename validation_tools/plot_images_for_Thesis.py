@@ -227,7 +227,7 @@ def observation_setup_plot(source_ID,
     ax.grid(color='white', linewidth=1.5, alpha=0.5, linestyle='dashed')
 
     #Add Galaxy name
-    ax.text(x=0.525, y=0.725, s="NGC7361", fontsize=18, transform=ax.transAxes)
+    ax.text(x=0.525, y=0.65, s="NGC7361", fontsize=18, transform=ax.transAxes)
 
     #Add beam ellipse centre is defined as a fraction of the background image size
     beam_loc_ra = optical_im_wcs.array_index_to_world(
@@ -265,7 +265,17 @@ def observation_setup_plot(source_ID,
     if beam_FWHM_halfwidth == None:
         radian2arcsec = lambda x: x * 206264.80625 #quick and dirty
 
-        beam_FWHM_halfwidth = radian2arcsec(1.09*(0.21/12)*4*np.log10(2)) / 2 
+        #beam_FWHM_halfwidth = radian2arcsec(1.09*(0.21/12)*4*np.log10(2)) / 2
+        beam_FWHM_halfwidth = radian2arcsec(1.09*((1+0.00417)*0.21)/12) / 2
+
+        print(beam_FWHM_halfwidth / 60)
+
+        #beam_FWHM_halfwidth = 3600 / 2
+
+        # f(x)=1+a1x+a2x^2+a3x^3
+        # x = (R\nu_obs)^2, R in arcmin, nu in GHz
+        # a1 -1.343E-3 6.579E-7 a3=-1.186E-10 
+
 
     beam_FWHM_circle = Circle((centre_ra, centre_dec),
         radius = arcsec2deg(beam_FWHM_halfwidth), fill=None,
@@ -277,7 +287,7 @@ def observation_setup_plot(source_ID,
     #Add HIPASS beam
     # TO DO: add this as an optional argument...
 
-    HIPASS_beam_FWHM_halfwidth = 14.3 * 60. / 2
+    HIPASS_beam_FWHM_halfwidth = 15.5 * 60. / 2
     galaxy_centre_ra = 340.574623
     galaxy_centre_dec = -30.057655
 
@@ -287,7 +297,6 @@ def observation_setup_plot(source_ID,
         transform=ax.get_transform('fk5'))    
 
     ax.add_patch(HIPASS_beam_FWHM_circle)
-
 
     plt.savefig(output_name, bbox_inches='tight')
     plt.close()
@@ -349,7 +358,6 @@ if __name__ == "__main__":
     pv_data_trinagle_plot = False
     pv_model_trinagle_plot = False
     pv_residual_trinagle_plot = False
-
 
     ringdensplot = True
 
@@ -525,13 +533,13 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             label_list = ['baseline visibilities','co-added visibilities',
                         'stacked grids', 'stacked images', 'conventional imaging']
             ident_list = ['B', 'V', 'G', 'I', 'C']
-            S_rms_list = [0.00555033, 0.00518113, 0.00517657, 0.00510539, 0.00625409]
+            S_rms_list = [0.00462528, 0.00431761, 0.00431381, 0.00510539, 0.00521174]
 
             #Single valued parameters
             channelwidth = 4.
             centre_index = 55
             edge_crop = 9
-            ring_crop = 3
+            ring_crop_list = [7, 2]
             inner_ring_crop = 0
             #S_rms=0.00555033 #This is the actual RMS level of the baseline 
 
@@ -616,13 +624,13 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             label_list = ['co-added visibilities',
                         'stacked grids', 'stacked images']
             ident_list = ['V', 'G', 'I']
-            S_rms_list = [0.00440574, 0.00441169, 0.00441169]
+            S_rms_list = [0.00367145, 0.00367641, 0.00370083]
 
             #Single valued parameters
             channelwidth = 4.
             centre_index = 75
             edge_crop = 3
-            ring_crop = 5
+            ring_crop_list = [14,14,4]
             inner_ring_crop = 1
 
 
@@ -1025,7 +1033,7 @@ baseline results...'.format(profile, baseline_length))
                 kvalidation.plot_profile_curves(rot_dir_list = dir_path_list,
                     profile_file_name_list = p_list,
                     profile = profile,
-                    ring_crop = ring_crop,
+                    ring_crop_list = ring_crop_list,
                     inner_ring_crop = inner_ring_crop,
                     color_list = color_list,
                     label_list = ident_list,
@@ -1045,7 +1053,7 @@ baseline results...'.format(angle_profile, baseline_length))
                     profile_file_name_list = p_list,
                     profile_error_file_name_list = pv_err_profile_file_name_list,
                     angle_type = angle_profile,
-                    ring_crop = ring_crop,
+                    ring_crop_list = ring_crop_list,
                     inner_ring_crop = inner_ring_crop,
                     color_list = color_list,
                     label_list = ident_list,
@@ -1066,7 +1074,7 @@ baseline results...'.format(baseline_length))
                 channelwidth = channelwidth,
                 centre_index = centre_index,
                 edge_crop = edge_crop,
-                ring_crop = ring_crop,
+                ring_crop_list = ring_crop_list,
                 inner_ring_crop = inner_ring_crop,
                 S_rms_list = S_rms_list,
                 contour_levels = contour_levels,
@@ -1089,7 +1097,7 @@ baseline results...'.format(baseline_length))
                 channelwidth = channelwidth,
                 centre_index = centre_index,
                 edge_crop = edge_crop,
-                ring_crop = ring_crop,
+                ring_crop_list = ring_crop_list,
                 inner_ring_crop = inner_ring_crop,
                 S_rms_list = S_rms_list,
                 contour_levels = contour_levels,
@@ -1112,7 +1120,7 @@ baseline results...'.format(baseline_length))
                 channelwidth = channelwidth,
                 centre_index = centre_index,
                 edge_crop = edge_crop,
-                ring_crop = ring_crop,
+                ring_crop_list = ring_crop_list,
                 inner_ring_crop = inner_ring_crop,
                 S_rms_list = S_rms_list,
                 contour_levels = contour_levels,
@@ -1134,7 +1142,9 @@ baseline results...'.format(baseline_length))
                 profile_file_name = pv_profile_file_name_list[0],
                 output_fname = output_dir + '{0:d}km_ringdensplot.pdf'.format(
                         baseline_length),
-                N_optical_pixels = N_opt_px)
+                N_optical_pixels = N_opt_px,
+                pixelsize=6,
+                ring_crop = ring_crop_list[-1])
 
 
             log.info('...done')

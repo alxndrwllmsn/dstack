@@ -128,7 +128,7 @@ def plot_profile_curves(rot_dir_list,
                     profile_file_name_list,
                     output_fname,
                     profile='rotation',
-                    ring_crop=2,
+                    ring_crop_list=[2],
                     inner_ring_crop=0,
                     label_list=['?'],
                     color_list=[None]):
@@ -161,7 +161,7 @@ def plot_profile_curves(rot_dir_list,
         The type of the profile plot generated. Currently, the following profiles
         are supported: rotation, dispersion and density
 
-    ring_crop: int, optional
+    ring_crop_list: list of int, optional
         Number of the tilted ring model rings to exclude from the data, since the
         outter rings are fitted to the noisy data. The number of rings from the
         are excluded from the plots. If negative, rings starting from the inside
@@ -191,6 +191,7 @@ def plot_profile_curves(rot_dir_list,
 
     profile_file_name_list = initialise_argument_list(N_sources, profile_file_name_list)
     label_list = initialise_argument_list(N_sources, label_list)
+    ring_crop_list = initialise_argument_list(N_sources, ring_crop_list)
 
     #Generate random colors if needed
     color_list = initialise_argument_list(N_sources, color_list)
@@ -223,9 +224,9 @@ def plot_profile_curves(rot_dir_list,
                                     usecols=(1,2,3), unpack=True) 
 
             #Crop the last N ringfit
-            rad = rad[inner_ring_crop:-ring_crop]
-            vrot = vrot[inner_ring_crop:-ring_crop]
-            srot = srot[inner_ring_crop:-ring_crop]       
+            rad = rad[inner_ring_crop:-ring_crop_list[i]]
+            vrot = vrot[inner_ring_crop:-ring_crop_list[i]]
+            srot = srot[inner_ring_crop:-ring_crop_list[i]]       
 
             #compute the upper and lower errors
             #NOTE that according to Tristan this is an under-estionation of the
@@ -238,10 +239,10 @@ def plot_profile_curves(rot_dir_list,
                 verr_l, verr_h, serr_l, serr_h = np.genfromtxt(profilefit_file_path,
                         skip_header=1, usecols=(13,14,15,16), unpack=True)
 
-                verr_l = verr_l[inner_ring_crop:-ring_crop]
-                verr_h = verr_h[inner_ring_crop:-ring_crop]
-                serr_l = serr_l[inner_ring_crop:-ring_crop]
-                serr_h = serr_h[inner_ring_crop:-ring_crop]
+                verr_l = verr_l[inner_ring_crop:-ring_crop_list[i]]
+                verr_h = verr_h[inner_ring_crop:-ring_crop_list[i]]
+                serr_l = serr_l[inner_ring_crop:-ring_crop_list[i]]
+                serr_h = serr_h[inner_ring_crop:-ring_crop_list[i]]
 
                 noerrorbar = False
 
@@ -254,10 +255,10 @@ def plot_profile_curves(rot_dir_list,
                         rot_dir_list[i+1] + profile_file_name_list[i+1],
                         skip_header=1, usecols=(13,14,15,16), unpack=True)
 
-                    verr_h = verr_h[inner_ring_crop:-ring_crop]
-                    verr_l = verr_l[inner_ring_crop:-ring_crop]
-                    serr_l = serr_l[inner_ring_crop:-ring_crop]
-                    serr_h = serr_h[inner_ring_crop:-ring_crop]
+                    verr_h = verr_h[inner_ring_crop:-ring_crop_list[i]]
+                    verr_l = verr_l[inner_ring_crop:-ring_crop_list[i]]
+                    serr_l = serr_l[inner_ring_crop:-ring_crop_list[i]]
+                    serr_h = serr_h[inner_ring_crop:-ring_crop_list[i]]
 
                     noerrorbar = False
 
@@ -313,9 +314,9 @@ def plot_profile_curves(rot_dir_list,
             rad_sd, surfdens, sd_err = np.genfromtxt(profilefit_file_path,
                     usecols=(0,3,4), unpack=True)
 
-            rad_sd = rad_sd[inner_ring_crop:-ring_crop]
-            surfdens = surfdens[inner_ring_crop:-ring_crop]
-            sd_err = sd_err[inner_ring_crop:-ring_crop]
+            rad_sd = rad_sd[inner_ring_crop:-ring_crop_list[i]]
+            surfdens = surfdens[inner_ring_crop:-ring_crop_list[i]]
+            sd_err = sd_err[inner_ring_crop:-ring_crop_list[i]]
 
             lines.append(ax.errorbar(rad_sd+1.*(i-pshift), surfdens,
                     yerr=sd_err,
@@ -395,7 +396,7 @@ def plot_angle_curves(rot_dir_list,
                     profile_error_file_name_list,
                     output_fname,
                     angle_type='inclination',
-                    ring_crop=2,
+                    ring_crop_list=[2],
                     inner_ring_crop = 0,
                     label_list=['?'],
                     color_list=[None]):
@@ -432,7 +433,7 @@ def plot_angle_curves(rot_dir_list,
         Currently, the following profiles are supported: 
         inclination, position_angle
 
-    ring_crop: int, optional
+    ring_crop_list: list of int, optional
         Number of the tilted ring model rings to exclude from the data, since the
         outter rings are fitted to the noisy data. The number of rings from the
         are excluded from the plots. If negative, rings starting from the inside
@@ -466,6 +467,8 @@ def plot_angle_curves(rot_dir_list,
     profile_error_file_name_list = initialise_argument_list(N_sources,
         profile_error_file_name_list)
     label_list = initialise_argument_list(N_sources, label_list)
+
+    ring_crop_list = initialise_argument_list(N_sources, ring_crop_list)
 
     #Generate random colors if needed
     color_list = initialise_argument_list(N_sources, color_list)
@@ -517,12 +520,12 @@ def plot_angle_curves(rot_dir_list,
                     rot_dir_list[i+1] + profile_error_file_name_list[i],
                     skip_header=1, usecols=(19,20), unpack=True)
 
-        pos_ang_err = np.fabs(pos_ang_err[inner_ring_crop:-ring_crop])
-        neg_ang_err = np.fabs(neg_ang_err[inner_ring_crop:-ring_crop])
+        pos_ang_err = np.fabs(pos_ang_err[inner_ring_crop:-ring_crop_list[i]])
+        neg_ang_err = np.fabs(neg_ang_err[inner_ring_crop:-ring_crop_list[i]])
 
         #Crop the last N ringfit
-        rad = rad[inner_ring_crop:-ring_crop]
-        ang = ang[inner_ring_crop:-ring_crop]
+        rad = rad[inner_ring_crop:-ring_crop_list[i]]
+        ang = ang[inner_ring_crop:-ring_crop_list[i]]
 
         #lines.append(ax.step(rad, ang, where='mid',
         #                color=color_list[i], alpha=1.-0.05*i,
@@ -611,7 +614,7 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
                                 channelwidth=4,
                                 centre_index=53,
                                 edge_crop=11,
-                                ring_crop=2,
+                                ring_crop_list=[2],
                                 inner_ring_crop=0,
                                 S_rms_list=[0.001],
                                 contour_levels=[1,2,4,8,16,32],
@@ -681,7 +684,7 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
         Try to minimise this parameter to have the maximum size square subplots
         possible!
 
-    ring_crop: int, optional
+    ring_crop_list: list of int, optional
         Number of the tilted ring model rings to exclude from the data, since the
         outter rings are fitted to the noisy data. The number of rings from the
         are excluded from the plots. If negative, rings starting from the inside
@@ -718,6 +721,7 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
     label_list = initialise_argument_list(N_sources, label_list)
     ident_list = initialise_argument_list(N_sources, ident_list)
     S_rms_list = initialise_argument_list(N_sources, S_rms_list)
+    ring_crop_list = initialise_argument_list(N_sources, ring_crop_list)
 
     #Generate random colors if needed
     color_list = initialise_argument_list(N_sources, color_list)
@@ -922,8 +926,8 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
 
                         #Crop the last N ringfit
                         #ring_crop = 2
-                        rad = rad[inner_ring_crop:-ring_crop]
-                        vrot = vrot[inner_ring_crop:-ring_crop]
+                        rad = rad[inner_ring_crop:-ring_crop_list[i]]
+                        vrot = vrot[inner_ring_crop:-ring_crop_list[i]]
                    
                         radius = np.concatenate((-rad,rad))
                         vrot1 = vsys + vrot
@@ -994,7 +998,9 @@ def plot_3Dbarolo_fits_map(fits_path,
         temp_fits_path='./temp.fits',
         b_maj=30,
         b_min=30,
-        b_pa=0):
+        b_pa=0,
+        ring_crop=2,
+        pixelsize=6):
     """
 
     Parameters
@@ -1148,8 +1154,6 @@ def plot_3Dbarolo_fits_map(fits_path,
     
 
     #=== Plot the rings based on the 3Dbarolo plot
-    ring_crop = 3
-    pixelsize = 6
     for i in range(0,np.size(rad)):
         rad_pix = rad / pixelsize
         posa = np.radians(avg_pa-90)
@@ -1180,14 +1184,14 @@ def plot_3Dbarolo_fits_map(fits_path,
     ax.add_patch(beam_ellip)
 
     #Limit plotting area in terms of pixels
-    plt.xlim(xcen - 45, xcen + 45)
-    plt.ylim(ycen - 45, ycen + 45)
+    #plt.xlim(xcen - 40, xcen + 40)
+    #plt.ylim(ycen - 40, ycen + 40)
 
     #Add inner title
-    #t = add_inner_title(ax, 'mom0 + contours', loc=2, prop=dict(size=16))
+    t = add_inner_title(ax, 'mom0 + contours', loc=2, prop=dict(size=16))
 
-    #t.patch.set_ec("none")
-    #t.patch.set_alpha(0.5)
+    t.patch.set_ec("none")
+    t.patch.set_alpha(0.5)
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
