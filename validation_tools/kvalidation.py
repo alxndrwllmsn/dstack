@@ -988,7 +988,165 @@ def plot_pv_diagram_triangle_plot(rot_dir_list,
 
     plt.savefig(output_fname, bbox_inches='tight')
     plt.close()
+
+def simple_pv_diagram_plot(rot_dir,
+        profile_file_name,
+        pv_fits_name_base,
+        channelwidth,
+        centre_index,
+        output_fname,
+        vsys=None,
+        edge_crop=0,
+        S_rms=1.,
+        contour_levels=[1.],
+        color=None,
+        ring_crop=2,
+        inner_ring_crop=0):
+    """
+
+    TO DO add docstring, for now see `plot_pv_diagram_triangle_plot`
+
+    """
+    if color == None:
+        color = "#{:06x}".format(random.randint(0, 0xFFFFFF)) 
+
+    pv_data_path = rot_dir + 'pvs/' + pv_fits_name_base + '_pv_a.fits'
+    pv_model_path = rot_dir + 'pvs/' + pv_fits_name_base + 'mod_pv_a_local.fits'
+
+    #Find CRPIX1 & CRPIX2 and crop the image around them into a square with
+    # odd number of pixels both side
+    pv_data_header = fits.open(pv_data_path)[0].header
+
+    crpix1 = np.int(pv_data_header['CRPIX1'])
+    crpix2 = np.int(pv_data_header['CRPIX2'])
+
+    #Check the values
+    crval1 = pv_data_header['CRVAL1']
+    crval2 = pv_data_header['CRVAL2']
+
+    cdelt1 = pv_data_header['CDELT1']
+    cdelt2 = pv_data_header['CDELT2']
     
+    #Get the max size (min axis size)
+    max_size = np.amin(np.shape(fits.getdata(pv_data_path)))
+
+    #Make max_size to an even number so the sub-squares can be odd sized
+    if max_size & 1:
+        max_size -= 1 #Odd
+    else:
+        pass #even
+
+    width = int((max_size - (2 * edge_crop)) / 2)
+    #width = int((max_size / 2))
+
+    #The expected size is
+    expected_size = 1 + 2 * width
+
+    fref = 0
+
+    #Get the reference pixel from a reference frequency 
+    # I think it is actually the x axis...
+    if crpix2 < 0:
+        if fref == 0:
+            data_shape2 = np.shape(fits.open(pv_data_path)[0].data)[1]
+
+            if centre_index == None:
+                if data_shape2 & 1:
+                    centre_index = int((data_shape2 - 1) / 2) - 3
+                    #print(centre_index)
+                
+                else:
+                    centre_index = int(data_shape2 / 2)
+
+            fref = crval2 + ((centre_index + np.fabs(crpix2)) * cdelt2)
+
+        #Now get the reference pixels
+        while fref > crval2:
+            crpix2 += 1
+            crval2 += cdelt2
+
+    #python indexing to get the reference pixels to the centre
+    if int(crpix1 - width) < 0 or int(crpix2 - width) < 0:
+        raise ValueError('Edge crop is too small!')
+
+    pv_data = fits.open(pv_data_path)[0].data[int(crpix2 - width): \
+        int(crpix2 + 1 + width), int(crpix1 - width):int(crpix1 + 1 + width)]
+
+    pv_model = fits.open(pv_model_path)[0].data[int(crpix2 - width): \
+        int(crpix2 + 1 + width), int(crpix1 - width):int(crpix1 + 1 + width)]
+
+    if vsys == None:
+        #Use the first inputs systematics velocity
+        profilefit_file_path = rot_dir + profile_file_name
+    
+        vsys = np.genfromtxt(profilefit_file_path, skip_header=1,
+                            usecols=(11), unpack=True)[0]
+
+
+    #=== Set the image frame 
+    xmin_wcs = ((int(crpix1 - width) - crpix1) * cdelt1 + crval1) * 3600
+    xmax_wcs = ((int(crpix1 + 1 + width) - crpix1) * cdelt1 + crval1) * 3600
+
+    zmin_wcs = vsys - (channelwidth * width)
+    zmax_wcs = vsys + (channelwidth * (width + 1))
+
+    ext = [xmin_wcs, xmax_wcs, zmin_wcs, zmax_wcs]
+
+    #Need to be able to plot the p-v diagram data with imshow as
+    # square images (it is an NxN image anyway)
+    imshow_aspect = (xmax_wcs - xmin_wcs) / (zmax_wcs - zmin_wcs)
+
+    #=== Create the plot
+    fig = plt.figure(1, figsize=(7,6))
+    ax = fig.add_subplot(111)
+
+    ax.imshow(pv_data, origin='lower', extent=ext,
+                    cmap='Greys', aspect=imshow_aspect)
+
+    #The vsys and 0 dashed lines
+    ax.axhline(vsys, ls='--', lw=2, color=outlier_color, alpha=1.)
+    ax.axvline(0, ls='--', lw=2, color=outlier_color, alpha=1.)
+
+    ax.contour(pv_data,
+                np.array(contour_levels) * S_rms,
+                origin='lower', alpha=1.,
+                linewidths=1.5,colors='black', extent=ext)
+
+    ax.contour(pv_model,
+                np.array(contour_levels) * S_rms,
+                origin='lower', alpha=1.,
+                linewidths=1.5,colors=color, extent=ext)
+
+    ax.set_xlabel('Offset [arcsec]', fontsize=18)
+    ax.set_ylabel(r'v$_{opt}}$ [km/s]', fontsize=18)
+
+    ax2 = ax.secondary_yaxis('right',
+            functions=(lambda x: x - vsys, lambda x: x -vsys)) 
+
+    ax2.set_ylabel(r'$\Delta$v$_{opt}}$ [km/s]', fontsize=18)
+
+
+    #Plot tilted ring model
+    profilefit_file_path = rot_dir + profile_file_name
+
+    rad, vrot, srot = np.genfromtxt(profilefit_file_path, skip_header=1,
+                    usecols=(1,2,3), unpack=True)
+
+    #Crop the last N ringfit
+    #ring_crop = 2
+    rad = rad[inner_ring_crop:-ring_crop]
+    vrot = vrot[inner_ring_crop:-ring_crop]
+
+    radius = np.concatenate((-rad,rad))
+    vrot1 = vsys + vrot
+    vrot2 = vsys - vrot
+    vlos = np.concatenate((vrot1,vrot2))
+
+    ax.plot(radius, vlos, 'o', color=c3, markersize=7)
+
+
+    plt.savefig(output_fname,bbox_inches='tight')
+    plt.close()
 
 def plot_3Dbarolo_fits_map(fits_path,
         rot_dir,
@@ -1000,11 +1158,94 @@ def plot_3Dbarolo_fits_map(fits_path,
         b_min=30,
         b_pa=0,
         ring_crop=2,
-        pixelsize=6):
-    """
+        inner_ring_crop=0,
+        pixelsize=6,
+        beam_correction=True,
+        b_maj_px=5,
+        b_min_px=5,
+        show_rings=True,
+        diffmap=False,
+        second_map_file_path=None,
+        ref_frame_transform=False,
+        diff_lim=100):
+    """Simple script to create integrated flux density map with the projected rings
+    used for the kinematic modelling. Also can be used to plot the mom1 - model
+    aka the velocity residual maps. I put together this code in a haste so it
+    might needs some revision. The naming and parameters are crap, and it kinda 
+    does what it supposed to but in a specific way...
 
     Parameters
     ==========
+    fits_path: str
+        The path for the 3Dbarolo output mom0 or mom1 map its files.
+        If `diffmap` is true the mom1 map should be the model map!
+
+    rot_dir: str
+        Path to the 3Dbarao output dir, where the `profile_files' files live
+
+    profile_file_name: str
+        The name of the file containing the fitted ring parameters
+
+    output_fname: str
+        The output image name and full path
+
+    N_optical_pixels: int, opt
+        The number of pixels in unit of the input fits pixelsize used to create
+        the background image.
+
+    temp_fits_path: str, opt
+        The name and path for a temorary fits file created when mapping the input
+        fits onto a background image
+
+    b_maj: float, optional
+        The major axis of the synthesised beam in arcseconds
+
+    b_min: float, optional
+        The minor axis of the synthesised beam in arcseconds
+
+    b_pa: float, optional
+        The position angle of the synthesised beam
+
+    ring_crop: int, optional
+        Number of the tilted ring model rings to exclude from the data, since the
+        outter rings are fitted to the noisy data. The number of rings from the
+        are excluded from the plots. If negative, rings starting from the inside
+        are excluded and so this parameter has to be >= 0!
+
+    inner_ring_crop: int, optional
+        Number of rings from the inside, not included in the plots. Useful for the
+        6km baseline modeling, as the innermost rings(s) can yield weird values...
+
+    pixelsize: int, optional
+        The size of the fits image pixels in arcseconds tio compute the ring sizes
+
+    beam_correction: bool, optional
+        If True the integrated flux density map is corrected for the synthesised
+        beam.
+
+    b_maj_px: int, optional
+        The major axis of the synthesised beam in pixels
+
+    b_min_px: int, optional
+        The minor axis of the synthesised beam in pixels 
+
+    show_rings: bool, optional
+        If True the fitted rings are shown in white and the firs outter ring ignored
+        is in red. Furthermore, the innermost ignored rings are shown in red as well.
+    
+    diffmap: bool, optional
+        If True, a second fits can be given and the difference of the data and model
+        fits is computed and shown
+
+    second_map_file_path: str, optional
+        The data map from which the model is subtracted.
+
+    ref_frame_transfor: bool, optional
+        If True the `second_map_file_path` fits path is converted from frequency
+        to oprical velocity frame. Useful for reading in SoFiA output fits files
+    
+    diff_lim: float, optional
+        If not None, the colorbar is confined to the +/- `diff_lim` range
 
     Return
     ======
@@ -1016,8 +1257,23 @@ def plot_3Dbarolo_fits_map(fits_path,
 
     #Get data arrays
     fits_map = fits.getdata(fits_path)
-
     fits_wcs = ds.sdiagnostics.fget_wcs(fits_path)
+
+    if ref_frame_transform:
+            fits_map = ds.sdiagnostics.get_velocity_from_freq(fits_map)
+
+    if diffmap:
+        beam_correction = False 
+        show_rings = False
+
+        second_fits = fits.getdata(second_map_file_path)
+
+        fits_map = np.subtract(fits_map, second_fits)
+        #fits_map = copy.deepcopy(np.subtract(second_fits,fits_map))
+
+        #fits_map = copy.deepcopy(second_fits)
+
+        del second_fits
 
     #Get central pixel RA Dec values
     centre_coords = astropy.wcs.utils.pixel_to_skycoord(
@@ -1101,12 +1357,39 @@ def plot_3Dbarolo_fits_map(fits_path,
 
     del fits_map, mask
 
+    #Convert from J/beam km/s to J km/s if needed
+    if beam_correction:
+        transformed_map = np.divide(transformed_map,
+            (np.pi * b_maj_px * b_min_px / (4 * np.log(2))))
+
+        #Mask out the pixels with 0 values
+        mask = (transformed_map == 0.)
+        transformed_map = np.ma.array(transformed_map, mask=mask)
+
     #Create plot
     fig = plt.figure(1, figsize=(6,6))
     ax = fig.add_subplot(111, projection=optical_wcs)
  
-    map_fig = ax.imshow(transformed_map, origin='lower', cmap=_CMAP)
-    #map_fig = ax.imshow(transformed_map, origin='lower', cmap='viridis_r')
+    #if diffmap:
+    #    map_fig = ax.imshow(transformed_map, origin='lower', cmap='coolwarm',
+    #        vmin=-20, vmax=20)
+    #else:
+    #    map_fig = ax.imshow(transformed_map, origin='lower', cmap=_CMAP)
+    #    #map_fig = ax.imshow(transformed_map, origin='lower', cmap='viridis_r')
+
+ 
+    if diff_lim != None:
+        norm = matplotlib.colors.Normalize(vmin=-diff_lim, vmax=diff_lim)
+    else:
+        norm = matplotlib.colors.Normalize(
+            vmin=-np.amax(np.fabs(transformed_map)),
+            vmax=np.amax(np.fabs(transformed_map)))
+
+    if diffmap:
+        map_fig = ax.imshow(transformed_map, origin='lower',
+            cmap=_DIV_CMAP, norm=norm)
+    else:
+        map_fig = ax.imshow(transformed_map, origin='lower', cmap=_CMAP)
 
     #Colorbar settings
     cb = plt.colorbar(map_fig, ax=ax, fraction=0.0476, pad=0.0)
@@ -1115,7 +1398,10 @@ def plot_3Dbarolo_fits_map(fits_path,
     cb.ax.tick_params(labelsize=18)
     cb.ax.tick_params(direction='in', length=6, width=2)
 
-    cb.ax.set_ylabel(r'v$_{opt}$ [km/s]', fontsize = 18)
+    if diffmap:
+        cb.ax.set_ylabel(r'$\Delta$v$_{opt}$ [km/s]', fontsize = 18)
+    else:
+        cb.ax.set_ylabel(r'S$_{int}$ [Jy km/s]', fontsize = 18)
 
     #Label settings
     #ax.coords.grid(color='white', alpha=0.5, linestyle='dashed')
@@ -1139,20 +1425,22 @@ def plot_3Dbarolo_fits_map(fits_path,
     xcen = N_optical_pixels - xcen #To account for the flip
 
     #Looks weird
-    #ax.plot(xcen, ycen, 
-    #    'x', color='black', markersize=7, mew=1.5)
+    if diffmap:
+        ax.plot(xcen, ycen, 
+            'x', color='black', markersize=7, mew=1.5)
 
     #== Plot inclination line
     avg_pa = np.average(pa)
     avg_inc = np.average(inc)
 
     #Plot the position angle line
-    x = np.arange(xcen-3.,xcen+3.,0.1) 
+    #x = np.arange(xcen-3.,xcen+3.,0.1) 
+    x = np.arange(xcen - N_optical_pixels / 2,
+                xcen + N_optical_pixels / 2, 0.1)
     y = np.tan(np.radians(avg_pa-90))*(x-xcen)+ycen 
 
     ax.plot(x, y, '--', color='black', linewidth=1.5, alpha=1.) 
-    
-
+        
     #=== Plot the rings based on the 3Dbarolo plot
     for i in range(0,np.size(rad)):
         rad_pix = rad / pixelsize
@@ -1165,10 +1453,19 @@ def plot_3Dbarolo_fits_map(fits_path,
         xt = xcen+axmaj*np.cos(posa)*np.cos(t)-axmin*np.sin(posa)*np.sin(t)
         yt = ycen+axmaj*np.sin(posa)*np.cos(t)+axmin*np.cos(posa)*np.sin(t)
 
-        if i < np.size(rad) - ring_crop:
-            ax.plot(xt, yt, '-', c='white', lw=1., alpha=0.8)
+        if i <= inner_ring_crop - 1:
+                ax.plot(xt, yt, '-', c='red', lw=1., alpha=0.8)
+        
+        elif i < np.size(rad) - ring_crop:
+            if show_rings:
+                ax.plot(xt, yt, '-', c='white', lw=1., alpha=0.8)
+            else:
+                pass
         else:
-            ax.plot(xt, yt, '-', c='red', lw=1., alpha=0.8)
+            if i == np.size(rad) - ring_crop:
+                ax.plot(xt, yt, '-', c='red', lw=1., alpha=0.8)
+            elif not diffmap and i == np.size(rad) - 1:
+                ax.plot(xt, yt, '-', c='red', lw=1., alpha=0.8)
 
     #Add beam ellipse centre is defined as a fraction of the background image size
     beam_loc_ra = optical_wcs.array_index_to_world(
@@ -1186,9 +1483,16 @@ def plot_3Dbarolo_fits_map(fits_path,
     #Limit plotting area in terms of pixels
     #plt.xlim(xcen - 40, xcen + 40)
     #plt.ylim(ycen - 40, ycen + 40)
+    plt.xlim(0, N_optical_pixels)
+    plt.ylim(0, N_optical_pixels)
 
     #Add inner title
-    t = add_inner_title(ax, 'mom0 + contours', loc=2, prop=dict(size=16))
+    if diffmap:
+        t = ds.sdiagnostics.add_inner_title(ax, '(mom1 - model)',
+            loc=2, prop=dict(size=16))    
+    else:
+        t = ds.sdiagnostics.add_inner_title(ax, 'mom0 & projected tilted rigs',
+            loc=2, prop=dict(size=16))
 
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)

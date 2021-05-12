@@ -265,7 +265,7 @@ def observation_setup_plot(source_ID,
     if beam_FWHM_halfwidth == None:
         radian2arcsec = lambda x: x * 206264.80625 #quick and dirty
 
-        #beam_FWHM_halfwidth = radian2arcsec(1.09*(0.21/12)*4*np.log10(2)) / 2
+        #beam_FWHM_halfwidth = radian2arcsec(1.09*(0.21/12)*4*np.log(2)) / 2
         beam_FWHM_halfwidth = radian2arcsec(1.09*((1+0.00417)*0.21)/12) / 2
 
         print(beam_FWHM_halfwidth / 60)
@@ -355,11 +355,14 @@ if __name__ == "__main__":
     #Kinematics
     profile_curves = False
     angle_curves = False
-    pv_data_trinagle_plot = False
-    pv_model_trinagle_plot = False
-    pv_residual_trinagle_plot = False
 
     ringdensplot = True
+
+    simple_pv_plot = True
+
+    pv_data_trinagle_plot = True
+    pv_model_trinagle_plot = True
+    pv_residual_trinagle_plot = True
 
     #=== Setup variables ===
 
@@ -525,7 +528,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             pv_err_profile_file_name_list = ['rings_final1.txt']
             pv_fits_name_base_list = ['DINGO_J224218.09-300323.8',
                 'DINGO_J224218.10-300326.8', 'DINGO_J224218.10-300326.8',
-                'DINGO_J224218.05-300325.7', 'NONE']
+                'NONE', 'NONE']
 
             contour_levels=[1,2,4,8,16,32,64]
             #contour_levels=[4,8,16]
@@ -533,20 +536,59 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             label_list = ['baseline visibilities','co-added visibilities',
                         'stacked grids', 'stacked images', 'conventional imaging']
             ident_list = ['B', 'V', 'G', 'I', 'C']
-            S_rms_list = [0.00462528, 0.00431761, 0.00431381, 0.00510539, 0.00521174]
+            S_rms_list = [0.00462528, 0.00431761, 0.00431381, 0.00521174, 0.00521174]
 
-            #Single valued parameters
+            #Single valued parametersdir_path_list[1]
             channelwidth = 4.
             centre_index = 55
             edge_crop = 9
-            ring_crop_list = [7, 2]
+            ring_crop_list = [8, 3, 3, 3, 3]
             inner_ring_crop = 0
             #S_rms=0.00555033 #This is the actual RMS level of the baseline 
+
+            #=== For grid ringdensplot
+            mom0_fits_path_list = ['/maps/DINGO_J224218.09-300323.8_0mom.fits',
+            '/maps/DINGO_J224218.10-300326.8_0mom.fits',
+            '/maps/DINGO_J224218.10-300326.8_0mom.fits',
+            '/maps/NONE_0mom.fits',
+            '/maps/NONE_0mom.fits']
+
+            mom1_fits_path_list = ['/maps/DINGO_J224218.09-300323.8_1mom.fits',
+            '/maps/DINGO_J224218.10-300326.8_1mom.fits',
+            '/maps/DINGO_J224218.10-300326.8_1mom.fits',
+            '/maps/NONE_1mom.fits',
+            '/maps/NONE_1mom.fits']
+
+            mom1_model_fits_path_list = ['/maps/DINGO_J224218.09-300323.8_local_1mom.fits',
+            '/maps/DINGO_J224218.10-300326.8_local_1mom.fits',
+            '/maps/DINGO_J224218.10-300326.8_local_1mom.fits',
+            '/maps/NONE_local_1mom.fits',
+            '/maps/NONE_local_1mom.fits']
+
+            #mom1_model_fits_path = dir_path_list[1] + \
+            #        '/maps/DINGO_J224218.10-300326.8_local_1mom.fits'
+            
+            #mom1_fits_path = dir_path_list[1] + \
+            #        '/maps/DINGO_J224218.10-300326.8_1mom.fits'
+
+            #mom1_fits_path = '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/\
+#2km_baseline_results/stacked_grids/beam17_all_cubelets/beam17_all_4_mom1.fits'
+
+            b_maj = 30.
+            b_min = 30.
+            b_pa = 0.
+            pixelsize = 6
+            b_maj_px = 5.
+            b_min_px = 5.
+
+            diff_lim = 100
 
 
     else:
         baseline_length = int(6)
     
+        N_opt_px = 420 #Number of optical background pixels in pixels ???
+
         if not kinematics:    
             #Define environment variables
             working_dir = '/home/krozgonyi/Desktop/NGC7361_results/SoFiA//6km_baseline_results/'
@@ -577,7 +619,6 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             image_plot_ID = 2
 
             #Single valued parameters
-            N_opt_px = 420 #Number of optical background pixels in pixels ???
             mom_triangle_contours = True
             diff_saturation = 24.
 
@@ -629,10 +670,40 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             #Single valued parameters
             channelwidth = 4.
             centre_index = 75
-            edge_crop = 3
+            edge_crop = 4
             ring_crop_list = [14,14,4]
             inner_ring_crop = 1
 
+
+            #=== For grid ringdensplot
+            #mom0_fits_path = dir_path_list[1] + \
+            #        '/maps/DINGO_J224218.05-300326.8_0mom.fits'
+
+            #mom1_model_fits_path = dir_path_list[1] + \
+            #        '/maps/DINGO_J224218.05-300326.8_local_1mom.fits'
+            #mom1_fits_path = dir_path_list[1] + \
+            #        '/maps/DINGO_J224218.05-300326.8_1mom.fits'
+
+            mom0_fits_path_list = ['/maps/DINGO_J224218.06-300326.6_0mom.fits',
+            '/maps/DINGO_J224218.05-300326.8_0mom.fits',
+            '/maps/DINGO_J224217.92-300325.2_0mom.fits']
+
+            mom1_fits_path_list = ['/maps/DINGO_J224218.06-300326.6_1mom.fits',
+            '/maps/DINGO_J224218.05-300326.8_1mom.fits',
+            '/maps/DINGO_J224217.92-300325.2_1mom.fits']
+
+            mom1_model_fits_path_list = ['/maps/DINGO_J224218.06-300326.6_local_1mom.fits',
+            '/maps/DINGO_J224218.05-300326.8_local_1mom.fits',
+            '/maps/DINGO_J224217.92-300325.2_local_1mom.fits']
+
+            b_maj = 12.
+            b_min = 12.
+            b_pa = 0.
+            pixelsize = 2
+            b_maj_px = 6.
+            b_min_px = 6.
+
+            diff_lim = 100
 
     #===========================================================================
     #=== Imaging ===
@@ -1062,6 +1133,59 @@ baseline results...'.format(angle_profile, baseline_length))
 
                 log.info('...done')
 
+        if ringdensplot:
+            for j, ident in zip(range(0, len(ident_list)), ident_list):
+                for i, fits_path_list, diffmap in zip(\
+                    range(0,2), [mom0_fits_path_list, mom1_fits_path_list], [False, True]):
+                    log.info('Plot mom{0:d} map with ring models for {1:s}...'.format(
+                        i, ident))
+
+                    kvalidation.plot_3Dbarolo_fits_map(fits_path = dir_path_list[j] + \
+                        fits_path_list[j],
+                        rot_dir = dir_path_list[j],
+                        profile_file_name = pv_profile_file_name_list[0],
+                        output_fname = output_dir + '{0:d}km_mom{1:d}_{2:s}_ringdensplot.pdf'.format(
+                                baseline_length, i, ident),
+                        N_optical_pixels = N_opt_px,
+                        b_maj = b_maj,
+                        b_min = b_min,
+                        b_pa = b_pa,
+                        pixelsize = pixelsize,
+                        b_maj_px = b_maj_px,
+                        b_min_px = b_maj_px,
+                        ring_crop = ring_crop_list[j],
+                        inner_ring_crop = inner_ring_crop,
+                        beam_correction = True,
+                        diffmap = diffmap,
+                        second_map_file_path = dir_path_list[j] + \
+                        mom1_model_fits_path_list[j],
+                        ref_frame_transform = False,
+                        diff_lim = diff_lim)
+
+                    log.info('...done')
+
+        if simple_pv_plot:
+            for i, ident in zip(range(0, len(ident_list)), ident_list):
+                log.info('Creating simple p-v diagram for {0:d}km data \
+for {1:s}...'.format(baseline_length, ident))
+
+                kvalidation.simple_pv_diagram_plot(rot_dir = dir_path_list[i],
+                    profile_file_name = pv_profile_file_name_list[0],
+                    pv_fits_name_base = pv_fits_name_base_list[i],
+                    channelwidth = channelwidth,
+                    centre_index = centre_index,
+                    output_fname = output_dir + '{0:d}km_{1:s}_pv_diagram.pdf'.format(
+                        baseline_length, ident),
+                    vsys=None,
+                    edge_crop = edge_crop,
+                    S_rms = S_rms_list[i],
+                    contour_levels = contour_levels,
+                    color = color_list[i],
+                    ring_crop = ring_crop_list[i],
+                    inner_ring_crop = inner_ring_crop)
+
+                log.info('...done')
+
         if pv_data_trinagle_plot:
 
             log.info('Creating p-v diagram of the raw data for the {0:d}km\
@@ -1128,23 +1252,5 @@ baseline results...'.format(baseline_length))
                 label_list = label_list,
                 ident_list = ident_list,
                 output_fname = output_dir + 'pv_diagram_residual_triangle_plot.pdf')
-
-            log.info('...done')
-
-        if ringdensplot:
-            log.info('Plot integrated flux density map with ring models...')
-
-
-            fits_path = dir_path_list[1] + '/maps/DINGO_J224218.10-300326.8_0mom.fits'
-
-            kvalidation.plot_3Dbarolo_fits_map(fits_path = fits_path,
-                rot_dir = dir_path_list[1],
-                profile_file_name = pv_profile_file_name_list[0],
-                output_fname = output_dir + '{0:d}km_ringdensplot.pdf'.format(
-                        baseline_length),
-                N_optical_pixels = N_opt_px,
-                pixelsize=6,
-                ring_crop = ring_crop_list[-1])
-
 
             log.info('...done')
