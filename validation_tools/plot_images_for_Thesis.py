@@ -356,20 +356,20 @@ if __name__ == "__main__":
     profile_curves = False
     angle_curves = False
 
-    ringdensplot = True
+    ringdensplot = False
 
     simple_pv_plot = True
 
-    pv_data_trinagle_plot = True
-    pv_model_trinagle_plot = True
-    pv_residual_trinagle_plot = True
+    pv_data_trinagle_plot = False
+    pv_model_trinagle_plot = False
+    pv_residual_trinagle_plot = False
 
     #=== Setup variables ===
 
     if not full_res:
         baseline_length = int(2)
 
-        N_opt_px = 130 #Number of optical background pixels in pixels (not in arcsecond)
+        N_opt_px = 135 #Number of optical background pixels in pixels (not in arcsecond)
 
         if not kinematics:
             #Define environment variables
@@ -388,22 +388,22 @@ if __name__ == "__main__":
 
                     rms_dir = working_dir + 'measured_RMS/'
 
-                    rms_file_list = list(map(rms_dir.__add__,[
-                        'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
-                        'stacked_grids_rms.dat', 'stacked_images_rms.dat',
-                        'conventional_imaging_rms.dat']))
-
                     #rms_file_list = list(map(rms_dir.__add__,[
                     #    'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
-                    #    'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
+                    #    'stacked_grids_rms.dat', 'stacked_images_rms.dat',
+                    #    'conventional_imaging_rms.dat']))
 
-                    rms_colors = ['black', c0, c2, c1, outlier_color]
-                    rms_labels = ['B', 'V', 'G', 'I', 'C']
-                    #rms_colors = ['black', c0, c2, c1]
-                    #rms_labels = ['B', 'V', 'G', 'I']
+                    rms_file_list = list(map(rms_dir.__add__,[
+                        'baseline_imaging_rms.dat', 'co_added_visibilities_rms.dat',
+                        'stacked_grids_rms.dat', 'stacked_images_rms.dat']))
+
+                    #rms_colors = ['black', c0, c2, c1, outlier_color]
+                    #rms_labels = ['B', 'V', 'G', 'I', 'C']
+                    rms_colors = ['black', c0, c2, c1]
+                    rms_labels = ['B', 'V', 'G', 'I']
                     rms_ptitle = 'Wiener-filtering and deconvolution'
-                    rms_outlabel = 'filtering'
-                    #rms_outlabel = 'filtering_without_C'
+                    #rms_outlabel = 'filtering'
+                    rms_outlabel = 'filtering_without_C'
                     rms_linestyles = ['-']
 
                     #Define source and imaging parameters
@@ -412,7 +412,7 @@ if __name__ == "__main__":
                     # it to the required size, i.e. all deep imaging has the same parameter
 
                     #source_ID_list = [4, 4, 3]
-                    source_ID_list = [6, 4, 4, 3, 1]
+                    source_ID_list = [6, 2, 3, 1, 1]
                     beam_correction_list = [False, True, True, True, False]
                     #beam_correction_list = [True]
                     #color_list = [c0, c2, c1]
@@ -491,9 +491,10 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             b_min_list = [30.]
             b_pa_list = [0.]
             masking_list = [True]
-            mask_sigma_list = [3.]
+            mask_sigma_list = [3.5]
             densplot_mask_sigma_list = [0.05]
-            contour_levels = [8., 16.]
+            #contour_levels = [8., 16.]
+            contour_levels = [16.]
 
             mom_triangle_contours = True
             diff_saturation = 24.
@@ -507,9 +508,10 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             N_optical_pixels = 600
 
             #mom0_contour_levels = [0.5, 1.6, 2.7, 5.3, 13] #in column density 10^20
-            mom0_contour_levels = [8, 16, 32, 64, 128] #in column density 10^20
+            mom0_contour_levels = [8, 16, 32, 64, 128] #in sigma
+            #mom0_contour_levels = [5, 10, 20, 50] #in sigma
 
-            central_vel = 1247 #central vel for mom1 map contours [km/s]
+            central_vel = 1248 #central vel for mom1 map contours [km/s]
             delta_vel = 16
 
         #Kinematics
@@ -660,12 +662,14 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             pv_fits_name_base_list = ['DINGO_J224218.06-300326.6',
                 'DINGO_J224218.05-300326.8', 'DINGO_J224217.92-300325.2']
 
-            contour_levels=[1,2,4,8,16,32,64]
             color_list = [c0, c2, c1]
             label_list = ['co-added visibilities',
                         'stacked grids', 'stacked images']
             ident_list = ['V', 'G', 'I']
-            S_rms_list = [0.00367145, 0.00367641, 0.00370083]
+            #contour_levels=[1,2,4,8,16,32,64]
+            #S_rms_list = [0.00367145, 0.00367641, 0.00370083]
+            contour_levels=[0.002,0.004,0.008,0.0016]
+            S_rms_list = [1]
 
             #Single valued parameters
             channelwidth = 4.
@@ -728,7 +732,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 beam_FWHM_halfwidth = None,
                 N_optical_pixels = 6144, #The whole area imaged
                 sigma_mom0_contours = False,
-                mom0_contour_levels = [np.sqrt(2.)],
+                mom0_contour_levels = [2.77],
                 #mom0_contour_levels = [1.],
                 color = color_list[grid_plot_ID], 
                 masking = masking_list[0],
@@ -821,13 +825,13 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_min_list = b_min_list,
                 b_pa_list = b_pa_list,
                 N_optical_pixels = N_optical_pixels,
-                #sigma_mom0_contours = True,
-                sigma_mom0_contours = False,
-                #mom0_contour_levels = mom0_contour_levels,
-                mom0_contour_levels = [0.64, 1.29, 2.57, 5.15, 10.3],
+                sigma_mom0_contours = True,
+                mom0_contour_levels = mom0_contour_levels,
+                #sigma_mom0_contours = False,
+                #mom0_contour_levels = [0.64, 1.29, 2.57, 5.15, 10.3],
                 central_vel = central_vel,
                 delta_vel = delta_vel,
-                N_half_contours_mom1 = 7,
+                N_half_contours_mom1 = 10,
                 color_list = [color_list[grid_plot_ID]],
                 masking_list = masking_list,
                 mask_sigma_list = mask_sigma_list)
@@ -874,14 +878,14 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
         if simple_image_and_hipass_spectrum_plot:
             log.info('Create single spectra plot including HIPASS spectra...')
 
-            output_name = output_dir + '{0:d}km_image_and_HIPASS_spectra.pdf'.format(
+            output_name = output_dir + '{0:d}km_conmventional_and_HIPASS_spectra.pdf'.format(
                 baseline_length)
 
             svalidation.simple_spectra_plot(source_ID_list = [None, source_ID_list[image_plot_ID]],
                 sofia_dir_path_list = [None, sofia_dir_path_list[image_plot_ID]],
                 name_base_list = [name_base_list[0]],
                 output_name = output_name,
-                beam_correction_list = [False, True],
+                beam_correction_list = [False, False],
                 color_list = ['#A7F0F0', color_list[image_plot_ID]],
                 b_maj_px_list = [b_maj_px_list[0]],
                 b_min_px_list = [b_min_px_list[0]],
@@ -902,7 +906,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
 
             mom0_contour_levels = [1, 2, 4, 8, 16]
 
-            output_name = output_dir + '{0:d}km_GI_contour_plots.pdf'.format(
+            output_name = output_dir + '{0:d}km_GC_contour_plots.pdf'.format(
                 baseline_length)
 
             svalidation.simple_moment0_and_moment1_contour_plot(source_ID_list = source_ID,
@@ -929,7 +933,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
         if simple_grid_and_image_spectrum_plot:
             log.info('Create single spectra plot...')
 
-            output_name = output_dir + '{0:d}km_GI_spectra.pdf'.format(
+            output_name = output_dir + '{0:d}km_GC_spectra.pdf'.format(
                 baseline_length)
 
             svalidation.simple_spectra_plot(source_ID_list = [source_ID_list[grid_plot_ID],\
@@ -1155,6 +1159,8 @@ baseline results...'.format(angle_profile, baseline_length))
                         b_min_px = b_maj_px,
                         ring_crop = ring_crop_list[j],
                         inner_ring_crop = inner_ring_crop,
+                        color = color_list[j],
+                        ident = ident_list[j],
                         beam_correction = True,
                         diffmap = diffmap,
                         second_map_file_path = dir_path_list[j] + \

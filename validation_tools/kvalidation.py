@@ -1163,6 +1163,8 @@ def plot_3Dbarolo_fits_map(fits_path,
         beam_correction=True,
         b_maj_px=5,
         b_min_px=5,
+        color=None,
+        ident='?',
         show_rings=True,
         diffmap=False,
         second_map_file_path=None,
@@ -1229,6 +1231,12 @@ def plot_3Dbarolo_fits_map(fits_path,
     b_min_px: int, optional
         The minor axis of the synthesised beam in pixels 
 
+    color: color, optional
+        The color of the inner title of the plot
+
+    ident: str, optional
+        The string displyed as an inner title
+
     show_rings: bool, optional
         If True the fitted rings are shown in white and the firs outter ring ignored
         is in red. Furthermore, the innermost ignored rings are shown in red as well.
@@ -1252,6 +1260,9 @@ def plot_3Dbarolo_fits_map(fits_path,
     output_image: file
         The image created
     """
+    if color == None:
+        color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
+
     #Get the rings profile file
     profilefit_file_path = rot_dir + profile_file_name
 
@@ -1487,12 +1498,15 @@ def plot_3Dbarolo_fits_map(fits_path,
     plt.ylim(0, N_optical_pixels)
 
     #Add inner title
-    if diffmap:
-        t = ds.sdiagnostics.add_inner_title(ax, '(mom1 - model)',
-            loc=2, prop=dict(size=16))    
-    else:
-        t = ds.sdiagnostics.add_inner_title(ax, 'mom0 & projected tilted rigs',
-            loc=2, prop=dict(size=16))
+    #if diffmap:
+    #    t = ds.sdiagnostics.add_inner_title(ax, '(mom1 - model)',
+    #        loc=2, prop=dict(size=16))    
+    #else:
+    #    t = ds.sdiagnostics.add_inner_title(ax, 'mom0 & projected tilted rigs',
+    #        loc=2, prop=dict(size=16))
+
+    t = ds.sdiagnostics.add_inner_title(ax, '({0:s})'.format(ident),
+            loc=2, prop=dict(size=21, color=color))
 
     t.patch.set_ec("none")
     t.patch.set_alpha(0.5)
