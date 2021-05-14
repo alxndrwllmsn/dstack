@@ -321,7 +321,7 @@ if __name__ == "__main__":
         raise ValueError('Only either the filtering or deconvolution can be disabled at a time!')
 
     #Decide the resolution
-    full_res = False #If True the 6km baseline results are plotted
+    full_res = True #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
     kinematics = True
@@ -353,10 +353,10 @@ if __name__ == "__main__":
     diff_scaling_plots = False
 
     #Kinematics
-    profile_curves = False
-    angle_curves = False
+    profile_curves = True
+    angle_curves = True
 
-    ringdensplot = False
+    ringdensplot = True
 
     simple_pv_plot = True
 
@@ -402,6 +402,7 @@ if __name__ == "__main__":
                     rms_colors = ['black', c0, c2, c1]
                     rms_labels = ['B', 'V', 'G', 'I']
                     rms_ptitle = 'Wiener-filtering and deconvolution'
+                    #rms_ptitle = 'no deep cleaning'
                     #rms_outlabel = 'filtering'
                     rms_outlabel = 'filtering_without_C'
                     rms_linestyles = ['-']
@@ -529,42 +530,45 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             pv_profile_file_name_list = ['rings_final2.txt']
             pv_err_profile_file_name_list = ['rings_final1.txt']
             pv_fits_name_base_list = ['DINGO_J224218.09-300323.8',
-                'DINGO_J224218.10-300326.8', 'DINGO_J224218.10-300326.8',
-                'NONE', 'NONE']
+                'DINGO_J224218.08-300323.3', 'DINGO_J224218.08-300323.2',
+                'DINGO_J224218.02-300324.3', 'NONE']
 
-            contour_levels=[1,2,4,8,16,32,64]
+            
             #contour_levels=[4,8,16]
             color_list = ['black', c0, c2, c1, outlier_color]
             label_list = ['baseline visibilities','co-added visibilities',
                         'stacked grids', 'stacked images', 'conventional imaging']
             ident_list = ['B', 'V', 'G', 'I', 'C']
-            S_rms_list = [0.00462528, 0.00431761, 0.00431381, 0.00521174, 0.00521174]
+            #contour_levels=[1,2,4,8,16,32,64]
+            #S_rms_list = [0.00462528, 0.00460777, 0.00461448, 0.00452032, 0.00521174]
+
+            contour_levels=[0.004, 0.008, 0.016]
+            S_rms_list = [1.,1.,1.,1.,1.]
 
             #Single valued parametersdir_path_list[1]
             channelwidth = 4.
             centre_index = 55
-            edge_crop = 9
-            ring_crop_list = [8, 3, 3, 3, 3]
+            edge_crop = 12
+            ring_crop_list = [7, 5, 5, 5, 5]
             inner_ring_crop = 0
-            #S_rms=0.00555033 #This is the actual RMS level of the baseline 
 
             #=== For grid ringdensplot
             mom0_fits_path_list = ['/maps/DINGO_J224218.09-300323.8_0mom.fits',
-            '/maps/DINGO_J224218.10-300326.8_0mom.fits',
-            '/maps/DINGO_J224218.10-300326.8_0mom.fits',
-            '/maps/NONE_0mom.fits',
+            '/maps/DINGO_J224218.08-300323.3_0mom.fits',
+            '/maps/DINGO_J224218.08-300323.2_0mom.fits',
+            '/maps/DINGO_J224218.02-300324.3_0mom.fits',
             '/maps/NONE_0mom.fits']
 
             mom1_fits_path_list = ['/maps/DINGO_J224218.09-300323.8_1mom.fits',
-            '/maps/DINGO_J224218.10-300326.8_1mom.fits',
-            '/maps/DINGO_J224218.10-300326.8_1mom.fits',
-            '/maps/NONE_1mom.fits',
+            '/maps/DINGO_J224218.08-300323.3_1mom.fits',
+            '/maps/DINGO_J224218.08-300323.2_1mom.fits',
+            '/maps/DINGO_J224218.02-300324.3_1mom.fits',
             '/maps/NONE_1mom.fits']
 
             mom1_model_fits_path_list = ['/maps/DINGO_J224218.09-300323.8_local_1mom.fits',
-            '/maps/DINGO_J224218.10-300326.8_local_1mom.fits',
-            '/maps/DINGO_J224218.10-300326.8_local_1mom.fits',
-            '/maps/NONE_local_1mom.fits',
+            '/maps/DINGO_J224218.08-300323.3_local_1mom.fits',
+            '/maps/DINGO_J224218.08-300323.2_local_1mom.fits',
+            '/maps/DINGO_J224218.02-300324.3_local_1mom.fits',
             '/maps/NONE_local_1mom.fits']
 
             #mom1_model_fits_path = dir_path_list[1] + \
@@ -584,7 +588,6 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             b_min_px = 5.
 
             diff_lim = 100
-
 
     else:
         baseline_length = int(6)
@@ -668,14 +671,14 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             ident_list = ['V', 'G', 'I']
             #contour_levels=[1,2,4,8,16,32,64]
             #S_rms_list = [0.00367145, 0.00367641, 0.00370083]
-            contour_levels=[0.002,0.004,0.008,0.0016]
-            S_rms_list = [1]
+            contour_levels=[0.004,0.008,0.016]
+            S_rms_list = [1,1,1]
 
             #Single valued parameters
             channelwidth = 4.
             centre_index = 75
             edge_crop = 4
-            ring_crop_list = [14,14,4]
+            ring_crop_list = [13,13,3]
             inner_ring_crop = 1
 
 
@@ -750,7 +753,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 color_list = rms_colors,
                 linestyle_list = rms_linestyles,
                 rest_frame = 'optical',
-                region_list=[None,None,None,None,(319,397)],
+                #region_list=[None,None,None,None,(319,397)],
+                region_list =[None],
                 ptitle = rms_ptitle)
 
             log.info('...done')

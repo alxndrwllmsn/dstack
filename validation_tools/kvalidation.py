@@ -1441,8 +1441,8 @@ def plot_3Dbarolo_fits_map(fits_path,
             'x', color='black', markersize=7, mew=1.5)
 
     #== Plot inclination line
-    avg_pa = np.average(pa)
-    avg_inc = np.average(inc)
+    avg_pa = np.average(pa[inner_ring_crop:ring_crop])
+    avg_inc = np.average(inc[inner_ring_crop:ring_crop])
 
     #Plot the position angle line
     #x = np.arange(xcen-3.,xcen+3.,0.1) 
