@@ -14,7 +14,7 @@ these scripts are designed to handle the SoFiA output of HI sources.
 """
 
 __all__ = ['add_inner_title', 'get_source_files', 'get_N_sources', 'get_z_from_freq',
-        'get_velocity_from_freq',  'get_freq_from_velocity',
+        'get_velocity_from_freq',  'get_freq_from_velocity', 'get_main_parameters_from_catalog',
         'get_velocity_dispersion_from_freq', 'get_column_density',
         'get_column_density_sensitivity', 'get_freq_and_redshift_from_catalog', 'get_RMS_from_catalog',
         'fget_wcs', 'fget_beam', 'fget_channel_width', 'get_optical_image', 'get_optical_image_ndarray',
@@ -38,6 +38,8 @@ from astropy.io.votable import parse_single_table
 from astropy.coordinates import SkyCoord
 from astroquery.skyview import SkyView
 #from astroquery.utils import download_list_of_fitsfiles
+
+from astropy.cosmology import FlatLambdaCDM
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -80,6 +82,11 @@ outlier_color = 'dimgrey'
 _CMAP = matplotlib.cm.viridis
 
 _CMAP.set_bad(color=outlier_color)
+
+#=== Cosmology
+
+_H = 67.7 
+_O = 0.307
 
 #=== Setup logging ===
 log = logging.getLogger(__name__)
@@ -457,6 +464,136 @@ def get_RMS_from_catalog(catalog_path, source_index, rest_frame='frequency'):
     rms = catalog['rms'][source_index]
  
     return rms
+
+def get_main_parameters_from_catalog(source_ID,
+        sofia_dir_path,
+        name_base,
+        beam_correction=False,
+        b_maj_px=5,
+        b_min_px=5):
+    """
+
+    """
+    source_index, catalog_path, cubelet_path_dict, spectra_path = \
+    get_source_files(source_ID, sofia_dir_path, name_base)
+
+    catalog = parse_single_table(catalog_path).to_table(use_names_over_ids=True)
+
+    ra = catalog['ra'][source_index]
+    dec = catalog['dec'][source_index]
+
+    #=== Position coordinates
+    pos = SkyCoord(ra=ra, dec=dec, unit='deg',equinox='J2000')
+
+    #Good enough for now
+    # TO DO: dela with negative numbers and inser zeros e.g. 1:02:00 instead of 1:2:00
+    ra_str = str(int(pos.ra.hms.h)) + ':' + str(int(pos.ra.hms.m)) +\
+            ':{0:.2f}'.format(pos.ra.hms.s)
+    dec_str = str(int(pos.dec.dms.d)) + ':' + str(int(pos.dec.dms.m)) +\
+            ':{0:.2f}'.format(pos.dec.dms.s)
+
+    #Central frequency and velocity
+    nu_central = catalog['freq'][source_index]
+
+    #Central optical velocity
+    v_central = get_velocity_from_freq(nu_central)
+
+    #Redshift
+    z = get_z_from_freq(nu_central)
+
+    #Convert from Hz to MHz
+    nu_central = np.multiply(nu_central,0.000001)
+
+    #=== Measures total flux and HI mass
+    sofia_spectra = np.genfromtxt(spectra_path)
+
+    #Get the corresponding arrays and transform them to the given frame
+    flux_array= sofia_spectra[:,2]
+    freq_array= sofia_spectra[:,1]
+    N_pixel_array = sofia_spectra[:,3]
+
+    RMS = np.multiply(catalog['rms'][source_index],1000) #mJy/beam
+
+    #The uncertainty propagation sqrt(sum(sum(N_px))*RMS
+    #freq_uncertainty_array = np.sqrt(freq_uncertainty_array)
+
+    S_int_sigma = np.sqrt(np.sum(N_pixel_array))
+
+    #Convert from mJy/beam / channel to Jy/channel 
+    beam_corrected_RMS = np.divide(RMS,1000) / np.pi * b_maj_px * b_min_px / (4 * np.log(2))
+
+    S_int_sigma = np.multiply(S_int_sigma, beam_corrected_RMS)
+
+    if beam_correction:
+        flux_array /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
+
+    S_int = np.sum(flux_array)
+
+    #Correct for the channelwidth
+    channelwidth_in_kms = np.fabs(np.subtract(
+        get_velocity_from_freq(freq_array[0]),
+        get_velocity_from_freq(freq_array[1])))
+
+    channelwidth_in_hz = np.fabs(np.subtract(
+        freq_array[0],freq_array[1]))
+
+    S_int = np.divide(S_int, channelwidth_in_kms) #In Jy/km/s
+
+    S_int_sigma = np.divide(S_int_sigma, channelwidth_in_kms) #In Jy/km/s
+
+    cosmo = FlatLambdaCDM(H0=_H, Om0=_O)
+
+    DL = cosmo.luminosity_distance(z).value #In Mpc
+
+    #HI mass eq 46 from Meyer 2017
+    MHI = (235000 / np.square((1 + z))) * np.square(DL) * S_int #In solar mass
+
+    log_MHI = np.log10(MHI)
+
+    #Only consider the error of S_int
+    MHI_sigma = (235000 / np.square((1 + z))) * np.square(DL) * S_int_sigma
+
+    log_MHI_sigma = np.log10(MHI_sigma)
+
+    #=== Spectra width
+    #w20 =  np.multiply(channelwidth_in_kms,catalog['w20'][source_index])
+    #w50 =  np.multiply(channelwidth_in_kms,catalog['w50'][source_index])
+
+
+    if beam_correction:
+        w20 = np.multiply(channelwidth_in_kms,catalog['w20'][source_index])
+        w50 = np.multiply(channelwidth_in_kms,catalog['w50'][source_index])
+
+    else:
+        w20 = np.multiply(channelwidth_in_kms,
+                np.divide(catalog['w20'][source_index],channelwidth_in_hz))
+        w50 = np.multiply(channelwidth_in_kms,
+                np.divide(catalog['w50'][source_index],channelwidth_in_hz))
+
+    #One channelwidth
+    w20_sigma = channelwidth_in_kms
+    w50_sigma = channelwidth_in_kms
+
+    #Half channelwidth
+    nu_central_sigma = (channelwidth_in_hz / 2) / 1000
+    v_central_sigma = channelwidth_in_kms / 2
+
+    #For Z the uncertainty is ignored
+
+    #Print / return output
+    print(ra_str)
+    print(dec_str)
+    print(r'{0:.3f} $\pm$ {1:.3f}'.format(S_int, S_int_sigma))
+    print(r'{0:.3f} $\pm$ {1:.3f}'.format(log_MHI, log_MHI_sigma))
+    print(RMS)
+    print(r'{0:.3f} $\pm$ {1:.3f}'.format(w20, w20_sigma))
+    print(r'{0:.3f} $\pm$ {1:.3f}'.format(w50, w50_sigma))
+    print(r'{0:.3f} $\pm$ {1:.3f}'.format(nu_central, nu_central_sigma))
+    print(r'{0:.3f} $\pm$ {1:.3f}'.format(v_central, v_central_sigma))
+    print(z)
+
+    #return ra_str, dec_str, S_int, log_MHI, RMS, w20, w50, nu_central, v_central, z
+    #return S_int_sigma, log_MHI_sigma, w20_sigma, w50_sigma, nu_central_sigma, v_central_sigma
 
 #= Fits
 def fget_wcs(fitsfile_path):

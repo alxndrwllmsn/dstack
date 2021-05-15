@@ -324,7 +324,11 @@ if __name__ == "__main__":
     full_res = True #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
-    kinematics = True
+    kinematics = False
+
+    #===
+    #Get important Sofia and 3DBAROLO parameters for table
+    get_SoFiA_parameters = True
 
     #===
     setup_plot = False
@@ -604,7 +608,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 'stacked_grids/', 'stacked_images/']))
 
             #Define source and imaging parameters
-            source_ID_list = [3, 4, 8]
+            source_ID_list = [4, 3, 2]
             name_base_list = ['beam17_all_']
             beam_correction_list = [True, True, True]
             b_maj_px_list = [6.]
@@ -618,7 +622,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             color_list = [c0, c2, c1]
             label_list = ['visibilities', 'stacked grids', 'stacked images']
             ident_list = ['V', 'G', 'I']
-            contour_levels = [8.,16.]
+            contour_levels = [16.]
 
             grid_plot_ID = 1
             image_plot_ID = 2
@@ -631,7 +635,8 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             N_optical_pixels = 600
 
             #mom0_contour_levels = [0.5, 1.6, 2.7, 5.3, 13] #in column density 10^20
-            mom0_contour_levels = [8, 16, 32, 64, 128] #in column density 10^20
+            #mom0_contour_levels = [8, 16, 32, 64, 128] #in column density 10^20
+            mom0_contour_levels = [0.69, 1.39, 2.77, 5.54, 11.08]
 
             central_vel = 1250 #central vel for mom1 map contours [km/s]
             delta_vel = 16
@@ -646,8 +651,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             rms_labels = ['V', 'G', 'I']
             rms_ptitle = 'Wiener-filtering and deconvolution'
             rms_outlabel = 'filtering'
-            rms_linestyles = ['-']
-
+            rms_linestyles = ['-', '--', '-']
 
         else:
             #kinematics plots:
@@ -713,6 +717,21 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             diff_lim = 100
 
     #===========================================================================
+    #=== Get parameters 
+    if get_SoFiA_parameters:
+        for i in range(0, len(source_ID_list)):
+            log.info('Get source parameters from SoFiA catalog for {0:s}...'.format(
+                ident_list[i]))
+
+            ds.sdiagnostics.get_main_parameters_from_catalog(source_ID = source_ID_list[i],
+                sofia_dir_path = sofia_dir_path_list[i],
+                name_base = name_base_list[0],
+                beam_correction = beam_correction_list[i],
+                b_maj_px = b_maj_px_list[0],
+                b_min_px = b_min_px_list[0])
+
+            log.info('...done')
+
     #=== Imaging ===
     if not kinematics:
         #The special setup plot
@@ -829,7 +848,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_min_list = b_min_list,
                 b_pa_list = b_pa_list,
                 N_optical_pixels = N_optical_pixels,
-                sigma_mom0_contours = True,
+                sigma_mom0_contours = False,
                 mom0_contour_levels = mom0_contour_levels,
                 #sigma_mom0_contours = False,
                 #mom0_contour_levels = [0.64, 1.29, 2.57, 5.15, 10.3],
