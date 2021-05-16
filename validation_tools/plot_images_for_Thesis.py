@@ -328,7 +328,8 @@ if __name__ == "__main__":
 
     #===
     #Get important Sofia and 3DBAROLO parameters for table
-    get_SoFiA_parameters = True
+    get_SoFiA_parameters = False
+    get_3DBarolo_parameters = False
 
     #===
     setup_plot = False
@@ -337,7 +338,7 @@ if __name__ == "__main__":
     rms_plot = False
 
     col_density_histogram = False
-    normalised_col_density_histogram = False
+    normalised_col_density_histogram = True
 
     simple_grid_mom_contour_plots = False
     simple_grid_spectrum_plot = False
@@ -357,12 +358,12 @@ if __name__ == "__main__":
     diff_scaling_plots = False
 
     #Kinematics
-    profile_curves = True
-    angle_curves = True
+    profile_curves = False
+    angle_curves = False
 
-    ringdensplot = True
+    ringdensplot = False
 
-    simple_pv_plot = True
+    simple_pv_plot = False
 
     pv_data_trinagle_plot = False
     pv_model_trinagle_plot = False
@@ -516,7 +517,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             mom0_contour_levels = [8, 16, 32, 64, 128] #in sigma
             #mom0_contour_levels = [5, 10, 20, 50] #in sigma
 
-            central_vel = 1248 #central vel for mom1 map contours [km/s]
+            central_vel = 1249 #central vel for mom1 map contours [km/s]
             delta_vel = 16
 
         #Kinematics
@@ -638,7 +639,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             #mom0_contour_levels = [8, 16, 32, 64, 128] #in column density 10^20
             mom0_contour_levels = [0.69, 1.39, 2.77, 5.54, 11.08]
 
-            central_vel = 1250 #central vel for mom1 map contours [km/s]
+            central_vel = 1254 #central vel for mom1 map contours [km/s]
             delta_vel = 16
 
             rms_dir = working_dir + 'measured_RMS/'
@@ -732,6 +733,20 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
 
             log.info('...done')
 
+    if kinematics and get_3DBarolo_parameters:
+        for i in range(0, len(ident_list)):
+            log.info('Get source parameters from 3Dbarolo for {0:s}...'.format(
+                    ident_list[i]))
+
+            kvalidation.get_main_parameters_from_model(
+                rot_dir = dir_path_list[i],
+                profile_file_name = pv_profile_file_name_list[0],
+                profile_error_file_name = pv_err_profile_file_name_list[0],
+                ring_crop = ring_crop_list[i],
+                inner_ring_crop = inner_ring_crop)
+
+            log.info('...done')
+
     #=== Imaging ===
     if not kinematics:
         #The special setup plot
@@ -787,7 +802,6 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 output_fname = output_dir + '{0:d}km_col_den_hist.pdf'.format(
                     baseline_length),
                 N_bins = 25,
-                #masking = False,
                 masking_list = masking_list,
                 mask_sigma_list = densplot_mask_sigma_list,
                 b_maj_list = b_maj_list,
@@ -816,10 +830,13 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 #masking = False,
                 masking_list = masking_list,
                 mask_sigma_list = densplot_mask_sigma_list,
+                #masking_list = [True],
+                #mask_sigma_list = [3.5],
                 b_maj_list = b_maj_list,
                 b_min_list = b_maj_list,
                 color_list = color_list,
                 label_list = ident_list,
+                #col_den_sensitivity_lim_list = [None],
                 col_den_sensitivity_lim_list = [None],
                 conver_from_NHI=True,
                 pixelsize_list = [30.],
@@ -848,7 +865,7 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_min_list = b_min_list,
                 b_pa_list = b_pa_list,
                 N_optical_pixels = N_optical_pixels,
-                sigma_mom0_contours = False,
+                sigma_mom0_contours = True,
                 mom0_contour_levels = mom0_contour_levels,
                 #sigma_mom0_contours = False,
                 #mom0_contour_levels = [0.64, 1.29, 2.57, 5.15, 10.3],

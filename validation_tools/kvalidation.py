@@ -604,7 +604,6 @@ def plot_angle_curves(rot_dir_list,
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
 
-
 def plot_pv_diagram_triangle_plot(rot_dir_list,
                                 pv_fits_name_base_list,
                                 profile_file_name_list,
@@ -1513,6 +1512,65 @@ def plot_3Dbarolo_fits_map(fits_path,
 
     plt.savefig(output_fname,bbox_inches='tight')
     plt.close()
+
+def get_main_parameters_from_model(rot_dir,
+        profile_file_name,
+        profile_error_file_name,
+        ring_crop=2,
+        inner_ring_crop = 0,):
+    """
+
+    """
+    profilefit_file_path = rot_dir + profile_file_name
+    profilefit_error_file_path = rot_dir + profile_error_file_name
+
+
+    rot, i, theta = np.genfromtxt(profilefit_file_path, skip_header=1,
+                                usecols=(2,4,5), unpack=True)
+
+    pos_rot_err, neg_rot_err = np.genfromtxt(profilefit_error_file_path,
+                skip_header=1, usecols=(13,14), unpack=True)    
+
+    pos_i_err, neg_i_err = np.genfromtxt(profilefit_error_file_path,
+                skip_header=1, usecols=(17,18), unpack=True)
+
+    pos_theta_err, neg_theta_err = np.genfromtxt(profilefit_error_file_path,
+                skip_header=1, usecols=(19,20), unpack=True)
+     
+
+    #Rotation curve
+    pos_rot_err = np.fabs(pos_rot_err[inner_ring_crop:-ring_crop])
+    neg_rot_err = np.fabs(neg_rot_err[inner_ring_crop:-ring_crop])
+
+    avg_rot_err = np.average( np.array([pos_rot_err, neg_rot_err]), axis=0 )
+    
+    rot_max = np.amax(rot[inner_ring_crop:-ring_crop])
+    rot_max_err = np.amax(avg_rot_err)
+
+    #Inclination
+    i = i[inner_ring_crop:-ring_crop]
+    pos_i_err = np.fabs(pos_i_err[inner_ring_crop:-ring_crop])
+    neg_i_err = np.fabs(neg_i_err[inner_ring_crop:-ring_crop])
+
+    avg_i_err = np.average( np.array([pos_i_err, neg_i_err]), axis=0 )
+    i_average = np.average(i, weights=avg_i_err)
+    #i_average_err = np.average(avg_i_err)
+
+    i_average_err = np.average((i-i_average)**2, weights=avg_i_err)
+
+    #Position angle
+    theta = theta[inner_ring_crop:-ring_crop]
+    pos_theta_err = np.fabs(pos_theta_err[inner_ring_crop:-ring_crop])
+    neg_theta_err = np.fabs(neg_theta_err[inner_ring_crop:-ring_crop])
+
+    avg_theta_err = np.average( np.array([pos_theta_err, neg_theta_err]), axis=0 )
+    theta_average = np.average(theta, weights=avg_theta_err)
+    theta_average_err = np.average((theta-theta_average)**2, weights=avg_theta_err)
+
+    #Log/print results
+    print(r'{0:.0f} $\pm$ {1:.0f}'.format(rot_max,rot_max_err))
+    print(r'{0:.1f} $\pm$ {1:.1f}'.format(i_average,i_average_err))
+    print(r'{0:.1f} $\pm$ {1:.1f}'.format(theta_average,theta_average_err))
 
 #=== MAIN ===
 if __name__ == "__main__":

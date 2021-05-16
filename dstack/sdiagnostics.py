@@ -473,6 +473,8 @@ def get_main_parameters_from_catalog(source_ID,
         b_min_px=5):
     """
 
+    TO DO add docstring
+
     """
     source_index, catalog_path, cubelet_path_dict, spectra_path = \
     get_source_files(source_ID, sofia_dir_path, name_base)
@@ -580,6 +582,9 @@ def get_main_parameters_from_catalog(source_ID,
 
     #For Z the uncertainty is ignored
 
+    #Get the position angle of a fitted ellipse
+    kin_pa = catalog['kin_pa'][source_index]
+
     #Print / return output
     print(ra_str)
     print(dec_str)
@@ -591,6 +596,7 @@ def get_main_parameters_from_catalog(source_ID,
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(nu_central, nu_central_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(v_central, v_central_sigma))
     print(z)
+    print(kin_pa)
 
     #return ra_str, dec_str, S_int, log_MHI, RMS, w20, w50, nu_central, v_central, z
     #return S_int_sigma, log_MHI_sigma, w20_sigma, w50_sigma, nu_central_sigma, v_central_sigma

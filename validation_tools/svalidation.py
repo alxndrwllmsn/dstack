@@ -1978,7 +1978,7 @@ def simple_spectra_plot(source_ID_list,
     ax.tick_params(axis='both', which='major', labelsize=17)
     
     ax.set_xlabel(r'V$_{opt}$ [km s$^{-1}$]', fontsize=20, labelpad=10)
-    ax.set_ylabel('Flux [Jy]', fontsize=20)
+    ax.set_ylabel('S [Jy]', fontsize=20)
     #ax.grid()
 
     #Add inner title
@@ -2357,6 +2357,9 @@ given than SoFiA directory paths!'
 
     #ax.set_yscale("log")
     
+    ax.axvline(0., linestyle='--', linewidth=2., color='red',
+                alpha=0.8, zorder=0)
+
     #Below this cut I and V restores more flux than B, V or G
     #ax.axvline(-0.5, linestyle='--', linewidth=2., color='red',
     #            alpha=0.8, zorder=0)
