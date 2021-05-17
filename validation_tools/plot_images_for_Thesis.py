@@ -321,10 +321,10 @@ if __name__ == "__main__":
         raise ValueError('Only either the filtering or deconvolution can be disabled at a time!')
 
     #Decide the resolution
-    full_res = True #If True the 6km baseline results are plotted
+    full_res = False #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
-    kinematics = False
+    kinematics = True
 
     #===
     #Get important Sofia and 3DBAROLO parameters for table
@@ -338,7 +338,7 @@ if __name__ == "__main__":
     rms_plot = False
 
     col_density_histogram = False
-    normalised_col_density_histogram = True
+    normalised_col_density_histogram = False
 
     simple_grid_mom_contour_plots = False
     simple_grid_spectrum_plot = False
@@ -361,7 +361,7 @@ if __name__ == "__main__":
     profile_curves = False
     angle_curves = False
 
-    ringdensplot = False
+    ringdensplot = True
 
     simple_pv_plot = False
 
@@ -594,6 +594,18 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
 
             diff_lim = 100
 
+            #For correct display of the fits files
+            sofia_working_dir = '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/2km_baseline_results/'
+
+            name_base_list = ['beam17_all_']
+
+            sofia_dir_path_list = list(map(sofia_working_dir.__add__,[
+                'baseline_vis_imaging/', 'co_added_visibilities/',
+                'stacked_grids/', 'stacked_images/',
+                'conventional_imaging/']))
+
+            source_ID_list = [6, 2, 3, 1, 1]
+
     else:
         baseline_length = int(6)
     
@@ -667,23 +679,24 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             profile_file_name_list = ['densprof.txt']
             pv_profile_file_name_list = ['rings_final2.txt']
             pv_err_profile_file_name_list = ['rings_final1.txt']
-            pv_fits_name_base_list = ['DINGO_J224218.06-300326.6',
-                'DINGO_J224218.05-300326.8', 'DINGO_J224217.92-300325.2']
+            pv_fits_name_base_list = ['DINGO_J224218.23-300315.5',
+                'DINGO_J224218.22-300315.5', 'DINGO_J224218.21-300317.1']
 
             color_list = [c0, c2, c1]
             label_list = ['co-added visibilities',
                         'stacked grids', 'stacked images']
             ident_list = ['V', 'G', 'I']
             #contour_levels=[1,2,4,8,16,32,64]
-            #S_rms_list = [0.00367145, 0.00367641, 0.00370083]
+            ##S_rms_list = [0.00367145, 0.00367641, 0.00370083] #old
             contour_levels=[0.004,0.008,0.016]
             S_rms_list = [1,1,1]
 
             #Single valued parameters
             channelwidth = 4.
             centre_index = 75
-            edge_crop = 4
-            ring_crop_list = [13,13,3]
+            #centre_index = 0
+            edge_crop = 6
+            ring_crop_list = [5,6,6]
             inner_ring_crop = 1
 
 
@@ -696,17 +709,17 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             #mom1_fits_path = dir_path_list[1] + \
             #        '/maps/DINGO_J224218.05-300326.8_1mom.fits'
 
-            mom0_fits_path_list = ['/maps/DINGO_J224218.06-300326.6_0mom.fits',
-            '/maps/DINGO_J224218.05-300326.8_0mom.fits',
-            '/maps/DINGO_J224217.92-300325.2_0mom.fits']
+            mom0_fits_path_list = ['/maps/DINGO_J224218.23-300315.5_0mom.fits',
+            '/maps/DINGO_J224218.22-300315.5_0mom.fits',
+            '/maps/DINGO_J224218.21-300317.1_0mom.fits']
 
-            mom1_fits_path_list = ['/maps/DINGO_J224218.06-300326.6_1mom.fits',
-            '/maps/DINGO_J224218.05-300326.8_1mom.fits',
-            '/maps/DINGO_J224217.92-300325.2_1mom.fits']
+            mom1_fits_path_list = ['/maps/DINGO_J224218.23-300315.5_1mom.fits',
+            '/maps/DINGO_J224218.22-300315.5_1mom.fits',
+            '/maps/DINGO_J224218.21-300317.1_1mom.fits']
 
-            mom1_model_fits_path_list = ['/maps/DINGO_J224218.06-300326.6_local_1mom.fits',
-            '/maps/DINGO_J224218.05-300326.8_local_1mom.fits',
-            '/maps/DINGO_J224217.92-300325.2_local_1mom.fits']
+            mom1_model_fits_path_list = ['/maps/DINGO_J224218.23-300315.5_local_1mom.fits',
+            '/maps/DINGO_J224218.22-300315.5_local_1mom.fits',
+            '/maps/DINGO_J224218.21-300317.1_local_1mom.fits']
 
             b_maj = 12.
             b_min = 12.
@@ -716,6 +729,17 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
             b_min_px = 6.
 
             diff_lim = 100
+
+            #For the correct fits projection
+            sofia_working_dir = '/home/krozgonyi/Desktop/NGC7361_results/SoFiA//6km_baseline_results/'
+
+            sofia_dir_path_list = list(map(sofia_working_dir.__add__,['co_added_visibilities/',
+                'stacked_grids/', 'stacked_images/']))
+
+            #Define source and imaging parameters
+            source_ID_list = [4, 3, 2]
+            name_base_list = ['beam17_all_']
+
 
     #===========================================================================
     #=== Get parameters 
@@ -1188,6 +1212,7 @@ baseline results...'.format(angle_profile, baseline_length))
                         fits_path_list[j],
                         rot_dir = dir_path_list[j],
                         profile_file_name = pv_profile_file_name_list[0],
+                        profile_error_file_name = pv_err_profile_file_name_list[0],
                         output_fname = output_dir + '{0:d}km_mom{1:d}_{2:s}_ringdensplot.pdf'.format(
                                 baseline_length, i, ident),
                         N_optical_pixels = N_opt_px,
@@ -1206,7 +1231,11 @@ baseline results...'.format(angle_profile, baseline_length))
                         second_map_file_path = dir_path_list[j] + \
                         mom1_model_fits_path_list[j],
                         ref_frame_transform = False,
-                        diff_lim = diff_lim)
+                        diff_lim = diff_lim,
+                        spec_centre = True,
+                        source_ID = source_ID_list[j],
+                        sofia_dir_path = sofia_dir_path_list[j],
+                        name_base = name_base_list[0])
 
                     log.info('...done')
 

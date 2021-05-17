@@ -520,12 +520,16 @@ def plot_angle_curves(rot_dir_list,
                     rot_dir_list[i+1] + profile_error_file_name_list[i],
                     skip_header=1, usecols=(19,20), unpack=True)
 
-        pos_ang_err = np.fabs(pos_ang_err[inner_ring_crop:-ring_crop_list[i]])
-        neg_ang_err = np.fabs(neg_ang_err[inner_ring_crop:-ring_crop_list[i]])
+        #Apparently the firts fit can have more rings than the second run....
+        #pos_ang_err = np.fabs(pos_ang_err[inner_ring_crop:-ring_crop_list[i]])
+        #neg_ang_err = np.fabs(neg_ang_err[inner_ring_crop:-ring_crop_list[i]])
 
         #Crop the last N ringfit
         rad = rad[inner_ring_crop:-ring_crop_list[i]]
         ang = ang[inner_ring_crop:-ring_crop_list[i]]
+
+        pos_ang_err = np.fabs(pos_ang_err[inner_ring_crop:np.size(rad)+inner_ring_crop])
+        neg_ang_err = np.fabs(neg_ang_err[inner_ring_crop:np.size(rad)+inner_ring_crop])
 
         #lines.append(ax.step(rad, ang, where='mid',
         #                color=color_list[i], alpha=1.-0.05*i,
@@ -569,7 +573,7 @@ def plot_angle_curves(rot_dir_list,
 
     #Add legend
     labels = [l.get_label() for l in lines]
-    if angle_type == 'inclination':
+    if angle_type != 'inclination':
         legend0 = ax.legend(lines, labels, loc='upper right',
             bbox_to_anchor= (0.95, 0.95),
             ncol=2, borderaxespad=0, frameon=True,
@@ -1150,6 +1154,7 @@ def simple_pv_diagram_plot(rot_dir,
 def plot_3Dbarolo_fits_map(fits_path,
         rot_dir,
         profile_file_name,
+        profile_error_file_name,
         output_fname,
         N_optical_pixels=150,
         temp_fits_path='./temp.fits',
@@ -1168,7 +1173,11 @@ def plot_3Dbarolo_fits_map(fits_path,
         diffmap=False,
         second_map_file_path=None,
         ref_frame_transform=False,
-        diff_lim=100):
+        diff_lim=100,
+        spec_centre=False,
+        source_ID=None,
+        sofia_dir_path=None,
+        name_base=None):
     """Simple script to create integrated flux density map with the projected rings
     used for the kinematic modelling. Also can be used to plot the mom1 - model
     aka the velocity residual maps. I put together this code in a haste so it
@@ -1264,6 +1273,7 @@ def plot_3Dbarolo_fits_map(fits_path,
 
     #Get the rings profile file
     profilefit_file_path = rot_dir + profile_file_name
+    profilefit_error_file_path = rot_dir + profile_error_file_name
 
     #Get data arrays
     fits_map = fits.getdata(fits_path)
@@ -1285,11 +1295,26 @@ def plot_3Dbarolo_fits_map(fits_path,
 
         del second_fits
 
-    #Get central pixel RA Dec values
-    centre_coords = astropy.wcs.utils.pixel_to_skycoord(
-        np.floor(np.shape(fits_map)[1] / 2),
-        np.floor(np.shape(fits_map)[0] / 2), 
-        fits_wcs, origin=0)
+    if spec_centre:
+        if source_ID == None or sofia_dir_path == None or name_base == None:
+            raise ValueError('SoFiA dir parameters are not provided!')
+
+        source_index, catalog_path, cubelet_path_dict, spectra_path = \
+        ds.sdiagnostics.get_source_files(source_ID, sofia_dir_path, name_base)
+
+        catalog = parse_single_table(catalog_path).to_table(use_names_over_ids=True)
+
+        centre_ra = catalog['ra'][source_index]
+        centre_dec = catalog['dec'][source_index]
+
+        centre_coords = SkyCoord(ra=centre_ra, dec=centre_dec,
+            unit='deg',equinox='J2000') 
+    else:
+        #Get central pixel RA Dec values
+        centre_coords = astropy.wcs.utils.pixel_to_skycoord(
+            np.floor(np.shape(fits_map)[1] / 2),
+            np.floor(np.shape(fits_map)[0] / 2), 
+            fits_wcs, origin=0)
  
     #Create empty background fits image at this centre with square background
     data_array = np.zeros((N_optical_pixels,N_optical_pixels))
@@ -1424,6 +1449,30 @@ def plot_3Dbarolo_fits_map(fits_path,
     rad, inc, pa, xpos, ypos = np.genfromtxt(profilefit_file_path,
             skip_header=1, usecols=(1,4,5,9,10), unpack=True)
 
+    pos_i_err, neg_i_err = np.genfromtxt(profilefit_error_file_path,
+                skip_header=1, usecols=(17,18), unpack=True)
+
+    pos_theta_err, neg_theta_err = np.genfromtxt(profilefit_error_file_path,
+                skip_header=1, usecols=(19,20), unpack=True)
+
+    all_pa = copy.deepcopy(pa)
+    all_inc = copy.deepcopy(inc)
+
+    #rad = rad[inner_ring_crop:-ring_crop]
+    pa = pa[inner_ring_crop:-ring_crop]
+    inc = inc[inner_ring_crop:-ring_crop]
+
+    pos_i_err = np.fabs(pos_i_err[inner_ring_crop:np.size(inc)+inner_ring_crop])
+    neg_i_err = np.fabs(neg_i_err[inner_ring_crop:np.size(inc)+inner_ring_crop])
+
+    avg_i_err = np.average( np.array([pos_i_err, neg_i_err]), axis=0 )
+
+    pos_theta_err = np.fabs(pos_theta_err[inner_ring_crop:np.size(pa)+inner_ring_crop])
+    neg_theta_err = np.fabs(neg_theta_err[inner_ring_crop:np.size(pa)+inner_ring_crop])
+
+    avg_theta_err = np.average( np.array([pos_theta_err, neg_theta_err]), axis=0 )
+
+    #Position
     avg_xpos = int(np.average(xpos))
     avg_ypos = int(np.average(ypos))
 
@@ -1440,8 +1489,8 @@ def plot_3Dbarolo_fits_map(fits_path,
             'x', color='black', markersize=7, mew=1.5)
 
     #== Plot inclination line
-    avg_pa = np.average(pa[inner_ring_crop:ring_crop])
-    avg_inc = np.average(inc[inner_ring_crop:ring_crop])
+    avg_pa = np.average(pa, weights=avg_theta_err)
+    avg_inc = np.average(inc, weights=avg_i_err)
 
     #Plot the position angle line
     #x = np.arange(xcen-3.,xcen+3.,0.1) 
@@ -1454,9 +1503,10 @@ def plot_3Dbarolo_fits_map(fits_path,
     #=== Plot the rings based on the 3Dbarolo plot
     for i in range(0,np.size(rad)):
         rad_pix = rad / pixelsize
-        posa = np.radians(avg_pa-90)
+        #posa = np.radians(avg_pa-90)
+        posa = np.radians(all_pa[i]-90)
         axmaj = rad_pix[i] 
-        axmin = axmaj*np.cos(np.radians(inc[i]))
+        axmin = axmaj*np.cos(np.radians(all_inc[i]))
 
         t = np.linspace(0,2*np.pi,100)
 
@@ -1539,20 +1589,23 @@ def get_main_parameters_from_model(rot_dir,
      
 
     #Rotation curve
-    pos_rot_err = np.fabs(pos_rot_err[inner_ring_crop:-ring_crop])
-    neg_rot_err = np.fabs(neg_rot_err[inner_ring_crop:-ring_crop])
+    rot = rot[inner_ring_crop:-ring_crop]
+    pos_rot_err = np.fabs(pos_rot_err[inner_ring_crop:np.size(rot)+inner_ring_crop])
+    neg_rot_err = np.fabs(neg_rot_err[inner_ring_crop:np.size(rot)+inner_ring_crop])
 
     avg_rot_err = np.average( np.array([pos_rot_err, neg_rot_err]), axis=0 )
     
-    rot_max = np.amax(rot[inner_ring_crop:-ring_crop])
+    rot_max = np.amax(rot)
     rot_max_err = np.amax(avg_rot_err)
+
 
     #Inclination
     i = i[inner_ring_crop:-ring_crop]
-    pos_i_err = np.fabs(pos_i_err[inner_ring_crop:-ring_crop])
-    neg_i_err = np.fabs(neg_i_err[inner_ring_crop:-ring_crop])
+    pos_i_err = np.fabs(pos_i_err[inner_ring_crop:np.size(i)+inner_ring_crop])
+    neg_i_err = np.fabs(neg_i_err[inner_ring_crop:np.size(i)+inner_ring_crop])
 
     avg_i_err = np.average( np.array([pos_i_err, neg_i_err]), axis=0 )
+
     i_average = np.average(i, weights=avg_i_err)
     #i_average_err = np.average(avg_i_err)
 
@@ -1560,8 +1613,8 @@ def get_main_parameters_from_model(rot_dir,
 
     #Position angle
     theta = theta[inner_ring_crop:-ring_crop]
-    pos_theta_err = np.fabs(pos_theta_err[inner_ring_crop:-ring_crop])
-    neg_theta_err = np.fabs(neg_theta_err[inner_ring_crop:-ring_crop])
+    pos_theta_err = np.fabs(pos_theta_err[inner_ring_crop:np.size(theta)+inner_ring_crop])
+    neg_theta_err = np.fabs(neg_theta_err[inner_ring_crop:np.size(theta)+inner_ring_crop])
 
     avg_theta_err = np.average( np.array([pos_theta_err, neg_theta_err]), axis=0 )
     theta_average = np.average(theta, weights=avg_theta_err)
