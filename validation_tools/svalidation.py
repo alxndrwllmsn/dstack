@@ -1949,8 +1949,16 @@ def simple_spectra_plot(source_ID_list,
             #=== HIPASS cube
             HIPPASS_data = np.genfromtxt(special_flux_list[i], skip_header=36)
 
-            velocity = HIPPASS_data[144:179,1]
-            flux = HIPPASS_data[144:179,2]
+            velocity = HIPPASS_data[:33,1]
+            flux = HIPPASS_data[:33,2]
+
+            #Tristans spectra
+            #velocity = HIPPASS_data[144:179,1]
+            #flux = HIPPASS_data[144:179,2]
+
+            #For spectra found on my computer
+            #velocity = HIPPASS_data[172:209,1]
+            #flux = HIPPASS_data[172:209,2]
 
         flux_list.append(flux)
         velocity_list.append(velocity)
@@ -1982,7 +1990,7 @@ def simple_spectra_plot(source_ID_list,
     #ax.grid()
 
     #Add inner title
-    t = ds.sdiagnostics.add_inner_title(ax, 'Spectra', loc=1,
+    t = ds.sdiagnostics.add_inner_title(ax, 'Spectra', loc=2,
         prop=dict(size=25, color='black'),
         white_border=False)
     

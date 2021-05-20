@@ -324,11 +324,11 @@ if __name__ == "__main__":
     full_res = False #If True the 6km baseline results are plotted
 
     #Decide if kinematics plots are created
-    kinematics = True
+    kinematics = False
 
     #===
     #Get important Sofia and 3DBAROLO parameters for table
-    get_SoFiA_parameters = False
+    get_SoFiA_parameters = True
     get_3DBarolo_parameters = False
 
     #===
@@ -361,7 +361,7 @@ if __name__ == "__main__":
     profile_curves = False
     angle_curves = False
 
-    ringdensplot = True
+    ringdensplot = False
 
     simple_pv_plot = False
 
@@ -934,7 +934,12 @@ SoFiA/no_Wiener_filtering_2km_baseline_results/'
                 b_maj_px_list = [b_maj_px_list[0]],
                 b_min_px_list = [b_min_px_list[0]],
                 special_flux_list = [
-                '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/2km_baseline_results/NGC7361_hipass_spectra.txt',
+                #'/home/krozgonyi/Desktop/NGC7361_results/SoFiA/\
+#2km_baseline_results/Tristans_NGC7361_hipass_spectra.txt',
+                '/home/krozgonyi/Desktop/NGC7361_results/SoFiA/\
+2km_baseline_results/Koribalski_et_al_2004_NGC7361_HIPASS_spectra.txt',
+                #'/home/krozgonyi/Desktop/NGC7361_results/SoFiA/\
+#2km_baseline_results/my_computer_NGC7361_hipass_spectra.txt',
                 None])
 
             log.info('...done')

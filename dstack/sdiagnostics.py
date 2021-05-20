@@ -519,7 +519,7 @@ def get_main_parameters_from_catalog(source_ID,
     #The uncertainty propagation sqrt(sum(sum(N_px))*RMS
     #freq_uncertainty_array = np.sqrt(freq_uncertainty_array)
 
-    S_int_sigma = np.sqrt(np.sum(N_pixel_array))
+    S_int_sigma = np.sqrt(np.sum(N_pixel_array[flux_array != 0])) #???
 
     #Convert from mJy/beam / channel to Jy/channel 
     beam_corrected_RMS = np.divide(RMS,1000) / np.pi * b_maj_px * b_min_px / (4 * np.log(2))
@@ -539,28 +539,64 @@ def get_main_parameters_from_catalog(source_ID,
     channelwidth_in_hz = np.fabs(np.subtract(
         freq_array[0],freq_array[1]))
 
-    S_int = np.divide(S_int, channelwidth_in_kms) #In Jy/km/s
+    S_int = np.multiply(S_int, channelwidth_in_kms) #In Jy*km/s
 
-    S_int_sigma = np.divide(S_int_sigma, channelwidth_in_kms) #In Jy/km/s
+    S_int_sigma = np.multiply(S_int_sigma, channelwidth_in_kms) #In Jy/km/s
 
-    cosmo = FlatLambdaCDM(H0=_H, Om0=_O)
+    #Alternate way to compute the spectra fro SoFiA catalog
+    alternate_S_int = catalog['f_sum'][source_index] #in Jy*Hz (Jy/beam if beam correction needed)
+    alternate_S_int_sigma = catalog['err_f_sum'][source_index]
 
-    DL = cosmo.luminosity_distance(z).value #In Mpc
+    if beam_correction:
+        alternate_S_int /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
+        alternate_S_int_sigma /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
+
+        alternate_S_int *= channelwidth_in_kms
+        alternate_S_int_sigma *= channelwidth_in_kms
+
+    else:
+        #Cnovert from JyHz to Jykm/s
+        alternate_S_int *= (channelwidth_in_kms / channelwidth_in_hz)
+        alternate_S_int_sigma *= (channelwidth_in_kms / channelwidth_in_hz)
+
+    #Get the HI mass
+    use_cosmology = False
+    if use_cosmology:
+        cosmo = FlatLambdaCDM(H0=_H, Om0=_O)
+
+        DL = cosmo.luminosity_distance(z).value #In Mpc
+    else:
+        #From independent optical measurement:
+         #https://simbad.u-strasbg.fr/simbad/sim-id?mescat.distance=on&Ident=\
+         #%401220654&Name=NGC++7361&submit=display+all+measurements#lab_meas
+        DL = 16.07
+
+    #Same as above
+    sigma_DL = 0.2
 
     #HI mass eq 46 from Meyer 2017
-    MHI = (235000 / np.square((1 + z))) * np.square(DL) * S_int #In solar mass
+    #MHI = (235000 / np.square((1 + z))) * np.square(DL) * S_int #In solar mass
+
+    #For testing HIPASS data values
+    #S_int = 42
+    #S_int_sigma = 4
+
+    #E ignore the redsift, the source is too close
+    MHI = 235000  * np.square(DL) * S_int #In solar mass
 
     log_MHI = np.log10(MHI)
 
     #Only consider the error of S_int
-    MHI_sigma = (235000 / np.square((1 + z))) * np.square(DL) * S_int_sigma
+    #MHI_sigma = (235000 / np.square((1 + z))) * np.square(DL) * S_int_sigma
+    #log_MHI_sigma = np.log10(MHI_sigma)
 
-    log_MHI_sigma = np.log10(MHI_sigma)
+    #Using standard Gaussian error propagation
+    log_MHI_sigma = np.sqrt(np.power(2/(DL*np.log(10)),2) * np.power(sigma_DL,2) +\
+                    np.power(1/(S_int*np.log(10)),2) * np.power(S_int_sigma,2))
 
     #=== Spectra width
     #w20 =  np.multiply(channelwidth_in_kms,catalog['w20'][source_index])
     #w50 =  np.multiply(channelwidth_in_kms,catalog['w50'][source_index])
-
 
     if beam_correction:
         w20 = np.multiply(channelwidth_in_kms,catalog['w20'][source_index])
@@ -572,13 +608,13 @@ def get_main_parameters_from_catalog(source_ID,
         w50 = np.multiply(channelwidth_in_kms,
                 np.divide(catalog['w50'][source_index],channelwidth_in_hz))
 
-    #One channelwidth
-    w20_sigma = channelwidth_in_kms
-    w50_sigma = channelwidth_in_kms
-
     #Half channelwidth
     nu_central_sigma = (channelwidth_in_hz / 2) / 1000
     v_central_sigma = channelwidth_in_kms / 2
+
+    #One channelwidth
+    w20_sigma = 3 * v_central_sigma
+    w50_sigma = 2 * v_central_sigma
 
     #For Z the uncertainty is ignored
 
@@ -589,6 +625,7 @@ def get_main_parameters_from_catalog(source_ID,
     print(ra_str)
     print(dec_str)
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(S_int, S_int_sigma))
+    print(r'{0:.3f} $\pm$ {1:.3f}'.format(alternate_S_int, alternate_S_int_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(log_MHI, log_MHI_sigma))
     print(RMS)
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(w20, w20_sigma))
