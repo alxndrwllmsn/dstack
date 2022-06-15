@@ -8,7 +8,7 @@ from . import applications, cim, cgrid, parset, msutil, sdiagnostics
 
 #from .version import version as __version__
 
-__name__ = "dstcak"
+__name__ = "dstack"
 __author__ = ["Kristof Rozgonyi (@rstofi)"]
 
 __all__ = ['applications', 'cim', 'cgrid', 'parset', 'msutil', 'sdiagnostics']

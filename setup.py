@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from codecs import open
 import os
 import re
@@ -24,6 +24,7 @@ setup(
     author='Kristof Rozgonyi',
     author_email='rstofi@gmail.com',
     description='Python package to stack images and grids for the DINGO survey',
+    packages=['dstack'],
     install_requires=requirements,
     entry_points={
     'console_scripts': [
