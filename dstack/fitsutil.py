@@ -1,7 +1,8 @@
 """Collection of utility functions to interact with .fits images
 """
 
-__all__ = ['get_synthesiseb_beam_params_from_fits_header']
+__all__ = ['get_synthesiseb_beam_params_from_fits_header', 'get_fits_cube_params',
+			'create_empty_fits_mask_from_file', 'fill_fits_mask_from_pixel_position_list']
 
 import numpy as np
 import logging
@@ -24,6 +25,8 @@ def get_synthesiseb_beam_params_from_fits_header(fitspath, return_beam='mean'):
 	These parameters are either in the PRIMARY header as an average value over the
 	whole cube, or if the frequency variance is accounted for in the image forming
 	process and so in controlling the synthesised beam shape.
+
+	Reding the primary header is the default approach
 
 	NOTE: the current code assumes the beam parameters being in degrees!
 
@@ -67,6 +70,28 @@ def get_synthesiseb_beam_params_from_fits_header(fitspath, return_beam='mean'):
 
 	#Select the 'BEAMS' table if exist
 	try:
+		log.info('Trying to get the beams from the PRIMARY table...')
+		primary_table = hdul['PRIMARY']
+
+		primary_header = primary_table.header
+
+		#The values are expected to be in degrees, since no units are defined
+		#in the example fits...
+
+		b_maj_raw = primary_header['BMAJ']
+		b_min_raw = primary_header['BMIN']
+		b_pa = primary_header['BPA'] #deg by definition
+
+		#convert b_maj and b_pa to arcsec
+		b_maj = ds.miscutil.deg2arcsec(b_maj_raw)
+		b_min = ds.miscutil.deg2arcsec(b_min_raw)
+
+		hdul.close()
+
+		return b_maj, b_min, b_pa
+
+	#Get the bem params from the main header
+	except:
 		log.info('Trying to read beams from the BEAMS table...')
 		beams_table = hdul['BEAMS']
 
@@ -123,28 +148,6 @@ def get_synthesiseb_beam_params_from_fits_header(fitspath, return_beam='mean'):
 
 		return b_maj, b_min, b_pa
 
-	#Get the bem params from the main header
-	except:
-		log.info('Trying to get the beams from the PRIMARY table...')
-		primary_table = hdul['PRIMARY']
-
-		primary_header = primary_table.header
-
-		#The values are expected to be in degrees, since no units are defined
-		#in the example fits...
-
-		b_maj_raw = primary_header['BMAJ']
-		b_min_raw = primary_header['BMIN']
-		b_pa = primary_header['BPA'] #deg by definition
-
-		#convert b_maj and b_pa to arcsec
-		b_maj = ds.miscutil.deg2arcsec(b_maj_raw)
-		b_min = ds.miscutil.deg2arcsec(b_min_raw)
-
-		hdul.close()
-
-		return b_maj, b_min, b_pa
-
 def get_fits_cube_params(fitspath):
 	"""Function to read out the dimension and axis information to a dictionary
 
@@ -194,21 +197,123 @@ def get_fits_cube_params(fitspath):
 
 	hdul.close()
 
+	#Need to convert to numpy arrays for the cross-matching to work
+	axis_name_array = np.array(axis_name_array)
+	axis_lenght_array = np.array(axis_lenght_array)
+	axis_reference_val_array = np.array(axis_reference_val_array)
+	axis_reference_pix_array = np.array(axis_reference_pix_array)
+	axis_increment_array = np.array(axis_increment_array)
+	axis_unit_array = np.array(axis_unit_array)
+
 	#Re arrange the arrays to the shape [RA, Dec, Freq Stokes]
 	cube_params_dict = {}
 
-	for ax_name in ['RA--SIN','DEC--SIN','FREQ','STOKES']:
+	for ax_name in ['RA---SIN','DEC--SIN','FREQ','STOKES']:
 		try:
-			cube_params_dict[ax_name] = [axis_lenght_array[axis_name_array == ax_name],
-									axis_reference_val_array[axis_name_array == ax_name],
-									axis_reference_pix_array[axis_name_array == ax_name],
-									axis_increment_array[axis_name_array == ax_name],
-									axis_unit_array[axis_name_array == ax_name]]
+			cube_params_dict[ax_name] = [axis_lenght_array[axis_name_array == ax_name][0],
+									axis_reference_val_array[axis_name_array == ax_name][0],
+									axis_reference_pix_array[axis_name_array == ax_name][0],
+									axis_increment_array[axis_name_array == ax_name][0],
+									axis_unit_array[axis_name_array == ax_name][0]]
 
 		except:
 			log.warning('Axis {0:s} is not in the fits header!'.format(ax_name))
 
 	return cube_params_dict
+
+def create_empty_fits_mask_from_file(fitspath, maskpath):
+	"""Simple routine to create an empty fits file that can be used as an input
+	mask for e.g. SoFiA runs
+
+	The created fits will have the same header as the input (primary hdu only!)
+	and it will be an empty image cube.
+
+    Parameters
+    ==========
+    fitspath: str
+        The input fits path
+
+	maskpath: str
+		The output fits path
+
+
+    Returns
+    =======
+		Creates an empty fits image that can be used as a mask for SoFiA
+
+	"""
+	hdul = fits.open(fitspath) #Primary hdu list
+
+	#Get the primary header
+	primary_table = hdul['PRIMARY']
+	primary_header = primary_table.header
+
+	#Get the data
+	mask_data = np.zeros(np.shape(primary_table.data))
+
+	hdul.close()
+
+	#Write the output file
+	fits.writeto(maskpath, data=mask_data, header=primary_header, overwrite=True)
+
+	return True
+
+def fill_fits_mask_from_pixel_position_list(maskpath, px_position_list):
+	"""The routine to fill up a mask file. The mask pixels should be provided
+	as a list of tuples, where the touples are the *indices* in the fits file.
+
+	The coordinates has to be provided for all pixes!
+
+	The idea is that a single pixel is provided for a source as an input mask for
+	SoFiA, that could find the rst of the source
+
+	NOTE that the input data is overwritten and the output will consist of zeros,
+	except at the specified positions
+
+	Parameters
+    ==========
+    fitspath: str
+        The input mask fits path
+
+	px_position_list: list of touple
+		A list for containing the indices of the pixels used as a mask. The touple
+		has to be the same lenght as the fits image dimension.
+
+		NOTE that in general the fits files are indiced as follows:
+
+		[pol, freq, RA, Dec]
+
+		As such, an example input enty of a single masked pixel looks as:
+
+		[(0,0,10,10)]
+
+    Returns
+    =======
+		Fills up the input data with ones at the given pixel positions
+
+	"""
+	hdul = fits.open(maskpath)
+
+	primary_header = hdul['PRIMARY'].header
+	original_mask_data = hdul['PRIMARY'].data 
+	#Note that we know that only the PRIMARY header exists
+
+	#A sanity check for dimensions and indices
+	N_dim = int(primary_header['NAXIS'])
+
+	if len(px_position_list[0]) != N_dim:
+		raise ValueError('The input pixel coordinate shape does not match with the image shape!')
+
+	new_mask_data = np.zeros(np.shape(original_mask_data),dtype=np.int32)
+
+	for pos in px_position_list:
+		new_mask_data[pos] = 1
+
+	fits.writeto(maskpath, data=new_mask_data, overwrite=True)	
+
+	hdul.close()
+
+	return True
 
 if __name__ == "__main__":
     pass
