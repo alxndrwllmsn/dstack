@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from codecs import open
 import os
 import re
@@ -20,6 +20,7 @@ dstack_version = get_version()
 
 setup(
     name='dstack',
+    packages=find_packages(),
     version=dstack_version,
     author='Kristof Rozgonyi',
     author_email='rstofi@gmail.com',

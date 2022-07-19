@@ -36,8 +36,12 @@ from astropy.wcs import WCS
 from astropy.table import Table, Column
 from astropy.io.votable import parse_single_table
 from astropy.coordinates import SkyCoord
-from astroquery.skyview import SkyView
-#from astroquery.utils import download_list_of_fitsfiles
+
+try:
+    from astroquery.skyview import SkyView
+    #from astroquery.utils import download_list_of_fitsfiles
+except:
+    pass
 
 from astropy.cosmology import FlatLambdaCDM
 
@@ -531,6 +535,8 @@ def get_main_parameters_from_catalog(source_ID,
 
     S_int = np.sum(flux_array)
 
+    #print(S_int)
+
     #Correct for the channelwidth
     channelwidth_in_kms = np.fabs(np.subtract(
         get_velocity_from_freq(freq_array[0]),
@@ -551,8 +557,12 @@ def get_main_parameters_from_catalog(source_ID,
         alternate_S_int /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
         alternate_S_int_sigma /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
 
-        alternate_S_int *= channelwidth_in_kms
-        alternate_S_int_sigma *= channelwidth_in_kms
+        #This below is a bug I just fixed
+        #alternate_S_int *= channelwidth_in_kms
+        #alternate_S_int_sigma *= channelwidth_in_kms
+
+        alternate_S_int *= (channelwidth_in_kms / channelwidth_in_hz)
+        alternate_S_int_sigma *= (channelwidth_in_kms / channelwidth_in_hz)
 
     else:
         #Cnovert from JyHz to Jykm/s
@@ -584,6 +594,10 @@ def get_main_parameters_from_catalog(source_ID,
     #E ignore the redsift, the source is too close
     MHI = 235000  * np.square(DL) * S_int #In solar mass
 
+    #print(MHI, channelwidth_in_hz, channelwidth_in_kms)
+
+    #print(channelwidth_in_kms, channelwidth_in_kms/channelwidth_in_hz)
+
     log_MHI = np.log10(MHI)
 
     #Only consider the error of S_int
@@ -598,6 +612,7 @@ def get_main_parameters_from_catalog(source_ID,
     #w20 =  np.multiply(channelwidth_in_kms,catalog['w20'][source_index])
     #w50 =  np.multiply(channelwidth_in_kms,catalog['w50'][source_index])
 
+    """
     if beam_correction:
         w20 = np.multiply(channelwidth_in_kms,catalog['w20'][source_index])
         w50 = np.multiply(channelwidth_in_kms,catalog['w50'][source_index])
@@ -606,6 +621,13 @@ def get_main_parameters_from_catalog(source_ID,
         w20 = np.multiply(channelwidth_in_kms,
                 np.divide(catalog['w20'][source_index],channelwidth_in_hz))
         w50 = np.multiply(channelwidth_in_kms,
+                np.divide(catalog['w50'][source_index],channelwidth_in_hz))
+
+    """
+
+    w20 = np.multiply(channelwidth_in_kms,
+                np.divide(catalog['w20'][source_index],channelwidth_in_hz))
+    w50 = np.multiply(channelwidth_in_kms,
                 np.divide(catalog['w50'][source_index],channelwidth_in_hz))
 
     #Half channelwidth
@@ -627,7 +649,7 @@ def get_main_parameters_from_catalog(source_ID,
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(S_int, S_int_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(alternate_S_int, alternate_S_int_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(log_MHI, log_MHI_sigma))
-    print(RMS)
+    print('{0:.3f}'.format(RMS))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(w20, w20_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(w50, w50_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(nu_central, nu_central_sigma))
