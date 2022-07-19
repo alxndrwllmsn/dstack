@@ -119,6 +119,8 @@ def get_synthesiseb_beam_params_from_fits_header(fitspath, return_beam='mean'):
 			b_min = np.median(beams_data['BMIN'])
 			b_pa = np.median(beams_data['BPA'])
 
+		hdul.close()
+
 		return b_maj, b_min, b_pa
 
 	#Get the bem params from the main header
@@ -139,7 +141,74 @@ def get_synthesiseb_beam_params_from_fits_header(fitspath, return_beam='mean'):
 		b_maj = ds.miscutil.deg2arcsec(b_maj_raw)
 		b_min = ds.miscutil.deg2arcsec(b_min_raw)
 
+		hdul.close()
+
 		return b_maj, b_min, b_pa
+
+def get_fits_cube_params(fitspath):
+	"""Function to read out the dimension and axis information to a dictionary
+
+	The axes are read from the PRIMARY header and then cosiders only the following
+	axes (if present): 
+
+	['RA--SIN','DEC--SIN','FREQ','STOKES']
+
+	A dictionary is returned, for each axis key the following values in an array:
+
+	[array lenght, reference pixel value, reference pixel index, pixel size, pixel unit]
+
+	NOTE that the units are not converted within this script!
+    
+    Parameters
+    ==========
+    fitspath: str
+        The input fits path
+
+    Returns
+    =======
+	cube_params_dict: dict
+		A dictionary with all the axis info
+
+	"""
+	hdul = fits.open(fitspath) #Primary hdu list
+	primary_table = hdul['PRIMARY']
+	primary_header = primary_table.header
+
+	N_dim = int(primary_header['NAXIS'])
+
+	axis_name_array = []
+	axis_unit_array = []
+	axis_reference_val_array = []
+	axis_reference_pix_array = []
+	axis_increment_array = []
+	axis_lenght_array = []
+
+	#Get all the axis name dimension and unit
+	for d in range(1,N_dim+1):
+		axis_name_array.append(primary_header['CTYPE{0:d}'.format(d)])
+		axis_unit_array.append(primary_header['CUNIT{0:d}'.format(d)])
+		axis_reference_val_array.append(primary_header['CRVAL{0:d}'.format(d)])
+		axis_increment_array.append(primary_header['CDELT{0:d}'.format(d)])
+		axis_reference_pix_array.append(int(primary_header['CRPIX{0:d}'.format(d)]))
+		axis_lenght_array.append(primary_header['NAXIS{0:d}'.format(d)])
+
+	hdul.close()
+
+	#Re arrange the arrays to the shape [RA, Dec, Freq Stokes]
+	cube_params_dict = {}
+
+	for ax_name in ['RA--SIN','DEC--SIN','FREQ','STOKES']:
+		try:
+			cube_params_dict[ax_name] = [axis_lenght_array[axis_name_array == ax_name],
+									axis_reference_val_array[axis_name_array == ax_name],
+									axis_reference_pix_array[axis_name_array == ax_name],
+									axis_increment_array[axis_name_array == ax_name],
+									axis_unit_array[axis_name_array == ax_name]]
+
+		except:
+			log.warning('Axis {0:s} is not in the fits header!'.format(ax_name))
+
+	return cube_params_dict
 
 if __name__ == "__main__":
     pass
