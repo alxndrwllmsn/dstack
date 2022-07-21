@@ -485,6 +485,10 @@ def sdplots():
                     help='The minor axis of the beam in pixels',
                     required=False, default=5., nargs='?', type=float)
 
+    parser.add_argument('-sv', '--survey',
+                    help='The optical survey used for the background image',
+                    required=False, default=None, nargs='?', type=str)
+
     #=== Application MAIN ===
     args = parser.parse_args()
 
@@ -509,7 +513,8 @@ def sdplots():
             v_frame = args.v_frame,
             beam_correction = args.beam_correction,
             b_maj_px = args.b_maj_px,
-            b_min_px = args.b_min_px)
+            b_min_px = args.b_min_px,
+            survey = args.survey)
 
 def cimRMS():
     """Simple application to measure the RMS noise of an image cube along the

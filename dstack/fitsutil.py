@@ -2,7 +2,8 @@
 """
 
 __all__ = ['get_synthesiseb_beam_params_from_fits_header', 'get_fits_cube_params',
-			'create_empty_fits_mask_from_file', 'fill_fits_mask_from_pixel_position_list']
+			'create_empty_fits_mask_from_file', 'get_fits_Ndim', 
+			'fill_fits_mask_from_pixel_position_list']
 
 import numpy as np
 import logging
@@ -147,6 +148,30 @@ def get_synthesiseb_beam_params_from_fits_header(fitspath, return_beam='mean'):
 		hdul.close()
 
 		return b_maj, b_min, b_pa
+
+def get_fits_Ndim(fitspath):
+	"""Simple routine to get the dimension of the fits file
+
+	Parameters
+    ==========
+    fitspath: str
+        The input fits path
+
+    Returns
+    =======
+    N_dim: int
+    	The number of dimensions of the fits file
+
+	"""
+	hdul = fits.open(fitspath) #Primary hdu list
+	primary_table = hdul['PRIMARY']
+	primary_header = primary_table.header
+
+	N_dim = int(primary_header['NAXIS'])
+
+	hdul.close()
+
+	return N_dim
 
 def get_fits_cube_params(fitspath):
 	"""Function to read out the dimension and axis information to a dictionary

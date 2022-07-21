@@ -927,7 +927,8 @@ def get_optical_image(catalog_path,
 def get_optical_image_ndarray(source_ID,
                         sofia_dir_path,
                         name_base,
-                        survey='DSS2 Red',
+                        #survey='DSS2 Red',
+                        survey=None,
                         N_optical_pixels=600,
                         spec_centre=False,
                         centre_ra=None,
@@ -962,6 +963,9 @@ def get_optical_image_ndarray(source_ID,
     centre_dec: float, optional,
         The Dec of the user specified centre in [degrees] !
     
+    survey: str, optional
+        The optical survey used to get the background image for the contour maps
+
     Return
     ======
     optical_image: `numpy.ndarray`
@@ -1608,6 +1612,7 @@ def plot_optical_background_with_mom0_conturs(source_ID,
                                         b_maj=30,
                                         b_min=30,
                                         b_pa=0,
+                                        survey = None,
                                         **kwargs):
     """Create a map with the `DSS2 Red` image in the background and the mom0 map fitted contours in the foreground.
 
@@ -1646,6 +1651,9 @@ def plot_optical_background_with_mom0_conturs(source_ID,
     b_pa: float, optional
         Angle of the beam [deg]
 
+    survey: str, optional
+        The optical survey used to get the background image for the contour maps
+
     Return
     ======
     output_image: file
@@ -1654,8 +1662,10 @@ def plot_optical_background_with_mom0_conturs(source_ID,
     log.info('Create optical background and mom0 contours...')
     #Get data arrays
     mom = 0
-    col_den_map, mom0_wcs, col_den_sen_lim = get_momN_ndarray(mom, source_ID, sofia_dir_path, name_base, b_maj=b_maj, b_min=b_min)
-    optical_im, optical_im_wcs, survey_used = get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, N_optical_pixels=N_optical_pixels)
+    col_den_map, mom0_wcs, col_den_sen_lim = get_momN_ndarray(mom, source_ID,
+                            sofia_dir_path, name_base, b_maj=b_maj, b_min=b_min)
+    optical_im, optical_im_wcs, survey_used = get_optical_image_ndarray(source_ID,
+    sofia_dir_path, name_base, N_optical_pixels=N_optical_pixels, survey=survey)
     
     #Create plot
     fig = plt.figure(1, figsize=(12,12))
@@ -2149,7 +2159,8 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path,
                                                     v_frame='optical',
                                                     beam_correction=True,
                                                     b_maj_px=5,
-                                                    b_min_px=5):
+                                                    b_min_px=5,
+                                                    survey = None):
     """The top-level function of this module. It creates a directory within the SoFiA output directory and
     generate the following plots for each source in that directory:
         
@@ -2219,6 +2230,9 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path,
     b_min_px: float, optional
         The minor axis of the beam in pixels
 
+    survey: str, optional
+        The optical survey used to get the background image for the contour maps
+
     Return
     ======
     output_images: files
@@ -2270,6 +2284,7 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path,
             b_maj = b_maj,
             b_min = b_min,
             b_pa = b_pa,
+            survey = survey,
             output_fname = source_working_dir + name_base + '{0:d}_optical.png'.format(ID)) 
 
         #mom maps
