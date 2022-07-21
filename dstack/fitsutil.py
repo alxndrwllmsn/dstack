@@ -283,17 +283,38 @@ def create_empty_fits_mask_from_file(fitspath, maskpath):
 
 	return True
 
-def fill_fits_mask_from_pixel_position_list(maskpath, px_position_list):
+def fill_fits_mask_from_pixel_position_list(maskpath, px_position_list,
+											flood=False,
+											xy_hflood_list=[7],
+											z_hflood_list=[5]):
 	"""The routine to fill up a mask file. The mask pixels should be provided
 	as a list of tuples, where the touples are the *indices* in the fits file.
 
 	The coordinates has to be provided for all pixes!
 
 	The idea is that a single pixel is provided for a source as an input mask for
-	SoFiA, that could find the rst of the source
+	SoFiA, that could find the rest of the source
+
+	However, since SoFiA cannot do source-finding based on input pixels (only linking)
+	I provide an option of 'flooding' a caviry around a pixel, that can be provided
+	as a weights cube to SoFiA: the data is multiplied with the sqrt (!) of the 
+	weights cube before source-finding. Essentially, if the weights are zero,
+	the pixels are ignored and weight 1 pixels are considered.
+
+	The flood option currently floods cubes around the sources, however, these
+	cubes can be different shapes.
+
+	NOTE if a list of flood values with only one element is provided that will be
+	used uniformly across the sources.
 
 	NOTE that the input data is overwritten and the output will consist of zeros,
 	except at the specified positions
+
+	TO DO: allow for different x (Ra) and y (Dec) filling ranges
+
+	TO DO: allow for the spatial flood range to be set by both pixel and srcsec units
+
+	NOTE that the flooding option only works for image cubes with 4 axis!
 
 	Parameters
     ==========
@@ -312,6 +333,20 @@ def fill_fits_mask_from_pixel_position_list(maskpath, px_position_list):
 
 		[(0,0,10,10)]
 
+	flood: bool, optional
+		If True, cubes around the sources will be flooded with ones
+
+	xy_hflood_list: list of ints, optional
+		The list of the *half* flooding range in both x (RA) and y (Dec) directions
+
+		The units are in pixels !
+
+		Either the same size as the `px_position_list` or the first element is used
+
+	z_hflood_list: list of ints, optional
+		The list of the *half* flooding width in the spectral (freq) direction,
+		working similarly to `xy_hflood_list`
+
     Returns
     =======
 		Fills up the input data with ones at the given pixel positions
@@ -329,16 +364,48 @@ def fill_fits_mask_from_pixel_position_list(maskpath, px_position_list):
 	if len(px_position_list[0]) != N_dim:
 		raise ValueError('The input pixel coordinate shape does not match with the image shape!')
 
-	new_mask_data = np.zeros(np.shape(original_mask_data),dtype=np.int32)
+	new_mask_data = np.zeros(np.shape(original_mask_data),dtype=int)
 
-	for pos in px_position_list:
-		new_mask_data[pos] = 1
+	#If only single pixels need to be masked
+	if flood == False:
+		for pos in px_position_list:
+			new_mask_data[pos] = 1
+
+	#If flooding is used
+	else:
+		#Check for image dim
+		if N_dim != 4:
+			raise ValueError('Flooding only supports images cubes with 4 dimensions!')
+
+		#Check for flood ranges
+		if np.size(xy_hflood_list) != np.size(px_position_list):
+			xy_hflood_range = np.multiply(np.ones(np.size(px_position_list)),xy_hflood_list)
+		else:
+			xy_hflood_range = np.array(xy_hflood_list)
+
+		#NOTE that the two ranges treathed differently!
+		if np.size(z_hflood_list) != np.size(px_position_list):
+			z_hflood_range = np.multiply(np.ones(np.size(px_position_list)),z_hflood_list)
+		else:
+			z_hflood_range = np.array(z_hflood_list)
+
+		#Loop trough the input pixel positions
+		for i, pos in zip(range(0, len(px_position_list)),px_position_list):
+			new_mask_data[pos[0], #Pol axis
+						slice(int(pos[1]-z_hflood_range[i]),int(pos[1]+z_hflood_range[i])), #Spectral axis
+						slice(int(pos[2]-xy_hflood_range[i]),int(pos[2]+xy_hflood_range[i])), #RA axis
+						slice(int(pos[3]-xy_hflood_range[i]),int(pos[3]+xy_hflood_range[i]))] = 1
+
+		#Weight cube input for SoFia should be float type
+		new_mask_data = new_mask_data.astype('float64')
 
 	fits.writeto(maskpath, data=new_mask_data, overwrite=True)	
 
 	hdul.close()
 
 	return True
+
+
 
 if __name__ == "__main__":
     pass

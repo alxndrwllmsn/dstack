@@ -5,7 +5,9 @@ NOTE some quick & dirty code is used to deal with SoFiA in an automated way usin
 templetes... this is not as sophisticated as the interctions with imager...
 """
 
-__all__ = []
+__all__ = ['skycords_from_ra_dec_list', 'get_2D_pixel_coords_from_skycoords',
+		'get_spectral_pixel_coords_from_freq','get_3D_pixel_positions_from_skycoord_and_freq', 
+		'get_region_coords_from_skycoord_and_freq']
 
 import numpy as np
 import logging
@@ -186,6 +188,50 @@ def get_3D_pixel_positions_from_skycoord_and_freq(fitspath, skycoord_list, freq_
 
 	return source_pixel_list
 
+def get_region_coords_from_skycoord_and_freq(fitspath, skycoord_list, freq_list,
+											xy_hflood_list=[7],
+											z_hflood_list=[5]):
+	"""
+	"""
+
+	#Get the central source pixel list
+	px_position_list = ds.sourceutil.get_3D_pixel_positions_from_skycoord_and_freq(fitspath,
+														skycoord_list, freq_list)
+
+	#Now get the cube edge point list
+
+	N_dim = ds.fitsutil.get_fits_Ndim(fitspath)
+
+	#Check for image dim
+	if N_dim != 4:
+		raise ValueError('Flooding only supports images cubes with 4 dimensions!')
+
+
+	#Check for flood ranges
+	if np.size(xy_hflood_list) != np.size(px_position_list):
+		xy_hflood_range = np.multiply(np.ones(np.size(px_position_list)),xy_hflood_list)
+	else:
+		xy_hflood_range = np.array(xy_hflood_list)
+
+	#NOTE that the two ranges treathed differently!
+	if np.size(z_hflood_list) != np.size(px_position_list):
+		z_hflood_range = np.multiply(np.ones(np.size(px_position_list)),z_hflood_list)
+	else:
+		z_hflood_range = np.array(z_hflood_list)
+
+	#Get the list for the coordinates as a string
+	region_coords_str_list = []
+
+	for i, pos in zip(range(0, len(px_position_list)),px_position_list):
+		region_coords_str_list.append('{0:d},{1:d},{2:d},{3:d},{4:d},{5:d}'.format(
+							int(pos[2]-xy_hflood_range[i]),
+							int(pos[2]+xy_hflood_range[i]),
+							int(pos[3]-xy_hflood_range[i]),
+							int(pos[3]+xy_hflood_range[i]),
+							int(pos[1]-z_hflood_range[i]),
+							int(pos[1]+z_hflood_range[i])))
+
+	return region_coords_str_list
 
 #=== MAIN ===
 if __name__ == "__main__":
