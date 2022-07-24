@@ -405,7 +405,6 @@ def fill_fits_mask_from_pixel_position_list(maskpath, px_position_list,
 
 	return True
 
-
-
+#=== MAIN ===
 if __name__ == "__main__":
     pass

@@ -6,9 +6,10 @@ Parameters of the applications (e.g. input file names) are passed
 as arguments.
 """
 
-__all__ = ['dstacking', 'dparset', 'cim2fits', 'sdplots', 'cimRMS']
+__all__ = ['dstacking', 'dparset', 'cim2fits', 'sdplots', 'cimRMS', 'initTSF',
+            'dsSoFiAtparset']
 
-import sys
+import sys, os
 import argparse
 import logging
 
@@ -422,6 +423,12 @@ def sdplots():
     optional -ip or --b_min_px:
         Float. The minor axis of the beam in pixels
 
+    optional -uc or --use_config:
+        Bool. If True (False by default) the beam parameters are read from a config file
+
+    optional -cp or --config_path:
+        The path to the config file containing the beam parameters
+
     Return
     ======
     output_images: multiple files
@@ -489,6 +496,14 @@ def sdplots():
                     help='The optical survey used for the background image',
                     required=False, default=None, nargs='?', type=str)
 
+    parser.add_argument('-uc', '--use_config', 
+                        help='If yes, a config file is used for the beam parameters',
+                        required=False, action="store_true")
+
+    parser.add_argument('-cp', '--config_path', 
+                        help='Full path and name of the input config file',
+                        required=False, default=None, type=str)
+
     #=== Application MAIN ===
     args = parser.parse_args()
 
@@ -501,20 +516,40 @@ def sdplots():
     else:
         args.contour_levels = argflatten(args.contour_levels)
 
-    ds.sdiagnostics.create_complementary_figures_to_sofia_output(
-            sofia_dir_path = args.sofia_dir_path,
-            name_base = args.name_base,
-            masking = args.masking,
-            contour_levels = args.contour_levels,
-            N_optical_pixels = args.N_optical_pixels,
-            b_maj = args.b_maj,
-            b_min = args.b_min,
-            b_pa = args.b_pa,
-            v_frame = args.v_frame,
-            beam_correction = args.beam_correction,
-            b_maj_px = args.b_maj_px,
-            b_min_px = args.b_min_px,
-            survey = args.survey)
+    if not args.use_config:
+        ds.sdiagnostics.create_complementary_figures_to_sofia_output(
+                sofia_dir_path = args.sofia_dir_path,
+                name_base = args.name_base,
+                masking = args.masking,
+                contour_levels = args.contour_levels,
+                N_optical_pixels = args.N_optical_pixels,
+                b_maj = args.b_maj,
+                b_min = args.b_min,
+                b_pa = args.b_pa,
+                v_frame = args.v_frame,
+                beam_correction = args.beam_correction,
+                b_maj_px = args.b_maj_px,
+                b_min_px = args.b_min_px,
+                survey = args.survey)
+    else:
+        #Read beam parameters from config file
+        fitspath, dsID, b_maj, b_min, b_pa, d_px, b_maj_px, b_min_px, source_ID, RA, Dec, freq, region_string = \
+        ds.pipelineutil.read_TSF_dsconfig(args.config_path)
+
+        ds.sdiagnostics.create_complementary_figures_to_sofia_output(
+                sofia_dir_path = args.sofia_dir_path,
+                name_base = args.name_base,
+                masking = args.masking,
+                contour_levels = args.contour_levels,
+                N_optical_pixels = args.N_optical_pixels,
+                b_maj = b_maj,
+                b_min = b_min,
+                b_pa = b_pa,
+                v_frame = args.v_frame,
+                beam_correction = args.beam_correction,
+                b_maj_px = b_maj_px,
+                b_min_px = b_min_px,
+                survey = args.survey)
 
 def cimRMS():
     """Simple application to measure the RMS noise of an image cube along the
@@ -665,6 +700,298 @@ If not given, the centre coordinates of the image are used.',
 Note that the grid stacked RMS units are currently wrong!\n\
 The columns are: spectral axis [{0:s}] , RMS [{1:s}]\n'.format(
             spectral_dim, rms_dim))
+
+def initTSF():
+    """A command line application that cretes a parameter file that can be used to
+    initialise targeted source finding using `SoFiA` and `dstack` as a wrapper.
+
+    The created files are structured `python configparser files`. The file will
+    be structured as follows:
+
+    [ENV]
+    #Parameters defining the envinroment
+
+    fitspath = #Path to the data used
+    dsID = #Identification string
+
+    [IMG]
+    #Parameters derived from the image
+
+    b_maj = #Beam major axis [arcsec]
+    b_min = #Beam minor axis [arcsec]
+    b_pa = #Beam position angle [deg]
+    d_px = #Image ixelsize [arcsec]
+    b_maj_px = #Beam major axis [pixel]
+    b_min_px = #Beam minor axis [pixel]
+
+    [SOURCE]
+    #Parameters specifying the source
+
+    ID = #Source ID, equal to dsID
+    RA = #Source RA [deg]
+    Dec = #Source Dec [deg]
+    freq = #Source freq [Hz]
+    region_coords = #The region in which the source should be searched for by SoFiA
+
+    The file is created under the name:
+    {output_path}/{identification_string}_dsconfig.par
+    
+    NOTE that I use an identification string which is equal to the source name
+    read from the catalog. This is to matcjóh the catalog names to the wildcards
+    in Snakemeake. This may be surplus.
+
+    The code generatess config files for all sources in one go.
+
+    TO DO: add feture which allows to generate the config file for only a single
+    source from the catalog based on source ID. This would enable different sourceID
+    and wildcard matches in Snakemake using some mapping.
+
+    Keyword Arguments
+    =================
+
+    str -fp or --fits_path:
+        Full path (and name) to the fits file that wil be specified in the parset.
+
+    str -cp or --catalog_path:
+        Full path to the input source catalog that will be divided into several
+        configuration files, which will be used to call `SoFiA` and `dstack` tasks
+        The catalog structrure is described in:
+        `ds.sourceutil.get_ID_and_pos_list_from_input_catalog`
+    
+    str -op or --output_path:
+        Full path to the folder in whic a config file for each source will be generated
+
+    optional -l or --log:
+        Boolean. If True the logger level set to INFO. Set to False by default
+
+    optional -xf or --x_hflood:
+        List of ints. List of RA half flood values used for the targeted region size definitions
+
+    optional -yf or --y_hflood:
+        List of ints. List of Dec half flood values used for the targeted region size definitions
+
+    optional -zf or --z_hflood:
+        List of ints. List of freq half flood values used for the targeted region size definitions
+
+    Return
+    ======
+    tsf_config: file
+        Creates the configuration file defined by the arguments.
+
+    """
+
+    parser = argparse.ArgumentParser(description='This is an application to\
+create configuration files for targeted SoFiA source finding')
+
+    #=== Required arguments ===
+    parser.add_argument('-fp', '--fits_path', 
+                        help='Full path and name of the input .fits image',
+                        required=True, action="store", type=str)
+
+    parser.add_argument('-cp', '--catalog_path', 
+                        help='Full path and name of the input catalog text file',
+                        required=True, action="store", type=str)
+
+    parser.add_argument('-op', '--output_path', 
+                        help='Full path to the folder in whic a config file for each source will be generated',
+                        required=True, action="store", type=str)
+
+    #=== Optional arguments ===
+    parser.add_argument('-l', '--log', 
+                    help='If True the logger level set to INFO. Set to False by default', 
+                    required=False, action="store_true")
+
+    parser.add_argument('-xf', '--x_hflood',
+                    help='List of RA half flood values used for the targeted region size definitions',
+                    required=False, action="append", nargs='*', type=int)
+
+    parser.add_argument('-yf', '--y_hflood',
+                    help='List of Dec half flood values used for the targeted region size definitions',
+                    required=False, action="append", nargs='*', type=int)
+
+    parser.add_argument('-zf', '--z_hflood',
+                    help='List of freq half flood values used for the targeted region size definitions',
+                    required=False, action="append", nargs='*', type=int)
+
+    #=== Application MAIN ===
+    args = parser.parse_args()
+
+    #Set up logging if needed
+    if args.log:
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+    #Get the fits image parameters
+    b_maj, b_min, b_pa = ds.fitsutil.get_synthesiseb_beam_params_from_fits_header(args.fits_path,
+                        return_beam='mean') #Expected to return [arcsec, arcsec, deg]
+
+    cube_params_dict = ds.fitsutil.get_fits_cube_params(args.fits_path)
+
+    if ds.miscutil.deg2arcsec(np.fabs(cube_params_dict['RA---SIN'][3])) != \
+    ds.miscutil.deg2arcsec(np.fabs(cube_params_dict['DEC--SIN'][3])):
+        raise ValueError('Fits image RA and Dec pixel sized do not match!')
+
+    d_px = float(ds.miscutil.deg2arcsec(np.fabs(cube_params_dict['RA---SIN'][3])))
+
+    #NOTE that b_px_maj b_px_min are computed later
+
+    #Get the source parameters
+    ID_list, ra_list, dec_list, freq_list = \
+        ds.sourceutil.get_ID_and_pos_list_from_input_catalog(args.catalog_path)    
+
+    sources_2D_position_list = ds.sourceutil.skycords_from_ra_dec_list(ra_list,dec_list)
+
+    #Now get the fill (half flood) values for the region selection
+    if args.x_hflood == None:
+        args.x_hflood = [15]
+    else:
+        args.x_hflood = argflatten(args.x_hflood)
+
+    if args.y_hflood == None:
+        args.y_hflood = [15]
+    else:
+        args.y_hflood = argflatten(args.y_hflood)
+
+    if args.z_hflood == None:
+        args.z_hflood = [7]
+    else:
+        args.z_hflood = argflatten(args.z_hflood)
+
+    subcube_coord_list = ds.sourceutil.get_region_coords_from_skycoord_and_freq(args.fits_path,
+            skycoord_list=sources_2D_position_list, freq_list=freq_list,
+            x_hflood_list=args.x_hflood, y_hflood_list=args.y_hflood,
+            z_hflood_list=args.z_hflood)
+
+    #Now generate the config file
+    for i in range(0,len(ID_list)):
+
+        #Generate the file name
+        config_path = args.output_path + '/{0:s}_dsconfig.par'.format(ID_list[i])
+
+        with open(config_path, 'w') as dsconfig:
+            dsconfig.write('#Configuration file for targeted source-finding genereted by dstack'\
+                + os.linesep + os.linesep)
+
+            #Define enviromental variables
+            dsconfig.write('[ENV]' + os.linesep + os.linesep)
+
+            dsconfig.write('fitspath = {0:s}'.format(args.fits_path) + os.linesep)
+            dsconfig.write('dsID = {0:s}'.format(ID_list[i]) + os.linesep)
+
+            #Define image coordinate variables
+            dsconfig.write(os.linesep + '[IMG]' + os.linesep + os.linesep)
+
+            dsconfig.write('b_maj = {0:.8f}'.format(b_maj) + os.linesep)
+            dsconfig.write('b_min = {0:.8f}'.format(b_min) + os.linesep)
+            dsconfig.write('b_pa = {0:.8f}'.format(b_pa) + os.linesep)
+            dsconfig.write('d_px = {0:.8f}'.format(d_px) + os.linesep)
+            dsconfig.write('b_maj_px = {0:.8f}'.format(float(b_maj / d_px)) + os.linesep)
+            dsconfig.write('b_min_px = {0:.8f}'.format(float(b_min / d_px)) + os.linesep)
+
+            #Define source variables
+            dsconfig.write(os.linesep + '[SOURCE]' + os.linesep + os.linesep)
+
+            dsconfig.write('ID = {0:s}'.format(ID_list[i]) + os.linesep)
+            dsconfig.write('RA = {0:.8f}'.format(ra_list[i]) + os.linesep)
+            dsconfig.write('Dec = {0:.8f}'.format(dec_list[i]) + os.linesep)
+            dsconfig.write('Freq = {0:.8f}'.format(freq_list[i]) + os.linesep)
+            dsconfig.write('Region = {0:s}'.format(subcube_coord_list[i]) + os.linesep)
+
+        dsconfig.close()
+
+        continue
+
+def dsSoFiAtparset():
+    """Creates a ``SoFiA`` parset file from template and other parameters.
+
+    A simple application using some quick and dirty hacks to generate parsets for
+    targeted source finding in a fits cube. Using this application allows the
+    user to read in a template parset and save a parset with defined target region.
+
+    The target region is computed on-the fly for creating the parsets for each source
+    specified. 
+
+    Keyword Arguments
+    =================
+    str -t or --template_path:
+        Full path to a template parset file (including its name), which can be
+        used to initialize the parset parameters.
+
+    str -op or --output_path:
+        Full path to the folder in which the parset will be saved.
+
+    str -pn or --parset_name:
+        Name of the parset file created.
+
+    str -cp or --config_path:
+        Full path (and name) to the config file that wil be used to specify some
+        of the parset params
+    
+    str -sd or --sofia_output_dir:
+        The utput directory in which SoFiA will write the outputs
+
+    optional -l or --log:
+        Boolean. If True the logger level set to INFO. Set to False by default
+
+    Return
+    ======
+    parset: file
+        Creates the parset file defined by the arguments.
+    """
+    parser = argparse.ArgumentParser(description='This is an application to create parset files for SoFiA targeted source finding.')
+
+    #=== Required arguments ===
+    parser.add_argument('-t', '--template_path', 
+                        help='Full path to a template parset file, which can be used to initialize the parset parameters.',
+                        required=True, action="store", type=str)
+
+    parser.add_argument('-op', '--output_path', 
+                        help='Full path to the folder in which the parset will be saved.',
+                        required=True, action="store", type=str)
+
+    parser.add_argument('-pn', '--parset_name', 
+                        help='Name of the parset file created.',
+                        required=True, action="store", type=str)
+
+    parser.add_argument('-cp', '--config_path', 
+                        help='Full path and name of the input config file',
+                        required=True, action="store", type=str)
+
+    parser.add_argument('-sd', '--sofia_output_dir', 
+                        help='Path to the directory where SoFiA will generate the output',
+                        required=True, action="store", type=str)
+
+    #=== Optional arguments ===
+    parser.add_argument('-l', '--log', 
+                        help='If True the logger level set to INFO. Set to False by default', 
+                        required=False, action="store_true")
+
+    #=== Application MAIN ===
+    args = parser.parse_args()
+
+    #Set up logging if needed
+    if args.log:
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+    #Construct the output parset string
+    if args.output_path[-1] != '/':
+        #NOTE this only works for Unix systems...
+        #TO DO use sys path generating
+        oparset_path = args.output_path + '/' + args.parset_name
+    else:
+        oparset_path = args.output_path + args.parset_name
+
+    #Read the specifics from the config file
+    fitspath, dsID, b_maj, b_min, b_pa, d_px, b_maj_px, b_min_px, source_ID, RA, Dec, freq, region_string = \
+    ds.pipelineutil.read_TSF_dsconfig(args.config_path)
+
+    #Generate the parset file
+    ds.sourceutil.create_SoFiA_par_from_template(template_path = args.template_path,
+                                    out_par_path = oparset_path,
+                                    data_path = fitspath,
+                                    region_string = region_string,
+                                    output_fname = dsID,
+                                    output_dir = args.sofia_output_dir)
+
 
 if __name__ == "__main__":
     pass

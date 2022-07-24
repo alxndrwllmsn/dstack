@@ -32,6 +32,8 @@ setup(
         'dparset = dstack.applications:dparset',
         'cim2fits = dstack.applications:cim2fits',
         'sdplots = dstack.applications:sdplots',
-        'cimRMS = dstack.applications:cimRMS']
+        'cimRMS = dstack.applications:cimRMS',
+        'initTSF = dstack.applications:initTSF',
+        'dsSoFiAtparset = dstack.applications:dsSoFiAtparset']
         }
     )

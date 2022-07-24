@@ -17,7 +17,7 @@ A dry run builds the pipeline and write each rule to be executed in the standard
 
 To visualize the pipeline run
 
-snakemake --dag | dot -Tpng > pipeline_graph.png & snakemake --rulegraph | dot -Tpng > rule_graph.png
+	snakemake --dag | dot -Tpng > pipeline_graph.png & snakemake --rulegraph | dot -Tpng > rule_graph.png
 
 this creates the pipeline graph and the graph for all tasks and saves it as a png image.
 

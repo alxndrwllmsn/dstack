@@ -5,6 +5,8 @@ NOTE some quick & dirty code is used to deal with SoFiA in an automated way usin
 templetes... this is not as sophisticated as the interctions with imager...
 
 For now, I have the code dealing with SoFiA parameter files here!
+
+Obviously the code assumes SoFiA-2
 """
 
 __all__ = ['skycords_from_ra_dec_list', 'get_2D_pixel_coords_from_skycoords',
