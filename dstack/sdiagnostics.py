@@ -83,8 +83,8 @@ c3 = '#FDE724';#Yellow
 outlier_color = 'dimgrey'
 
 #Select the colormap and set outliers
-_CMAP = matplotlib.cm.viridis
-
+#_CMAP = matplotlib.cm.viridis
+_CMAP = copy.copy(matplotlib.cm.get_cmap("viridis"))
 _CMAP.set_bad(color=outlier_color)
 
 #=== Cosmology
