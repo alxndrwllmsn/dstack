@@ -36,8 +36,12 @@ from astropy.wcs import WCS
 from astropy.table import Table, Column
 from astropy.io.votable import parse_single_table
 from astropy.coordinates import SkyCoord
-from astroquery.skyview import SkyView
-#from astroquery.utils import download_list_of_fitsfiles
+
+try:
+    from astroquery.skyview import SkyView
+    #from astroquery.utils import download_list_of_fitsfiles
+except:
+    pass
 
 from astropy.cosmology import FlatLambdaCDM
 
@@ -79,8 +83,8 @@ c3 = '#FDE724';#Yellow
 outlier_color = 'dimgrey'
 
 #Select the colormap and set outliers
-_CMAP = matplotlib.cm.viridis
-
+#_CMAP = matplotlib.cm.viridis
+_CMAP = copy.copy(matplotlib.cm.get_cmap("viridis"))
 _CMAP.set_bad(color=outlier_color)
 
 #=== Cosmology
@@ -531,6 +535,8 @@ def get_main_parameters_from_catalog(source_ID,
 
     S_int = np.sum(flux_array)
 
+    #print(S_int)
+
     #Correct for the channelwidth
     channelwidth_in_kms = np.fabs(np.subtract(
         get_velocity_from_freq(freq_array[0]),
@@ -551,8 +557,12 @@ def get_main_parameters_from_catalog(source_ID,
         alternate_S_int /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
         alternate_S_int_sigma /= np.pi * b_maj_px * b_min_px / (4 * np.log(2) )
 
-        alternate_S_int *= channelwidth_in_kms
-        alternate_S_int_sigma *= channelwidth_in_kms
+        #This below is a bug I just fixed
+        #alternate_S_int *= channelwidth_in_kms
+        #alternate_S_int_sigma *= channelwidth_in_kms
+
+        alternate_S_int *= (channelwidth_in_kms / channelwidth_in_hz)
+        alternate_S_int_sigma *= (channelwidth_in_kms / channelwidth_in_hz)
 
     else:
         #Cnovert from JyHz to Jykm/s
@@ -584,6 +594,10 @@ def get_main_parameters_from_catalog(source_ID,
     #E ignore the redsift, the source is too close
     MHI = 235000  * np.square(DL) * S_int #In solar mass
 
+    #print(MHI, channelwidth_in_hz, channelwidth_in_kms)
+
+    #print(channelwidth_in_kms, channelwidth_in_kms/channelwidth_in_hz)
+
     log_MHI = np.log10(MHI)
 
     #Only consider the error of S_int
@@ -598,6 +612,7 @@ def get_main_parameters_from_catalog(source_ID,
     #w20 =  np.multiply(channelwidth_in_kms,catalog['w20'][source_index])
     #w50 =  np.multiply(channelwidth_in_kms,catalog['w50'][source_index])
 
+    """
     if beam_correction:
         w20 = np.multiply(channelwidth_in_kms,catalog['w20'][source_index])
         w50 = np.multiply(channelwidth_in_kms,catalog['w50'][source_index])
@@ -606,6 +621,13 @@ def get_main_parameters_from_catalog(source_ID,
         w20 = np.multiply(channelwidth_in_kms,
                 np.divide(catalog['w20'][source_index],channelwidth_in_hz))
         w50 = np.multiply(channelwidth_in_kms,
+                np.divide(catalog['w50'][source_index],channelwidth_in_hz))
+
+    """
+
+    w20 = np.multiply(channelwidth_in_kms,
+                np.divide(catalog['w20'][source_index],channelwidth_in_hz))
+    w50 = np.multiply(channelwidth_in_kms,
                 np.divide(catalog['w50'][source_index],channelwidth_in_hz))
 
     #Half channelwidth
@@ -627,7 +649,7 @@ def get_main_parameters_from_catalog(source_ID,
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(S_int, S_int_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(alternate_S_int, alternate_S_int_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(log_MHI, log_MHI_sigma))
-    print(RMS)
+    print('{0:.3f}'.format(RMS))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(w20, w20_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(w50, w50_sigma))
     print(r'{0:.3f} $\pm$ {1:.3f}'.format(nu_central, nu_central_sigma))
@@ -905,7 +927,8 @@ def get_optical_image(catalog_path,
 def get_optical_image_ndarray(source_ID,
                         sofia_dir_path,
                         name_base,
-                        survey='DSS2 Red',
+                        #survey='DSS2 Red',
+                        survey=None,
                         N_optical_pixels=600,
                         spec_centre=False,
                         centre_ra=None,
@@ -940,6 +963,9 @@ def get_optical_image_ndarray(source_ID,
     centre_dec: float, optional,
         The Dec of the user specified centre in [degrees] !
     
+    survey: str, optional
+        The optical survey used to get the background image for the contour maps
+
     Return
     ======
     optical_image: `numpy.ndarray`
@@ -1586,6 +1612,7 @@ def plot_optical_background_with_mom0_conturs(source_ID,
                                         b_maj=30,
                                         b_min=30,
                                         b_pa=0,
+                                        survey = None,
                                         **kwargs):
     """Create a map with the `DSS2 Red` image in the background and the mom0 map fitted contours in the foreground.
 
@@ -1624,6 +1651,9 @@ def plot_optical_background_with_mom0_conturs(source_ID,
     b_pa: float, optional
         Angle of the beam [deg]
 
+    survey: str, optional
+        The optical survey used to get the background image for the contour maps
+
     Return
     ======
     output_image: file
@@ -1632,8 +1662,10 @@ def plot_optical_background_with_mom0_conturs(source_ID,
     log.info('Create optical background and mom0 contours...')
     #Get data arrays
     mom = 0
-    col_den_map, mom0_wcs, col_den_sen_lim = get_momN_ndarray(mom, source_ID, sofia_dir_path, name_base, b_maj=b_maj, b_min=b_min)
-    optical_im, optical_im_wcs, survey_used = get_optical_image_ndarray(source_ID, sofia_dir_path, name_base, N_optical_pixels=N_optical_pixels)
+    col_den_map, mom0_wcs, col_den_sen_lim = get_momN_ndarray(mom, source_ID,
+                            sofia_dir_path, name_base, b_maj=b_maj, b_min=b_min)
+    optical_im, optical_im_wcs, survey_used = get_optical_image_ndarray(source_ID,
+    sofia_dir_path, name_base, N_optical_pixels=N_optical_pixels, survey=survey)
     
     #Create plot
     fig = plt.figure(1, figsize=(12,12))
@@ -2127,7 +2159,8 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path,
                                                     v_frame='optical',
                                                     beam_correction=True,
                                                     b_maj_px=5,
-                                                    b_min_px=5):
+                                                    b_min_px=5,
+                                                    survey = None):
     """The top-level function of this module. It creates a directory within the SoFiA output directory and
     generate the following plots for each source in that directory:
         
@@ -2197,6 +2230,9 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path,
     b_min_px: float, optional
         The minor axis of the beam in pixels
 
+    survey: str, optional
+        The optical survey used to get the background image for the contour maps
+
     Return
     ======
     output_images: files
@@ -2248,6 +2284,7 @@ def create_complementary_figures_to_sofia_output(sofia_dir_path,
             b_maj = b_maj,
             b_min = b_min,
             b_pa = b_pa,
+            survey = survey,
             output_fname = source_working_dir + name_base + '{0:d}_optical.png'.format(ID)) 
 
         #mom maps

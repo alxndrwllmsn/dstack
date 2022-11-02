@@ -20,6 +20,7 @@ dstack_version = get_version()
 
 setup(
     name='dstack',
+    packages=find_packages(),
     version=dstack_version,
     author='Kristof Rozgonyi',
     author_email='rstofi@gmail.com',
@@ -32,6 +33,8 @@ setup(
         'dparset = dstack.applications:dparset',
         'cim2fits = dstack.applications:cim2fits',
         'sdplots = dstack.applications:sdplots',
-        'cimRMS = dstack.applications:cimRMS']
+        'cimRMS = dstack.applications:cimRMS',
+        'initTSF = dstack.applications:initTSF',
+        'dsSoFiAtparset = dstack.applications:dsSoFiAtparset']
         }
     )

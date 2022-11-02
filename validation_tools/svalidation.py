@@ -25,7 +25,10 @@ from astropy.wcs import WCS
 from astropy.table import Table, Column
 from astropy.io.votable import parse_single_table
 from astropy.coordinates import SkyCoord
-from astroquery.skyview import SkyView
+try:
+    from astroquery.skyview import SkyView
+except:
+    pass
 #from astroquery.utils import download_list_of_fitsfiles
 
 import matplotlib
@@ -1324,7 +1327,8 @@ def plot_spectra_triangle_matrix(source_ID_list,
                                 v_frame_list=['optical'],
                                 color_list=[None],
                                 label_list=[''],
-                                ident_list=['?']):
+                                ident_list=['?'],
+                                mJy=False):
     """Plot a triangle matrix of the spectra from different SoFiA runs. The diagonal
     panels shows the spectra of each source. The upper triangle shows the relative
     difference of the respectibe spectras (i,j). While the lower panel simply
@@ -1377,6 +1381,9 @@ def plot_spectra_triangle_matrix(source_ID_list,
         panel to indicate which spectra is subtracted from which. It also used to
         append the label list with this string in parentheses.
     
+    mJy: bool, optional
+        If True, the flux values are converted to mJy or mJy/beam
+
     Return
     ======
     output_image: file
@@ -1422,6 +1429,11 @@ def plot_spectra_triangle_matrix(source_ID_list,
                                         b_maj_px = b_maj_px_list[i],
                                         b_min_px = b_min_px_list[i],
                                         uncertainty = True)
+
+        #This screws up the difference plots
+        if mJy:
+            flux = flux * 1000 #Convert to mJy
+            uncertainty = uncertainty * 1000
 
         flux_list.append(flux)
         velocity_list.append(velocity)
@@ -1600,7 +1612,10 @@ def plot_spectra_triangle_matrix(source_ID_list,
                 axes[i,j].tick_params(axis='x', length=matplotlib.rcParams['xtick.major.size'])
 
             if j == 0:
-                axes[i,j].set_ylabel(r'S [Jy]', fontsize=18)
+                if mJy:
+                    axes[i,j].set_ylabel(r'S [mJy]', fontsize=18)
+                else:
+                    axes[i,j].set_ylabel(r'S [Jy]', fontsize=18)
                 axes[i,j].tick_params(axis='y', length=matplotlib.rcParams['xtick.major.size'])
 
     #Some style settings
